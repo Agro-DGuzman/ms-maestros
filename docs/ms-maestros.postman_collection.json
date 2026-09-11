@@ -1,0 +1,274 @@
+{
+  "info": {
+    "name": "ms-maestros · Fase 1 (identidad)",
+    "description": "Flujo de ingreso del socio. Ejecutar en orden: 1 pide el desafio, 2 lo canjea por el token, 3-6 usan la sesion.\n\nEl codigo de 4 digitos NO llega por esta API: viaja por WhatsApp. En desarrollo el driver es 'log', asi que hay que leerlo con:\n\n    docker compose logs app | Select-String Desaf\n\nCopialo en la variable `codigo` de la coleccion antes de correr el Login.\n\nLas variables `token`, `refreshToken` e `idDeDesafio` se completan solas.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8099" },
+    { "key": "telefono", "value": "70741828" },
+    { "key": "codigo", "value": "" },
+    { "key": "idDeDesafio", "value": "" },
+    { "key": "token", "value": "" },
+    { "key": "refreshToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0. Salud",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/up", "host": ["{{baseUrl}}"], "path": ["up"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('responde 200', () => pm.response.to.have.status(200));"]
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Solicitar desafio (OTP)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"telefono\": \"{{telefono}}\"\n}" },
+        "url": { "raw": "{{baseUrl}}/v1/auth/otp", "host": ["{{baseUrl}}"], "path": ["v1", "auth", "otp"] },
+        "description": "Responde SIEMPRE 200 con un idDeDesafio, exista o no el numero. Es deliberado: distinguir filtraria que celulares estan registrados.\n\nTras ejecutarlo, saca el codigo del log del contenedor."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test('200 con envelope de exito', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(b.success).to.be.true;",
+              "  pm.expect(b.error).to.be.null;",
+              "});",
+              "pm.collectionVariables.set('idDeDesafio', b.data.idDeDesafio);",
+              "console.log('idDeDesafio =', b.data.idDeDesafio);",
+              "console.log('Ahora saca el codigo:  docker compose logs app | Select-String Desaf');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Iniciar sesion (login)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"idDeDesafio\": \"{{idDeDesafio}}\",\n  \"codigo\": \"{{codigo}}\",\n  \"instalacionId\": \"inst-postman\",\n  \"plataforma\": \"android\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["v1", "auth", "login"] },
+        "description": "Canjea el desafio por un JWT emitido por Keycloak, mas el contexto del socio.\n\nPone `codigo` primero. El desafio vence a los 5 minutos, tolera 5 intentos y se consume al primer acierto."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "if (pm.response.code === 422) {",
+              "  console.log('CODIGO_INVALIDO: vencido, ya usado, o mal copiado. Volve al paso 1.');",
+              "}",
+              "pm.test('200 con token y contexto', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(b.data.token).to.be.a('string');",
+              "  pm.expect(b.data.contexto.grupoEconomico.socios).to.be.an('array');",
+              "});",
+              "if (pm.response.code === 200) {",
+              "  pm.collectionVariables.set('token', b.data.token);",
+              "  pm.collectionVariables.set('refreshToken', b.data.refreshToken);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Mi cuenta",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": { "raw": "{{baseUrl}}/v1/mi-cuenta", "host": ["{{baseUrl}}"], "path": ["v1", "mi-cuenta"] },
+        "description": "Devuelve la persona, su grupo economico y todos los socios del grupo. El token se valida contra el JWKS del realm."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test('devuelve el contexto', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(b.data.nombre).to.be.a('string');",
+              "  pm.expect(b.data.grupoEconomico.socios.length).to.be.above(0);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Mi cuenta SIN token (espera 401)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/v1/mi-cuenta", "host": ["{{baseUrl}}"], "path": ["v1", "mi-cuenta"] },
+        "description": "Comprueba que la ruta esta cerrada. Debe responder 401 con code [NO_AUTENTICADO] y data nula."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test('401 NO_AUTENTICADO', () => {",
+              "  pm.response.to.have.status(401);",
+              "  pm.expect(b.data).to.be.null;",
+              "  pm.expect(b.error.code).to.deep.equal(['NO_AUTENTICADO']);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Renovar sesion (refresh)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" },
+        "url": { "raw": "{{baseUrl}}/v1/auth/refresh", "host": ["{{baseUrl}}"], "path": ["v1", "auth", "refresh"] },
+        "description": "Rota el refresh: el anterior deja de servir apenas se usa este."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test('entrega token nuevo', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(b.data.token).to.be.a('string');",
+              "});",
+              "if (pm.response.code === 200) {",
+              "  pm.collectionVariables.set('token', b.data.token);",
+              "  pm.collectionVariables.set('refreshToken', b.data.refreshToken);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Cerrar sesion (logout)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" },
+        "url": { "raw": "{{baseUrl}}/v1/auth/logout", "host": ["{{baseUrl}}"], "path": ["v1", "auth", "logout"] },
+        "description": "Idempotente: cerrar una sesion ya cerrada responde 200 igual. Despues de esto, el paso 5 debe dar 401."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 y envelope de exito', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().success).to.be.true;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Telefono invalido (espera 422)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"telefono\": \"123\"\n}" },
+        "url": { "raw": "{{baseUrl}}/v1/auth/otp", "host": ["{{baseUrl}}"], "path": ["v1", "auth", "otp"] },
+        "description": "El celular debe ser movil boliviano (empieza en 6 o 7, ocho digitos). El servicio antepone +591."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('422 VALIDATION', () => {",
+              "  pm.response.to.have.status(422);",
+              "  pm.expect(pm.response.json().error.type).to.equal('VALIDATION');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Numero desconocido (espera 200 igual)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"telefono\": \"79999999\"\n}" },
+        "url": { "raw": "{{baseUrl}}/v1/auth/otp", "host": ["{{baseUrl}}"], "path": ["v1", "auth", "otp"] },
+        "description": "Un celular que no existe en la replica responde EXACTAMENTE igual que uno registrado: 200 con un idDeDesafio real. No se manda WhatsApp ni se guarda nada. Compara la respuesta con la del paso 1: deben ser indistinguibles."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test('indistinguible de un numero registrado', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(b.success).to.be.true;",
+              "  pm.expect(b.error).to.be.null;",
+              "  pm.expect(b.data.idDeDesafio).to.be.a('string');",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
