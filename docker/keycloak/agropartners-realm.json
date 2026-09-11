@@ -1,0 +1,26 @@
+{
+  "realm": "agropartners",
+  "enabled": true,
+  "sslRequired": "none",
+  "clients": [
+    {
+      "clientId": "ms-maestros",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "secreto-de-desarrollo",
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": true
+    }
+  ],
+  "users": [
+    {
+      "username": "p-8f2b1c40",
+      "enabled": true,
+      "emailVerified": false,
+      "credentials": [
+        { "type": "password", "value": "contrasena-de-desarrollo", "temporary": false }
+      ]
+    }
+  ]
+}

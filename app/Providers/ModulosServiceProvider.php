@@ -27,6 +27,7 @@ use Identidad\Infrastructure\Persistence\BovedaCifrada;
 use Identidad\Infrastructure\Persistence\EloquentDesafioRepository;
 use Identidad\Infrastructure\Persistence\EloquentSesionRepository;
 use Identidad\Infrastructure\RelojReal;
+use Identidad\Infrastructure\Whatsapp\EnviadorCloudApi;
 use Identidad\Infrastructure\Whatsapp\EnviadorPorLog;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Http\Client\Factory as Http;
@@ -54,7 +55,23 @@ final class ModulosServiceProvider extends ServiceProvider
         $this->app->bind(UnitOfWork::class, EloquentUnitOfWork::class);
 
         $this->app->bind(RelojDelSistema::class, RelojReal::class);
-        $this->app->bind(EnviadorDeDesafio::class, EnviadorPorLog::class);
+        $this->app->bind(EnviadorDeDesafio::class, function ($app): EnviadorDeDesafio {
+            $log = $app->make(LoggerInterface::class);
+
+            if (Config::string('whatsapp.driver') !== 'cloud_api') {
+                return new EnviadorPorLog($log);
+            }
+
+            return new EnviadorCloudApi(
+                $app->make(Http::class),
+                Config::string('whatsapp.base_url'),
+                Config::string('whatsapp.phone_number_id'),
+                Config::string('whatsapp.token'),
+                Config::string('whatsapp.plantilla'),
+                Config::string('whatsapp.idioma'),
+                $log,
+            );
+        });
         $this->app->bind(DirectorioDeContactos::class, DirectorioDeContactosEnProceso::class);
         $this->app->bind(DesafioRepository::class, EloquentDesafioRepository::class);
         $this->app->bind(SesionRepository::class, EloquentSesionRepository::class);

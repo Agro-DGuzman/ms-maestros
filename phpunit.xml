@@ -14,9 +14,7 @@
         <testsuite name="Architecture">
             <directory>tests/Architecture</directory>
         </testsuite>
-        <testsuite name="Integration">
-            <directory>tests/Integration</directory>
-        </testsuite>
+        <!-- tests/Integration necesita Keycloak vivo: corre aparte con phpunit.integration.xml -->
     </testsuites>
     <source>
         <include>
