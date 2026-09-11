@@ -16,6 +16,8 @@
         <env name="CACHE_STORE" value="array"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
-        <env name="KEYCLOAK_BASE_URL" value="http://localhost:8080"/>
+        <!-- KEYCLOAK_BASE_URL sale de .env o del entorno. Fijarlo aca lo volveria
+             una segunda fuente de verdad que puede contradecir a KEYCLOAK_PORT
+             de compose.yaml, y el desacuerdo se ve como "Keycloak no responde". -->
     </php>
 </phpunit>
