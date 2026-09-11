@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Identidad\Infrastructure\Persistence;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -11,7 +12,7 @@ use Illuminate\Support\Facades\DB;
  * @property string $id_de_desafio
  * @property string $celular
  * @property string $digitos
- * @property \DateTimeImmutable $expira_en
+ * @property CarbonImmutable $expira_en
  * @property int $intentos_fallidos
  * @property bool $consumido
  */

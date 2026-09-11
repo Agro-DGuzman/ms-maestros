@@ -52,7 +52,7 @@ final class ContenedorDePrueba implements ContainerInterface
 {
     public function get(string $id): object
     {
-        return new $id();
+        return new $id;
     }
 
     public function has(string $id): bool
@@ -65,7 +65,7 @@ beforeEach(fn () => HandlerDePrueba::$huellas = []);
 
 it('despacha la peticion a su handler', function () {
     $mediator = new ContainerMediator(
-        new ContenedorDePrueba(),
+        new ContenedorDePrueba,
         [PeticionDePrueba::class => HandlerDePrueba::class],
         [],
     );
@@ -76,7 +76,7 @@ it('despacha la peticion a su handler', function () {
 
 it('envuelve el handler con los behaviors en el orden declarado', function () {
     $mediator = new ContainerMediator(
-        new ContenedorDePrueba(),
+        new ContenedorDePrueba,
         [PeticionDePrueba::class => HandlerDePrueba::class],
         [BehaviorQueRegistra::class],
     );
@@ -88,7 +88,7 @@ it('envuelve el handler con los behaviors en el orden declarado', function () {
 
 it('un behavior puede cortar antes de llegar al handler', function () {
     $mediator = new ContainerMediator(
-        new ContenedorDePrueba(),
+        new ContenedorDePrueba,
         [PeticionDePrueba::class => HandlerDePrueba::class],
         [BehaviorQueCorta::class],
     );
@@ -101,7 +101,7 @@ it('un behavior puede cortar antes de llegar al handler', function () {
 });
 
 it('falla ruidosamente si no hay handler registrado', function () {
-    $mediator = new ContainerMediator(new ContenedorDePrueba(), [], []);
+    $mediator = new ContainerMediator(new ContenedorDePrueba, [], []);
 
     expect(fn () => $mediator->send(new PeticionDePrueba('x')))
         ->toThrow(LogicException::class);

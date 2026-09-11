@@ -42,14 +42,16 @@ final class EloquentSesionRepository implements SesionRepository
     /** @return list<SesionDeAplicacion> */
     public function abiertasDe(IdDePersona $persona): array
     {
-        return SesionRecord::query()
-            ->where('id_de_persona', $persona->value())
-            ->whereNull('cerrada_en')
-            ->where('expira_en', '>=', (new DateTimeImmutable())->format('Y-m-d H:i:s'))
-            ->orderBy('id_de_sesion')
-            ->get()
-            ->map(fn (SesionRecord $r): SesionDeAplicacion => $this->aDominio($r))
-            ->all();
+        return array_values(
+            SesionRecord::query()
+                ->where('id_de_persona', $persona->value())
+                ->whereNull('cerrada_en')
+                ->where('expira_en', '>=', (new DateTimeImmutable)->format('Y-m-d H:i:s'))
+                ->orderBy('id_de_sesion')
+                ->get()
+                ->map(fn (SesionRecord $r): SesionDeAplicacion => $this->aDominio($r))
+                ->all(),
+        );
     }
 
     public function porRefreshHash(string $hash): ?SesionDeAplicacion
@@ -75,9 +77,9 @@ final class EloquentSesionRepository implements SesionRepository
             IdDeSesion::desde((string) $record->id_de_sesion),
             IdDePersona::desde((string) $record->id_de_persona),
             $dispositivo,
-            new DateTimeImmutable((string) $record->iniciada_en),
-            new DateTimeImmutable((string) $record->expira_en),
-            $record->cerrada_en === null ? null : new DateTimeImmutable((string) $record->cerrada_en),
+            $record->iniciada_en->toDateTimeImmutable(),
+            $record->expira_en->toDateTimeImmutable(),
+            $record->cerrada_en?->toDateTimeImmutable(),
             $record->refresh_token_hash === null ? null : (string) $record->refresh_token_hash,
         );
     }

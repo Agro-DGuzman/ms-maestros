@@ -26,7 +26,7 @@ final class EloquentDesafioRepository implements DesafioRepository
             IdDeDesafio::desde((string) $record->id_de_desafio),
             Celular::desdeLocalBoliviano((string) $record->celular),
             (string) $record->digitos,
-            new DateTimeImmutable((string) $record->expira_en),
+            $record->expira_en->toDateTimeImmutable(),
             (int) $record->intentos_fallidos,
             (bool) $record->consumido,
         );
@@ -68,7 +68,7 @@ final class EloquentDesafioRepository implements DesafioRepository
         ];
 
         if ($emitido) {
-            $fila['emitido_el'] = (new DateTimeImmutable())->format('Y-m-d H:i:s');
+            $fila['emitido_el'] = (new DateTimeImmutable)->format('Y-m-d H:i:s');
         }
 
         return $fila;

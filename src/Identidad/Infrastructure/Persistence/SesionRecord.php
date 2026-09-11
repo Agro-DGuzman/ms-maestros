@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Identidad\Infrastructure\Persistence;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -13,9 +14,9 @@ use Illuminate\Support\Facades\DB;
  * @property string|null $id_de_instalacion
  * @property string|null $plataforma
  * @property string|null $refresh_token_hash
- * @property \DateTimeImmutable $iniciada_en
- * @property \DateTimeImmutable $expira_en
- * @property \DateTimeImmutable|null $cerrada_en
+ * @property CarbonImmutable $iniciada_en
+ * @property CarbonImmutable $expira_en
+ * @property CarbonImmutable|null $cerrada_en
  */
 final class SesionRecord extends Model
 {

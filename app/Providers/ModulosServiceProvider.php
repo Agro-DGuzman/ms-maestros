@@ -26,21 +26,25 @@ use Identidad\Infrastructure\RelojReal;
 use Identidad\Infrastructure\Whatsapp\EnviadorPorLog;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Http\Client\Factory as Http;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
-use Psr\Log\LoggerInterface;
+use Maestros\Application\Alcance\ResolutorDeAlcance;
 use Maestros\Domain\Contactos\ContactoRepository;
 use Maestros\Domain\Socios\SocioRepository;
+use Maestros\Infrastructure\Alcance\ResolutorPorGrupo;
 use Maestros\Infrastructure\Importacion\ImportarMaestrosCommand;
 use Maestros\Infrastructure\Persistence\EloquentContactoRepository;
 use Maestros\Infrastructure\Persistence\EloquentSocioRepository;
 use Maestros\Infrastructure\Persistence\EloquentUnitOfWork;
 use Maestros\Infrastructure\Persistence\EventoDeLaravelPublisher;
+use Psr\Log\LoggerInterface;
 
 final class ModulosServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
         $this->app->bind(SocioRepository::class, EloquentSocioRepository::class);
+        $this->app->bind(ResolutorDeAlcance::class, ResolutorPorGrupo::class);
         $this->app->bind(ContactoRepository::class, EloquentContactoRepository::class);
         $this->app->bind(NotificationPublisher::class, EventoDeLaravelPublisher::class);
         $this->app->bind(UnitOfWork::class, EloquentUnitOfWork::class);
@@ -56,27 +60,27 @@ final class ModulosServiceProvider extends ServiceProvider
         $this->app->singleton(VerificadorDeToken::class, fn ($app): VerificadorDeToken => new VerificadorJwks(
             $app->make(Http::class),
             $app->make(Cache::class),
-            (string) config('keycloak.base_url'),
-            (string) config('keycloak.realm'),
+            Config::string('keycloak.base_url'),
+            Config::string('keycloak.realm'),
         ));
 
         $this->app->singleton(EmisorDeToken::class, fn ($app): EmisorDeToken => new KeycloakEmisorDeToken(
             $app->make(Http::class),
             $app->make(LoggerInterface::class),
-            (string) config('keycloak.base_url'),
-            (string) config('keycloak.realm'),
-            (string) config('keycloak.client_id'),
-            (string) config('keycloak.client_secret'),
-            (int) config('keycloak.timeout'),
+            Config::string('keycloak.base_url'),
+            Config::string('keycloak.realm'),
+            Config::string('keycloak.client_id'),
+            Config::string('keycloak.client_secret'),
+            Config::integer('keycloak.timeout'),
         ));
 
         $this->app->when(SolicitarDesafioHandler::class)
             ->needs('$maximoPorHora')
-            ->give(fn (): int => (int) config('identidad.desafios_por_hora', 5));
+            ->give(fn (): int => Config::integer('identidad.desafios_por_hora'));
 
         $this->app->when(IniciarSesionHandler::class)
             ->needs('$diasDeSesion')
-            ->give(fn (): int => (int) config('identidad.dias_de_sesion', 30));
+            ->give(fn (): int => Config::integer('identidad.dias_de_sesion'));
     }
 
     public function boot(): void

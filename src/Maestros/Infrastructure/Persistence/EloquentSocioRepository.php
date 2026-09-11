@@ -40,12 +40,14 @@ final class EloquentSocioRepository implements SocioRepository
     /** @return list<Socio> */
     public function porGrupo(IdDeGrupo $grupo): array
     {
-        return SocioRecord::query()
-            ->where('id_de_grupo', $grupo->value())
-            ->orderBy('codigo_de_socio')
-            ->get()
-            ->map(fn (SocioRecord $r): Socio => $this->aDominio($r))
-            ->all();
+        return array_values(
+            SocioRecord::query()
+                ->where('id_de_grupo', $grupo->value())
+                ->orderBy('codigo_de_socio')
+                ->get()
+                ->map(fn (SocioRecord $r): Socio => $this->aDominio($r))
+                ->all(),
+        );
     }
 
     private function aDominio(SocioRecord $record): Socio
@@ -54,7 +56,7 @@ final class EloquentSocioRepository implements SocioRepository
             CodigoDeSocio::desde((string) $record->codigo_de_socio),
             RazonSocial::desde((string) $record->razon_social),
             IdDeGrupo::desde((string) $record->id_de_grupo),
-            new DateTimeImmutable((string) $record->vigente_desde),
+            $record->vigente_desde->toDateTimeImmutable(),
         );
     }
 
@@ -66,7 +68,7 @@ final class EloquentSocioRepository implements SocioRepository
             'razon_social' => $socio->razonSocial()->texto(),
             'id_de_grupo' => $socio->idDeGrupo()->value(),
             'vigente_desde' => $socio->vigenteDesde()->format('Y-m-d H:i:s'),
-            'importado_el' => (new DateTimeImmutable())->format('Y-m-d H:i:s'),
+            'importado_el' => (new DateTimeImmutable)->format('Y-m-d H:i:s'),
         ];
     }
 }

@@ -7,14 +7,14 @@ namespace Core\Results;
 use LogicException;
 
 /**
- * @template T
- *
  * Nota: el core Java usa sobrecarga (`Result.success(T)`), que PHP no tiene.
  * Acá el éxito con valor se construye con `of()` y el fallo con `failure()`.
+ *
+ * No lleva `@template`: `failure()` no tiene valor con el que instanciarlo, así
+ * que la promesa genérica sería falsa. Quien consume estrecha con `assert`.
  */
 final class ResultWithValue extends Result
 {
-    /** @param T|null $valor */
     private function __construct(
         private readonly mixed $valor,
         bool $isSuccess,
@@ -23,7 +23,6 @@ final class ResultWithValue extends Result
         parent::__construct($isSuccess, $error);
     }
 
-    /** @return T */
     public function value(): mixed
     {
         if ($this->isFailure()) {
@@ -33,10 +32,6 @@ final class ResultWithValue extends Result
         return $this->valor;
     }
 
-    /**
-     * @param  T|null  $valor
-     * @return self<T>
-     */
     public static function of(mixed $valor): self
     {
         return $valor !== null
@@ -44,7 +39,6 @@ final class ResultWithValue extends Result
             : new self(null, false, Error::nullValue());
     }
 
-    /** @return self<T> */
     public static function failure(Error $error): self
     {
         return new self(null, false, $error);

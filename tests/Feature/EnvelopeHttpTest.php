@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 use Core\Results\DomainException;
 use Core\Results\Error;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 beforeEach(function () {
-    Route::post('/_prueba/validacion', function (Illuminate\Http\Request $r) {
+    Route::post('/_prueba/validacion', function (Request $r) {
         $r->validate(['celular' => 'required|string']);
 
         return response()->json(['ok' => true]);

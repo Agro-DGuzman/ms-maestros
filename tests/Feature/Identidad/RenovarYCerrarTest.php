@@ -14,8 +14,8 @@ uses(RefreshDatabase::class);
 beforeEach(function () {
     $this->artisan('maestros:importar', ['archivo' => database_path('semillas/maestros-ejemplo.json')]);
 
-    $this->emisor = new EmisorFalso();          // definido en IniciarSesionTest.php
-    $this->enviador = new EnviadorQueRecuerda(); // idem
+    $this->emisor = new EmisorFalso;          // definido en IniciarSesionTest.php
+    $this->enviador = new EnviadorQueRecuerda; // idem
     $this->app->instance(EmisorDeToken::class, $this->emisor);
     $this->app->instance(EnviadorDeDesafio::class, $this->enviador);
 

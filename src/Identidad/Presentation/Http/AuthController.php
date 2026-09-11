@@ -6,6 +6,7 @@ namespace Identidad\Presentation\Http;
 
 use App\Http\Envelope;
 use Core\Contracts\Mediator;
+use Core\Results\ResultWithValue;
 use Identidad\Application\Auth\CerrarSesion\CerrarSesion;
 use Identidad\Application\Auth\IniciarSesion\IniciarSesion;
 use Identidad\Application\Auth\RenovarSesion\RenovarSesion;
@@ -38,6 +39,7 @@ final readonly class AuthController
             return Envelope::responder($resultado);
         }
 
+        assert($resultado instanceof ResultWithValue);
         $id = $resultado->value();
         assert($id instanceof IdDeDesafio);
 
@@ -64,6 +66,8 @@ final readonly class AuthController
             return Envelope::responder($resultado);
         }
 
+        assert($resultado instanceof ResultWithValue);
+
         /** @var array{token: TokenEmitido, sesion: IdDeSesion, contexto: ContextoDeContacto} $salida */
         $salida = $resultado->value();
 
@@ -86,6 +90,7 @@ final readonly class AuthController
             return Envelope::responder($resultado);
         }
 
+        assert($resultado instanceof ResultWithValue);
         $token = $resultado->value();
         assert($token instanceof TokenEmitido);
 

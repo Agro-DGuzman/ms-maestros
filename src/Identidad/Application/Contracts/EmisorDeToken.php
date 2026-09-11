@@ -16,10 +16,10 @@ use Maestros\Domain\Contactos\IdDePersona;
  */
 interface EmisorDeToken
 {
-    /** @return ResultWithValue<TokenEmitido> */
+    /** Envuelve un TokenEmitido cuando tiene éxito. */
     public function emitirPara(IdDePersona $persona, string $contrasena): ResultWithValue;
 
-    /** @return ResultWithValue<TokenEmitido> */
+    /** Envuelve un TokenEmitido cuando tiene éxito. */
     public function renovar(string $refreshToken): ResultWithValue;
 
     public function revocar(string $refreshToken): Result;

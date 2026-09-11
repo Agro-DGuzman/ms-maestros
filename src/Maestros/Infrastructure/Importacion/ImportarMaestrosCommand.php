@@ -41,7 +41,6 @@ final class ImportarMaestrosCommand extends Command
         }
 
         try {
-            /** @var array<string, mixed> $datos */
             $datos = json_decode((string) file_get_contents($archivo), true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $e) {
             $this->error("El archivo no es JSON válido: {$e->getMessage()}");
@@ -49,13 +48,20 @@ final class ImportarMaestrosCommand extends Command
             return self::FAILURE;
         }
 
-        $vigenteDesde = new DateTimeImmutable((string) ($datos['vigenteDesde'] ?? 'now'));
-        $ahora = (new DateTimeImmutable())->format('Y-m-d H:i:s');
+        $raiz = is_array($datos) ? $datos : [];
+        $marca = $raiz['vigenteDesde'] ?? null;
 
-        foreach ((array) ($datos['grupos'] ?? []) as $fila) {
+        $vigenteDesde = new DateTimeImmutable(is_string($marca) ? $marca : 'now');
+        $ahora = (new DateTimeImmutable)->format('Y-m-d H:i:s');
+
+        $grupos = $this->filas($raiz['grupos'] ?? null);
+        $socios_ = $this->filas($raiz['socios'] ?? null);
+        $contactos_ = $this->filas($raiz['contactos'] ?? null);
+
+        foreach ($grupos as $fila) {
             $grupo = GrupoEconomico::replica(
-                IdDeGrupo::desde((string) $fila['id']),
-                (string) $fila['nombre'],
+                IdDeGrupo::desde($fila['id'] ?? ''),
+                $fila['nombre'] ?? '',
                 $vigenteDesde,
             );
 
@@ -70,33 +76,66 @@ final class ImportarMaestrosCommand extends Command
             );
         }
 
-        foreach ((array) ($datos['socios'] ?? []) as $fila) {
+        foreach ($socios_ as $fila) {
             $socios->save(Socio::replica(
-                CodigoDeSocio::desde((string) $fila['cardCode']),
-                RazonSocial::desde((string) $fila['razonSocial']),
-                IdDeGrupo::desde((string) $fila['grupoId']),
+                CodigoDeSocio::desde($fila['cardCode'] ?? ''),
+                RazonSocial::desde($fila['razonSocial'] ?? ''),
+                IdDeGrupo::desde($fila['grupoId'] ?? ''),
                 $vigenteDesde,
             ));
         }
 
-        foreach ((array) ($datos['contactos'] ?? []) as $fila) {
+        foreach ($contactos_ as $fila) {
             $contactos->save(PersonaDeContacto::replica(
-                IdDePersona::desde((string) $fila['id']),
-                CodigoDeSocio::desde((string) $fila['cardCode']),
-                (string) $fila['nombre'],
-                Celular::desdeLocalBoliviano((string) $fila['celular']),
-                isset($fila['habilitadaEl']) ? new DateTimeImmutable((string) $fila['habilitadaEl']) : null,
+                IdDePersona::desde($fila['id'] ?? ''),
+                CodigoDeSocio::desde($fila['cardCode'] ?? ''),
+                $fila['nombre'] ?? '',
+                Celular::desdeLocalBoliviano($fila['celular'] ?? ''),
+                isset($fila['habilitadaEl']) ? new DateTimeImmutable($fila['habilitadaEl']) : null,
                 $vigenteDesde,
             ));
         }
 
         $this->info(sprintf(
             'Importados %d grupos, %d socios y %d contactos.',
-            count((array) ($datos['grupos'] ?? [])),
-            count((array) ($datos['socios'] ?? [])),
-            count((array) ($datos['contactos'] ?? [])),
+            count($grupos),
+            count($socios_),
+            count($contactos_),
         ));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * El archivo es entrada externa: se queda solo con las filas y los campos
+     * escalares, y deja que el dominio rechace lo que falte.
+     *
+     * @return list<array<string, string>>
+     */
+    private function filas(mixed $valor): array
+    {
+        if (! is_array($valor)) {
+            return [];
+        }
+
+        $filas = [];
+
+        foreach ($valor as $fila) {
+            if (! is_array($fila)) {
+                continue;
+            }
+
+            $campos = [];
+
+            foreach ($fila as $clave => $dato) {
+                if (is_string($clave) && (is_string($dato) || is_int($dato) || is_float($dato))) {
+                    $campos[$clave] = (string) $dato;
+                }
+            }
+
+            $filas[] = $campos;
+        }
+
+        return $filas;
     }
 }

@@ -23,7 +23,7 @@ final class EnviadorEspia implements EnviadorDeDesafio
 
 beforeEach(function () {
     $this->artisan('maestros:importar', ['archivo' => database_path('semillas/maestros-ejemplo.json')]);
-    $this->enviador = new EnviadorEspia();
+    $this->enviador = new EnviadorEspia;
     $this->app->instance(EnviadorDeDesafio::class, $this->enviador);
 });
 

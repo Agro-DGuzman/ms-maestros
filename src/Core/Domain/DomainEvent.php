@@ -22,7 +22,7 @@ abstract class DomainEvent
     protected function __construct()
     {
         $this->eventId = Uuid::uuid4()->toString();
-        $this->occurredOn = new DateTimeImmutable();
+        $this->occurredOn = new DateTimeImmutable;
     }
 
     abstract public function aggregateType(): string;

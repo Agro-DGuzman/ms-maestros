@@ -11,6 +11,6 @@ final class RelojReal implements RelojDelSistema
 {
     public function ahora(): DateTimeImmutable
     {
-        return new DateTimeImmutable();
+        return new DateTimeImmutable;
     }
 }

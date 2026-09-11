@@ -64,10 +64,7 @@ final readonly class KeycloakEmisorDeToken implements EmisorDeToken
             : Result::failure(KeycloakErrors::noDisponible('logout '.$respuesta->status()));
     }
 
-    /**
-     * @param  array<string, string>  $campos
-     * @return ResultWithValue<TokenEmitido>
-     */
+    /** @param array<string, string> $campos */
     private function pedirToken(array $campos): ResultWithValue
     {
         try {

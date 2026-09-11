@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maestros\Infrastructure\Persistence;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -12,8 +13,8 @@ use Illuminate\Support\Facades\DB;
  * @property string $codigo_de_socio
  * @property string $nombre
  * @property string $celular
- * @property \DateTimeImmutable|null $habilitada_el
- * @property \DateTimeImmutable $vigente_desde
+ * @property CarbonImmutable|null $habilitada_el
+ * @property CarbonImmutable $vigente_desde
  */
 final class ContactoRecord extends Model
 {

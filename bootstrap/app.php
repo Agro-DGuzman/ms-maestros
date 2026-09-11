@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Http\Envelope;
 use App\Http\MapaDeErroresHttp;
 use App\Http\Middleware\AutenticarPorToken;

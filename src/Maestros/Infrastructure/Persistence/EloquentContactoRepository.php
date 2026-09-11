@@ -51,8 +51,8 @@ final class EloquentContactoRepository implements ContactoRepository
             CodigoDeSocio::desde((string) $record->codigo_de_socio),
             (string) $record->nombre,
             Celular::desdeLocalBoliviano((string) $record->celular),
-            $record->habilitada_el === null ? null : new DateTimeImmutable((string) $record->habilitada_el),
-            new DateTimeImmutable((string) $record->vigente_desde),
+            $record->habilitada_el?->toDateTimeImmutable(),
+            $record->vigente_desde->toDateTimeImmutable(),
         );
     }
 
@@ -66,7 +66,7 @@ final class EloquentContactoRepository implements ContactoRepository
             'celular' => $persona->celular()->e164(),
             'habilitada_el' => $persona->habilitadaEl()?->format('Y-m-d H:i:s'),
             'vigente_desde' => $persona->vigenteDesde()->format('Y-m-d H:i:s'),
-            'importado_el' => (new DateTimeImmutable())->format('Y-m-d H:i:s'),
+            'importado_el' => (new DateTimeImmutable)->format('Y-m-d H:i:s'),
         ];
     }
 }

@@ -13,6 +13,7 @@ use Identidad\Application\Contracts\BovedaDeContrasenas;
 use Identidad\Application\Contracts\DirectorioDeContactos;
 use Identidad\Application\Contracts\EmisorDeToken;
 use Identidad\Application\Contracts\RelojDelSistema;
+use Identidad\Application\Contracts\TokenEmitido;
 use Identidad\Domain\Desafios\DesafioDeIngreso;
 use Identidad\Domain\Desafios\DesafioErrors;
 use Identidad\Domain\Desafios\DesafioRepository;
@@ -83,7 +84,10 @@ final readonly class IniciarSesionHandler implements RequestHandler
             $ahora->modify('+'.$this->diasDeSesion.' days'),
         );
 
-        $sesion->asociarRefresh($token->value()->refreshToken);
+        $emitido = $token->value();
+        assert($emitido instanceof TokenEmitido);
+
+        $sesion->asociarRefresh($emitido->refreshToken);
         $this->sesiones->save($sesion);
 
         $contexto = $this->directorio->contexto($persona);
@@ -96,7 +100,7 @@ final readonly class IniciarSesionHandler implements RequestHandler
         }
 
         return ResultWithValue::of([
-            'token' => $token->value(),
+            'token' => $emitido,
             'sesion' => $sesion->idDeSesion(),
             'contexto' => $contexto,
         ]);

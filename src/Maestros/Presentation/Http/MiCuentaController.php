@@ -7,6 +7,7 @@ namespace Maestros\Presentation\Http;
 use App\Http\Envelope;
 use App\Http\PersonaAutenticada;
 use Core\Contracts\Mediator;
+use Core\Results\ResultWithValue;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Maestros\Application\Contactos\ObtenerContexto\ContextoDeContacto;
@@ -26,6 +27,7 @@ final readonly class MiCuentaController
             return Envelope::responder($resultado);
         }
 
+        assert($resultado instanceof ResultWithValue);
         $contexto = $resultado->value();
         assert($contexto instanceof ContextoDeContacto);
 

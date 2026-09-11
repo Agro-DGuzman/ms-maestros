@@ -47,7 +47,8 @@ final readonly class ObtenerContextoHandler implements RequestHandler
         }
 
         $grupo = $socioDeLaPersona->idDeGrupo();
-        $nombreDelGrupo = (string) (GrupoRecord::query()->find($grupo->value())?->nombre ?? '');
+        $nombre = GrupoRecord::query()->whereKey($grupo->value())->value('nombre');
+        $nombreDelGrupo = is_string($nombre) ? $nombre : '';
 
         $socios = array_map(
             static fn (Socio $s): array => [

@@ -21,7 +21,7 @@ final readonly class BovedaCifrada implements BovedaDeContrasenas
             [
                 'id_de_persona' => $persona->value(),
                 'contrasena_cifrada' => $this->cifrador->encryptString($contrasena),
-                'rotada_el' => (new DateTimeImmutable())->format('Y-m-d H:i:s'),
+                'rotada_el' => (new DateTimeImmutable)->format('Y-m-d H:i:s'),
             ],
         );
     }

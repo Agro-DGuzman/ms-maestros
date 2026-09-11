@@ -60,8 +60,8 @@ final class EnviadorQueRecuerda implements EnviadorDeDesafio
 beforeEach(function () {
     $this->artisan('maestros:importar', ['archivo' => database_path('semillas/maestros-ejemplo.json')]);
 
-    $this->emisor = new EmisorFalso();
-    $this->enviador = new EnviadorQueRecuerda();
+    $this->emisor = new EmisorFalso;
+    $this->enviador = new EnviadorQueRecuerda;
     $this->app->instance(EmisorDeToken::class, $this->emisor);
     $this->app->instance(EnviadorDeDesafio::class, $this->enviador);
 

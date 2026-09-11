@@ -11,6 +11,7 @@ use Core\Results\Result;
 use Core\Results\ResultWithValue;
 use Identidad\Application\Contracts\EmisorDeToken;
 use Identidad\Application\Contracts\RelojDelSistema;
+use Identidad\Application\Contracts\TokenEmitido;
 use Identidad\Domain\Sesiones\SesionDeAplicacion;
 use Identidad\Domain\Sesiones\SesionRepository;
 
@@ -40,8 +41,11 @@ final readonly class RenovarSesionHandler implements RequestHandler
             return ResultWithValue::failure($token->error);
         }
 
+        $emitido = $token->value();
+        assert($emitido instanceof TokenEmitido);
+
         // Rotación: el refresh viejo deja de servir en cuanto se usa.
-        $sesion->asociarRefresh($token->value()->refreshToken);
+        $sesion->asociarRefresh($emitido->refreshToken);
         $this->sesiones->save($sesion);
 
         return $token;

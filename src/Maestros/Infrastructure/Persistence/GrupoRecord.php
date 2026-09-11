@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Maestros\Infrastructure\Persistence;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 /**
  * @property string $id_de_grupo
  * @property string $nombre
- * @property \DateTimeImmutable $vigente_desde
+ * @property CarbonImmutable $vigente_desde
  */
 final class GrupoRecord extends Model
 {

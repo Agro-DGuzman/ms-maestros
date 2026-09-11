@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use Core\Contracts\Mediator;
+use Core\Mediator\Behaviors\AlcanceBehavior;
 use Core\Mediator\ContainerMediator;
 use Identidad\Application\Auth\CerrarSesion\CerrarSesion;
 use Identidad\Application\Auth\CerrarSesion\CerrarSesionHandler;
@@ -33,7 +34,9 @@ final class CoreServiceProvider extends ServiceProvider
     ];
 
     /** @var list<class-string> */
-    public const BEHAVIORS = [];
+    public const BEHAVIORS = [
+        AlcanceBehavior::class,
+    ];
 
     public function register(): void
     {
