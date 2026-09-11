@@ -6,8 +6,12 @@ namespace App\Providers;
 
 use Core\Contracts\Mediator;
 use Core\Mediator\ContainerMediator;
+use Identidad\Application\Auth\CerrarSesion\CerrarSesion;
+use Identidad\Application\Auth\CerrarSesion\CerrarSesionHandler;
 use Identidad\Application\Auth\IniciarSesion\IniciarSesion;
 use Identidad\Application\Auth\IniciarSesion\IniciarSesionHandler;
+use Identidad\Application\Auth\RenovarSesion\RenovarSesion;
+use Identidad\Application\Auth\RenovarSesion\RenovarSesionHandler;
 use Identidad\Application\Auth\SolicitarDesafio\SolicitarDesafio;
 use Identidad\Application\Auth\SolicitarDesafio\SolicitarDesafioHandler;
 use Illuminate\Support\ServiceProvider;
@@ -22,7 +26,9 @@ final class CoreServiceProvider extends ServiceProvider
     public const HANDLERS = [
         BuscarPorCelular::class => BuscarPorCelularHandler::class,
         ObtenerContexto::class => ObtenerContextoHandler::class,
+        CerrarSesion::class => CerrarSesionHandler::class,
         IniciarSesion::class => IniciarSesionHandler::class,
+        RenovarSesion::class => RenovarSesionHandler::class,
         SolicitarDesafio::class => SolicitarDesafioHandler::class,
     ];
 

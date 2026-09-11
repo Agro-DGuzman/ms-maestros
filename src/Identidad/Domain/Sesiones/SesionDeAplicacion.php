@@ -23,6 +23,7 @@ final class SesionDeAplicacion extends AggregateRoot
         private readonly DateTimeImmutable $iniciadaEn,
         private readonly DateTimeImmutable $expiraEn,
         private ?DateTimeImmutable $cerradaEn,
+        private ?string $refreshHash = null,
     ) {
         parent::__construct($id);
     }
@@ -44,13 +45,25 @@ final class SesionDeAplicacion extends AggregateRoot
         DateTimeImmutable $iniciadaEn,
         DateTimeImmutable $expiraEn,
         ?DateTimeImmutable $cerradaEn,
+        ?string $refreshHash = null,
     ): self {
-        return new self($id, $persona, $dispositivo, $iniciadaEn, $expiraEn, $cerradaEn);
+        return new self($id, $persona, $dispositivo, $iniciadaEn, $expiraEn, $cerradaEn, $refreshHash);
     }
 
     public function cerrar(DateTimeImmutable $ahora): void
     {
         $this->cerradaEn ??= $ahora;
+    }
+
+    /** Solo el hash: el refresh token en claro nunca se guarda. */
+    public function asociarRefresh(string $refreshToken): void
+    {
+        $this->refreshHash = hash('sha256', $refreshToken);
+    }
+
+    public function refreshHash(): ?string
+    {
+        return $this->refreshHash;
     }
 
     public function estaAbierta(DateTimeImmutable $ahora): bool

@@ -52,7 +52,7 @@ final class EloquentSesionRepository implements SesionRepository
             ->all();
     }
 
-    public function porRefreshTokenHash(string $hash): ?SesionDeAplicacion
+    public function porRefreshHash(string $hash): ?SesionDeAplicacion
     {
         $record = SesionRecord::query()->where('refresh_token_hash', $hash)->first();
 
@@ -78,6 +78,7 @@ final class EloquentSesionRepository implements SesionRepository
             new DateTimeImmutable((string) $record->iniciada_en),
             new DateTimeImmutable((string) $record->expira_en),
             $record->cerrada_en === null ? null : new DateTimeImmutable((string) $record->cerrada_en),
+            $record->refresh_token_hash === null ? null : (string) $record->refresh_token_hash,
         );
     }
 
@@ -91,6 +92,7 @@ final class EloquentSesionRepository implements SesionRepository
             'id_de_persona' => $sesion->persona()->value(),
             'id_de_instalacion' => $dispositivo?->instalacion()->value(),
             'plataforma' => $dispositivo?->plataforma()->value,
+            'refresh_token_hash' => $sesion->refreshHash(),
             'iniciada_en' => $sesion->iniciadaEn()->format('Y-m-d H:i:s'),
             'expira_en' => $sesion->expiraEn()->format('Y-m-d H:i:s'),
             'cerrada_en' => $sesion->cerradaEn()?->format('Y-m-d H:i:s'),

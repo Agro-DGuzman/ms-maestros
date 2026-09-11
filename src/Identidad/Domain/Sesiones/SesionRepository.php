@@ -11,4 +11,6 @@ interface SesionRepository extends Repository
 {
     /** @return list<SesionDeAplicacion> */
     public function abiertasDe(IdDePersona $persona): array;
+
+    public function porRefreshHash(string $hash): ?SesionDeAplicacion;
 }

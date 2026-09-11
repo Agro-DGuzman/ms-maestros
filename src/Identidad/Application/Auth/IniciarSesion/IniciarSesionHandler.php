@@ -83,6 +83,7 @@ final readonly class IniciarSesionHandler implements RequestHandler
             $ahora->modify('+'.$this->diasDeSesion.' days'),
         );
 
+        $sesion->asociarRefresh($token->value()->refreshToken);
         $this->sesiones->save($sesion);
 
         $contexto = $this->directorio->contexto($persona);

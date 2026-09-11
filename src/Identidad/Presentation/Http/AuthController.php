@@ -6,7 +6,9 @@ namespace Identidad\Presentation\Http;
 
 use App\Http\Envelope;
 use Core\Contracts\Mediator;
+use Identidad\Application\Auth\CerrarSesion\CerrarSesion;
 use Identidad\Application\Auth\IniciarSesion\IniciarSesion;
+use Identidad\Application\Auth\RenovarSesion\RenovarSesion;
 use Identidad\Application\Auth\SolicitarDesafio\SolicitarDesafio;
 use Identidad\Application\Contracts\TokenEmitido;
 use Identidad\Domain\Desafios\IdDeDesafio;
@@ -72,5 +74,34 @@ final readonly class AuthController
             'idDeSesion' => $salida['sesion']->value(),
             'contexto' => $salida['contexto']->aArray(),
         ]);
+    }
+
+    public function refresh(Request $peticion): JsonResponse
+    {
+        $datos = $peticion->validate(['refreshToken' => ['required', 'string']]);
+
+        $resultado = $this->mediator->send(new RenovarSesion((string) $datos['refreshToken']));
+
+        if ($resultado->isFailure()) {
+            return Envelope::responder($resultado);
+        }
+
+        $token = $resultado->value();
+        assert($token instanceof TokenEmitido);
+
+        return Envelope::responder($resultado, [
+            'token' => $token->accessToken,
+            'refreshToken' => $token->refreshToken,
+            'expiraEnSegundos' => $token->expiraEnSegundos,
+        ]);
+    }
+
+    public function logout(Request $peticion): JsonResponse
+    {
+        $datos = $peticion->validate(['refreshToken' => ['required', 'string']]);
+
+        return Envelope::responder(
+            $this->mediator->send(new CerrarSesion((string) $datos['refreshToken'])),
+        );
     }
 }
