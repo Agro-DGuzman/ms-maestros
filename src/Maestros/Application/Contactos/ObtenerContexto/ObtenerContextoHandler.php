@@ -1,0 +1,72 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Maestros\Application\Contactos\ObtenerContexto;
+
+use Core\Contracts\Request;
+use Core\Contracts\RequestHandler;
+use Core\Results\Error;
+use Core\Results\Result;
+use Core\Results\ResultWithValue;
+use Maestros\Domain\Contactos\ContactoRepository;
+use Maestros\Domain\Contactos\PersonaDeContacto;
+use Maestros\Domain\Socios\Socio;
+use Maestros\Domain\Socios\SocioRepository;
+use Maestros\Infrastructure\Persistence\GrupoRecord;
+
+final readonly class ObtenerContextoHandler implements RequestHandler
+{
+    public function __construct(
+        private ContactoRepository $contactos,
+        private SocioRepository $socios,
+    ) {}
+
+    public function handle(Request $peticion): Result
+    {
+        assert($peticion instanceof ObtenerContexto);
+
+        $persona = $this->contactos->find($peticion->persona, readOnly: true);
+
+        if (! $persona instanceof PersonaDeContacto) {
+            return ResultWithValue::failure(Error::notFound(
+                'CONTACTO_NO_ENCONTRADO',
+                'No existe la persona de contacto {id}',
+                $peticion->persona->value(),
+            ));
+        }
+
+        $socioDeLaPersona = $this->socios->find($persona->codigoDeSocio(), readOnly: true);
+
+        if (! $socioDeLaPersona instanceof Socio) {
+            return ResultWithValue::failure(Error::notFound(
+                'SOCIO_NO_ENCONTRADO',
+                'No existe el socio {codigo}',
+                $persona->codigoDeSocio()->value(),
+            ));
+        }
+
+        $grupo = $socioDeLaPersona->idDeGrupo();
+        $nombreDelGrupo = (string) (GrupoRecord::query()->find($grupo->value())?->nombre ?? '');
+
+        $socios = array_map(
+            static fn (Socio $s): array => [
+                'cardCode' => $s->codigoDeSocio()->value(),
+                'razonSocial' => $s->razonSocial()->texto(),
+                'iniciales' => (string) $s->razonSocial()->iniciales(),
+                // Supuesto S1: el UDT de propiedades no existe todavía en SAP.
+                'cantidadPropiedades' => 0,
+            ],
+            $this->socios->porGrupo($grupo),
+        );
+
+        return ResultWithValue::of(new ContextoDeContacto(
+            nombre: $persona->nombre(),
+            iniciales: (string) $persona->iniciales(),
+            celular: $persona->celular()->e164(),
+            grupoId: $grupo->value(),
+            grupoNombre: $nombreDelGrupo,
+            socios: array_values($socios),
+        ));
+    }
+}
