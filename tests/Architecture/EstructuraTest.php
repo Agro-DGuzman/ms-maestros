@@ -10,9 +10,15 @@ arch('Maestros no conoce Identidad')
     ->expect('Maestros')
     ->not->toUse('Identidad');
 
-arch('Identidad no toca el dominio de Maestros directamente')
-    ->expect('Identidad')
-    ->not->toUse('Maestros\Domain');
+arch('Identidad solo toma de Maestros el vocabulario de contacto')
+    ->expect('Identidad\Domain')
+    ->not->toUse([
+        'Maestros\Domain\Socios\Socio',
+        'Maestros\Domain\Grupos\GrupoEconomico',
+        'Maestros\Domain\Contactos\PersonaDeContacto',
+        'Maestros\Infrastructure',
+        'Maestros\Application',
+    ]);
 
 arch('todo src declara tipos estrictos')
     ->expect('Core')
