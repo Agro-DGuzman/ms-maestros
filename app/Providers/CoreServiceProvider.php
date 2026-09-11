@@ -6,6 +6,8 @@ namespace App\Providers;
 
 use Core\Contracts\Mediator;
 use Core\Mediator\ContainerMediator;
+use Identidad\Application\Auth\SolicitarDesafio\SolicitarDesafio;
+use Identidad\Application\Auth\SolicitarDesafio\SolicitarDesafioHandler;
 use Illuminate\Support\ServiceProvider;
 use Maestros\Application\Contactos\BuscarPorCelular\BuscarPorCelular;
 use Maestros\Application\Contactos\BuscarPorCelular\BuscarPorCelularHandler;
@@ -18,6 +20,7 @@ final class CoreServiceProvider extends ServiceProvider
     public const HANDLERS = [
         BuscarPorCelular::class => BuscarPorCelularHandler::class,
         ObtenerContexto::class => ObtenerContextoHandler::class,
+        SolicitarDesafio::class => SolicitarDesafioHandler::class,
     ];
 
     /** @var list<class-string> */
