@@ -9,6 +9,7 @@ use Core\Contracts\UnitOfWork;
 use Illuminate\Support\ServiceProvider;
 use Maestros\Domain\Contactos\ContactoRepository;
 use Maestros\Domain\Socios\SocioRepository;
+use Maestros\Infrastructure\Importacion\ImportarMaestrosCommand;
 use Maestros\Infrastructure\Persistence\EloquentContactoRepository;
 use Maestros\Infrastructure\Persistence\EloquentSocioRepository;
 use Maestros\Infrastructure\Persistence\EloquentUnitOfWork;
@@ -30,5 +31,9 @@ final class ModulosServiceProvider extends ServiceProvider
             database_path('migrations/maestros'),
             database_path('migrations/identidad'),
         ]);
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([ImportarMaestrosCommand::class]);
+        }
     }
 }

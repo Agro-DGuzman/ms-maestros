@@ -1,0 +1,20 @@
+{
+  "vigenteDesde": "2026-09-11T12:00:00Z",
+  "grupos": [
+    { "id": "GRP-014", "nombre": "Grupo Monasterio" }
+  ],
+  "socios": [
+    { "cardCode": "C-004871", "razonSocial": "Sebastian Monasterio", "grupoId": "GRP-014" },
+    { "cardCode": "C-004872", "razonSocial": "Fernando Monasterio", "grupoId": "GRP-014" },
+    { "cardCode": "C-004873", "razonSocial": "Osvaldo Monasterio", "grupoId": "GRP-014" }
+  ],
+  "contactos": [
+    {
+      "id": "p-8f2b1c40",
+      "cardCode": "C-004871",
+      "nombre": "Monica Salvatierra",
+      "celular": "70741828",
+      "habilitadaEl": "2024-02-14T00:00:00Z"
+    }
+  ]
+}
