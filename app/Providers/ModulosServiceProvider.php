@@ -10,12 +10,16 @@ use Identidad\Application\Auth\IniciarSesion\IniciarSesionHandler;
 use Identidad\Application\Auth\SolicitarDesafio\SolicitarDesafioHandler;
 use Identidad\Application\Contracts\BovedaDeContrasenas;
 use Identidad\Application\Contracts\DirectorioDeContactos;
+use Identidad\Application\Contracts\DirectorioDeIdentidades;
 use Identidad\Application\Contracts\EmisorDeToken;
 use Identidad\Application\Contracts\EnviadorDeDesafio;
 use Identidad\Application\Contracts\RelojDelSistema;
 use Identidad\Application\Contracts\VerificadorDeToken;
 use Identidad\Domain\Desafios\DesafioRepository;
 use Identidad\Domain\Sesiones\SesionRepository;
+use Identidad\Infrastructure\Habilitacion\ConciliarIdentidadesCommand;
+use Identidad\Infrastructure\Habilitacion\HabilitarPersonaCommand;
+use Identidad\Infrastructure\Keycloak\KeycloakAdmin;
 use Identidad\Infrastructure\Keycloak\KeycloakEmisorDeToken;
 use Identidad\Infrastructure\Keycloak\VerificadorJwks;
 use Identidad\Infrastructure\Maestros\DirectorioDeContactosEnProceso;
@@ -74,6 +78,18 @@ final class ModulosServiceProvider extends ServiceProvider
             Config::integer('keycloak.timeout'),
         ));
 
+        $this->app->singleton(
+            DirectorioDeIdentidades::class,
+            fn (): DirectorioDeIdentidades => new KeycloakAdmin(
+                $this->app->make(Http::class),
+                Config::string('keycloak.base_url'),
+                Config::string('keycloak.realm'),
+                Config::string('keycloak.client_id'),
+                Config::string('keycloak.client_secret'),
+                Config::integer('keycloak.timeout'),
+            ),
+        );
+
         $this->app->when(SolicitarDesafioHandler::class)
             ->needs('$maximoPorHora')
             ->give(fn (): int => Config::integer('identidad.desafios_por_hora'));
@@ -94,7 +110,11 @@ final class ModulosServiceProvider extends ServiceProvider
         $this->loadRoutesFrom(base_path('src/Maestros/Presentation/Http/routes.php'));
 
         if ($this->app->runningInConsole()) {
-            $this->commands([ImportarMaestrosCommand::class]);
+            $this->commands([
+                ImportarMaestrosCommand::class,
+                HabilitarPersonaCommand::class,
+                ConciliarIdentidadesCommand::class,
+            ]);
         }
     }
 }

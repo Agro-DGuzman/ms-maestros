@@ -15,6 +15,8 @@ use Identidad\Application\Auth\RenovarSesion\RenovarSesion;
 use Identidad\Application\Auth\RenovarSesion\RenovarSesionHandler;
 use Identidad\Application\Auth\SolicitarDesafio\SolicitarDesafio;
 use Identidad\Application\Auth\SolicitarDesafio\SolicitarDesafioHandler;
+use Identidad\Application\Habilitacion\HabilitarPersona\HabilitarPersona;
+use Identidad\Application\Habilitacion\HabilitarPersona\HabilitarPersonaHandler;
 use Illuminate\Support\ServiceProvider;
 use Maestros\Application\Contactos\BuscarPorCelular\BuscarPorCelular;
 use Maestros\Application\Contactos\BuscarPorCelular\BuscarPorCelularHandler;
@@ -28,6 +30,7 @@ final class CoreServiceProvider extends ServiceProvider
         BuscarPorCelular::class => BuscarPorCelularHandler::class,
         ObtenerContexto::class => ObtenerContextoHandler::class,
         CerrarSesion::class => CerrarSesionHandler::class,
+        HabilitarPersona::class => HabilitarPersonaHandler::class,
         IniciarSesion::class => IniciarSesionHandler::class,
         RenovarSesion::class => RenovarSesionHandler::class,
         SolicitarDesafio::class => SolicitarDesafioHandler::class,
