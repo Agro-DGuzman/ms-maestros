@@ -2,6 +2,19 @@
   "realm": "agropartners",
   "enabled": true,
   "sslRequired": "none",
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "subComponents": {},
+        "config": {
+          "kc.user.profile.config": [
+            "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"permissions\":{\"view\":[],\"edit\":[\"admin\"]},\"multivalued\":false},{\"name\":\"email\",\"displayName\":\"${email}\",\"validations\":{\"email\":{},\"length\":{\"max\":255}},\"permissions\":{\"view\":[],\"edit\":[\"admin\"]},\"multivalued\":false},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"permissions\":{\"view\":[],\"edit\":[\"admin\"]},\"multivalued\":false},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"permissions\":{\"view\":[],\"edit\":[\"admin\"]},\"multivalued\":false}],\"groups\":[{\"name\":\"user-metadata\",\"displayHeader\":\"User metadata\",\"displayDescription\":\"Attributes, which refer to user metadata\"}],\"unmanagedAttributePolicy\":\"ADMIN_EDIT\"}"
+          ]
+        }
+      }
+    ]
+  },
   "clients": [
     {
       "clientId": "ms-maestros",
@@ -21,6 +34,14 @@
       "credentials": [
         { "type": "password", "value": "contrasena-de-desarrollo", "temporary": false }
       ]
+    },
+    {
+      "username": "service-account-ms-maestros",
+      "enabled": true,
+      "serviceAccountClientId": "ms-maestros",
+      "clientRoles": {
+        "realm-management": ["manage-users", "view-users"]
+      }
     }
   ]
 }
