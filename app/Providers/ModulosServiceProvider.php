@@ -6,18 +6,25 @@ namespace App\Providers;
 
 use Core\Contracts\NotificationPublisher;
 use Core\Contracts\UnitOfWork;
+use Identidad\Application\Auth\IniciarSesion\IniciarSesionHandler;
 use Identidad\Application\Auth\SolicitarDesafio\SolicitarDesafioHandler;
+use Identidad\Application\Contracts\BovedaDeContrasenas;
 use Identidad\Application\Contracts\DirectorioDeContactos;
+use Identidad\Application\Contracts\EmisorDeToken;
 use Identidad\Application\Contracts\EnviadorDeDesafio;
 use Identidad\Application\Contracts\RelojDelSistema;
 use Identidad\Domain\Desafios\DesafioRepository;
 use Identidad\Domain\Sesiones\SesionRepository;
+use Identidad\Infrastructure\Keycloak\KeycloakEmisorDeToken;
 use Identidad\Infrastructure\Maestros\DirectorioDeContactosEnProceso;
+use Identidad\Infrastructure\Persistence\BovedaCifrada;
 use Identidad\Infrastructure\Persistence\EloquentDesafioRepository;
 use Identidad\Infrastructure\Persistence\EloquentSesionRepository;
 use Identidad\Infrastructure\RelojReal;
 use Identidad\Infrastructure\Whatsapp\EnviadorPorLog;
+use Illuminate\Http\Client\Factory as Http;
 use Illuminate\Support\ServiceProvider;
+use Psr\Log\LoggerInterface;
 use Maestros\Domain\Contactos\ContactoRepository;
 use Maestros\Domain\Socios\SocioRepository;
 use Maestros\Infrastructure\Importacion\ImportarMaestrosCommand;
@@ -41,9 +48,25 @@ final class ModulosServiceProvider extends ServiceProvider
         $this->app->bind(DesafioRepository::class, EloquentDesafioRepository::class);
         $this->app->bind(SesionRepository::class, EloquentSesionRepository::class);
 
+        $this->app->bind(BovedaDeContrasenas::class, BovedaCifrada::class);
+
+        $this->app->singleton(EmisorDeToken::class, fn ($app): EmisorDeToken => new KeycloakEmisorDeToken(
+            $app->make(Http::class),
+            $app->make(LoggerInterface::class),
+            (string) config('keycloak.base_url'),
+            (string) config('keycloak.realm'),
+            (string) config('keycloak.client_id'),
+            (string) config('keycloak.client_secret'),
+            (int) config('keycloak.timeout'),
+        ));
+
         $this->app->when(SolicitarDesafioHandler::class)
             ->needs('$maximoPorHora')
             ->give(fn (): int => (int) config('identidad.desafios_por_hora', 5));
+
+        $this->app->when(IniciarSesionHandler::class)
+            ->needs('$diasDeSesion')
+            ->give(fn (): int => (int) config('identidad.dias_de_sesion', 30));
     }
 
     public function boot(): void

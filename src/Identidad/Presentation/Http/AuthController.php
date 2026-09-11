@@ -6,10 +6,14 @@ namespace Identidad\Presentation\Http;
 
 use App\Http\Envelope;
 use Core\Contracts\Mediator;
+use Identidad\Application\Auth\IniciarSesion\IniciarSesion;
 use Identidad\Application\Auth\SolicitarDesafio\SolicitarDesafio;
+use Identidad\Application\Contracts\TokenEmitido;
 use Identidad\Domain\Desafios\IdDeDesafio;
+use Identidad\Domain\Sesiones\IdDeSesion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Maestros\Application\Contactos\ObtenerContexto\ContextoDeContacto;
 use Maestros\Domain\Contactos\Celular;
 
 final readonly class AuthController
@@ -36,5 +40,37 @@ final readonly class AuthController
         assert($id instanceof IdDeDesafio);
 
         return Envelope::responder($resultado, ['idDeDesafio' => $id->value()]);
+    }
+
+    public function login(Request $peticion): JsonResponse
+    {
+        $datos = $peticion->validate([
+            'idDeDesafio' => ['required', 'string', 'max:40'],
+            'codigo' => ['required', 'string', 'size:4'],
+            'instalacionId' => ['nullable', 'string', 'max:80'],
+            'plataforma' => ['nullable', 'string', 'in:android,ios'],
+        ]);
+
+        $resultado = $this->mediator->send(new IniciarSesion(
+            IdDeDesafio::desde((string) $datos['idDeDesafio']),
+            (string) $datos['codigo'],
+            isset($datos['instalacionId']) ? (string) $datos['instalacionId'] : null,
+            isset($datos['plataforma']) ? (string) $datos['plataforma'] : null,
+        ));
+
+        if ($resultado->isFailure()) {
+            return Envelope::responder($resultado);
+        }
+
+        /** @var array{token: TokenEmitido, sesion: IdDeSesion, contexto: ContextoDeContacto} $salida */
+        $salida = $resultado->value();
+
+        return Envelope::responder($resultado, [
+            'token' => $salida['token']->accessToken,
+            'refreshToken' => $salida['token']->refreshToken,
+            'expiraEnSegundos' => $salida['token']->expiraEnSegundos,
+            'idDeSesion' => $salida['sesion']->value(),
+            'contexto' => $salida['contexto']->aArray(),
+        ]);
     }
 }

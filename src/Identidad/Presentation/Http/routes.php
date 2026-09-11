@@ -7,4 +7,5 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/auth')->group(function (): void {
     Route::post('otp', [AuthController::class, 'otp']);
+    Route::post('login', [AuthController::class, 'login']);
 });
