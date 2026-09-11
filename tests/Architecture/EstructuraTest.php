@@ -17,3 +17,7 @@ arch('Identidad no toca el dominio de Maestros directamente')
 arch('todo src declara tipos estrictos')
     ->expect('Core')
     ->toUseStrictTypes();
+
+arch('el dominio no conoce Eloquent ni Laravel')
+    ->expect(['Maestros\Domain', 'Identidad\Domain'])
+    ->not->toUse(['Illuminate', 'Eloquent']);
