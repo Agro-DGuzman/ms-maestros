@@ -112,8 +112,11 @@ return [
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
-            // 'encrypt' => env('DB_ENCRYPT', 'yes'),
-            // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
+            // Azure SQL exige TLS y presenta un certificado valido, asi que el
+            // default es cifrar sin confiar a ciegas. Solo el SQL Server local
+            // de docker, que se firma solo, necesita DB_TRUST_SERVER_CERTIFICATE.
+            'encrypt' => env('DB_ENCRYPT', 'yes'),
+            'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
     ],
