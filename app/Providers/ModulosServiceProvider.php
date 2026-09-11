@@ -11,8 +11,10 @@ use Identidad\Application\Contracts\DirectorioDeContactos;
 use Identidad\Application\Contracts\EnviadorDeDesafio;
 use Identidad\Application\Contracts\RelojDelSistema;
 use Identidad\Domain\Desafios\DesafioRepository;
+use Identidad\Domain\Sesiones\SesionRepository;
 use Identidad\Infrastructure\Maestros\DirectorioDeContactosEnProceso;
 use Identidad\Infrastructure\Persistence\EloquentDesafioRepository;
+use Identidad\Infrastructure\Persistence\EloquentSesionRepository;
 use Identidad\Infrastructure\RelojReal;
 use Identidad\Infrastructure\Whatsapp\EnviadorPorLog;
 use Illuminate\Support\ServiceProvider;
@@ -37,6 +39,7 @@ final class ModulosServiceProvider extends ServiceProvider
         $this->app->bind(EnviadorDeDesafio::class, EnviadorPorLog::class);
         $this->app->bind(DirectorioDeContactos::class, DirectorioDeContactosEnProceso::class);
         $this->app->bind(DesafioRepository::class, EloquentDesafioRepository::class);
+        $this->app->bind(SesionRepository::class, EloquentSesionRepository::class);
 
         $this->app->when(SolicitarDesafioHandler::class)
             ->needs('$maximoPorHora')
