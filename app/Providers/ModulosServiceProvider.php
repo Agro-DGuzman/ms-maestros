@@ -13,15 +13,18 @@ use Identidad\Application\Contracts\DirectorioDeContactos;
 use Identidad\Application\Contracts\EmisorDeToken;
 use Identidad\Application\Contracts\EnviadorDeDesafio;
 use Identidad\Application\Contracts\RelojDelSistema;
+use Identidad\Application\Contracts\VerificadorDeToken;
 use Identidad\Domain\Desafios\DesafioRepository;
 use Identidad\Domain\Sesiones\SesionRepository;
 use Identidad\Infrastructure\Keycloak\KeycloakEmisorDeToken;
+use Identidad\Infrastructure\Keycloak\VerificadorJwks;
 use Identidad\Infrastructure\Maestros\DirectorioDeContactosEnProceso;
 use Identidad\Infrastructure\Persistence\BovedaCifrada;
 use Identidad\Infrastructure\Persistence\EloquentDesafioRepository;
 use Identidad\Infrastructure\Persistence\EloquentSesionRepository;
 use Identidad\Infrastructure\RelojReal;
 use Identidad\Infrastructure\Whatsapp\EnviadorPorLog;
+use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Http\Client\Factory as Http;
 use Illuminate\Support\ServiceProvider;
 use Psr\Log\LoggerInterface;
@@ -50,6 +53,13 @@ final class ModulosServiceProvider extends ServiceProvider
 
         $this->app->bind(BovedaDeContrasenas::class, BovedaCifrada::class);
 
+        $this->app->singleton(VerificadorDeToken::class, fn ($app): VerificadorDeToken => new VerificadorJwks(
+            $app->make(Http::class),
+            $app->make(Cache::class),
+            (string) config('keycloak.base_url'),
+            (string) config('keycloak.realm'),
+        ));
+
         $this->app->singleton(EmisorDeToken::class, fn ($app): EmisorDeToken => new KeycloakEmisorDeToken(
             $app->make(Http::class),
             $app->make(LoggerInterface::class),
@@ -77,6 +87,7 @@ final class ModulosServiceProvider extends ServiceProvider
         ]);
 
         $this->loadRoutesFrom(base_path('src/Identidad/Presentation/Http/routes.php'));
+        $this->loadRoutesFrom(base_path('src/Maestros/Presentation/Http/routes.php'));
 
         if ($this->app->runningInConsole()) {
             $this->commands([ImportarMaestrosCommand::class]);

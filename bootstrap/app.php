@@ -2,6 +2,7 @@
 
 use App\Http\Envelope;
 use App\Http\MapaDeErroresHttp;
+use App\Http\Middleware\AutenticarPorToken;
 use Core\Results\DomainException;
 use Core\Results\Error;
 use Core\Results\ValidationError;
@@ -19,7 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->alias(['auth.token' => AutenticarPorToken::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
