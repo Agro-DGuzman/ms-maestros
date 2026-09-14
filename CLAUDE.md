@@ -147,6 +147,21 @@ La verificación de que `POST /auth/otp` no filtra por tiempo **no la hace
 ningún test**: hay que pedir el desafío para un número registrado y para uno
 desconocido y comparar los tiempos, que tienen que ser indistinguibles.
 
+### El orden importa: integración antes de habilitar
+
+`composer test:integration` espera que `p-8f2b1c40` tenga en Keycloak la
+contraseña `contrasena-de-desarrollo` que trae el realm importado. Pero
+`identidad:habilitar` **sobreescribe** esa contraseña con una aleatoria, y
+`identidad:deshabilitar` borra el usuario. Después de correr cualquiera de los
+dos, la batería de integración falla hasta reimportar el realm:
+
+```sh
+docker compose down keycloak && docker compose up -d keycloak
+```
+
+O sea: integración contra un realm recién levantado, y el recorrido manual
+después. Un fallo de `KeycloakTest` casi siempre es esto y no una regresión.
+
 ## Pendientes conocidos
 
 - `VerificadorJwks` no valida `aud` ni `iss`: `JWT::decode` comprueba firma y
