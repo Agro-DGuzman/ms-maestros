@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Persistence\TransactorEloquent;
 use Core\Contracts\Mediator;
+use Core\Contracts\Transactor;
 use Core\Mediator\Behaviors\AlcanceBehavior;
+use Core\Mediator\Behaviors\TransaccionBehavior;
 use Core\Mediator\ContainerMediator;
 use Identidad\Application\Auth\CerrarSesion\CerrarSesion;
 use Identidad\Application\Auth\CerrarSesion\CerrarSesionHandler;
@@ -36,13 +39,22 @@ final class CoreServiceProvider extends ServiceProvider
         SolicitarDesafio::class => SolicitarDesafioHandler::class,
     ];
 
-    /** @var list<class-string> */
+    /**
+     * El orden importa: la transacción envuelve al alcance, así que un rechazo
+     * por alcance deshace cualquier escritura que un behavior posterior
+     * hubiera hecho.
+     *
+     * @var list<class-string>
+     */
     public const BEHAVIORS = [
+        TransaccionBehavior::class,
         AlcanceBehavior::class,
     ];
 
     public function register(): void
     {
+        $this->app->bind(Transactor::class, TransactorEloquent::class);
+
         $this->app->singleton(Mediator::class, fn ($app): Mediator => new ContainerMediator(
             $app,
             self::HANDLERS,
