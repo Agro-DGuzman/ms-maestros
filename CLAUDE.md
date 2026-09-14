@@ -147,6 +147,29 @@ La verificación de que `POST /auth/otp` no filtra por tiempo **no la hace
 ningún test**: hay que pedir el desafío para un número registrado y para uno
 desconocido y comparar los tiempos, que tienen que ser indistinguibles.
 
+### Si `mi-cuenta` responde 401 con un token que parece válido
+
+Dos causas, en orden de frecuencia:
+
+1. **El token vive 5 minutos.** `data.expiraEnSegundos` lo dice (300). Un token
+   que quedó en Postman un rato ya venció: pedí otro con `/v1/auth/refresh`.
+2. **Recrear Keycloak invalida todo token ya emitido y además envenena el
+   caché.** `VerificadorJwks` cachea el JWKS 60 minutos, así que tras un
+   `down`/`up` del contenedor el caché guarda las claves del realm anterior y
+   **ningún token verifica, ni siquiera uno nuevo**, hasta que expire. Después
+   de tocar el contenedor de Keycloak, siempre:
+
+```sh
+php artisan cache:clear
+```
+
+Para confirmar que es esto, comparar el `kid` que publica el realm contra el
+que quedó cacheado — si difieren, es el caché:
+
+```sh
+curl -s http://localhost:8081/realms/agropartners/protocol/openid-connect/certs
+```
+
 ### El orden importa: integración antes de habilitar
 
 `composer test:integration` espera que `p-8f2b1c40` tenga en Keycloak la
