@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Maestros\Infrastructure\Persistence;
 
+use App\Persistence\TablaConEsquema;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
 
 /**
  * @property string $id_de_grupo
@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\DB;
  */
 final class GrupoRecord extends Model
 {
+    use TablaConEsquema;
+
     public $incrementing = false;
 
     public $timestamps = false;
@@ -32,6 +34,6 @@ final class GrupoRecord extends Model
 
     public function getTable(): string
     {
-        return DB::getDriverName() === 'sqlsrv' ? 'maestros.grupos' : 'maestros_grupos';
+        return $this->tablaEn('maestros', 'grupos');
     }
 }

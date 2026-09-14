@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Identidad\Infrastructure\Persistence;
 
+use App\Persistence\TablaConEsquema;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
 
 /**
  * @property string $id_de_sesion
@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\DB;
  */
 final class SesionRecord extends Model
 {
+    use TablaConEsquema;
+
     public $incrementing = false;
 
     public $timestamps = false;
@@ -38,6 +40,6 @@ final class SesionRecord extends Model
 
     public function getTable(): string
     {
-        return DB::getDriverName() === 'sqlsrv' ? 'identidad.sesiones' : 'identidad_sesiones';
+        return $this->tablaEn('identidad', 'sesiones');
     }
 }

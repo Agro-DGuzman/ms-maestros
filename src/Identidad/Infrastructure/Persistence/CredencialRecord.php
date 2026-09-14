@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Identidad\Infrastructure\Persistence;
 
+use App\Persistence\TablaConEsquema;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
 
 /**
  * @property string $id_de_persona
@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\DB;
  */
 final class CredencialRecord extends Model
 {
+    use TablaConEsquema;
+
     public $incrementing = false;
 
     public $timestamps = false;
@@ -29,6 +31,6 @@ final class CredencialRecord extends Model
 
     public function getTable(): string
     {
-        return DB::getDriverName() === 'sqlsrv' ? 'identidad.credenciales' : 'identidad_credenciales';
+        return $this->tablaEn('identidad', 'credenciales');
     }
 }

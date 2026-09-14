@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Identidad\Infrastructure\Persistence;
 
+use App\Persistence\TablaConEsquema;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
 
 /**
  * @property string $id_de_desafio
@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\DB;
  */
 final class DesafioRecord extends Model
 {
+    use TablaConEsquema;
+
     public $incrementing = false;
 
     public $timestamps = false;
@@ -37,6 +39,6 @@ final class DesafioRecord extends Model
 
     public function getTable(): string
     {
-        return DB::getDriverName() === 'sqlsrv' ? 'identidad.desafios' : 'identidad_desafios';
+        return $this->tablaEn('identidad', 'desafios');
     }
 }

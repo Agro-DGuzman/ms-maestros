@@ -6,10 +6,10 @@ namespace Identidad\Application\Habilitacion\HabilitarPersona;
 
 use Core\Contracts\Request;
 use Core\Contracts\RequestHandler;
-use Core\Results\Error;
 use Core\Results\Result;
 use Identidad\Application\Contracts\BovedaDeContrasenas;
 use Identidad\Application\Contracts\DirectorioDeIdentidades;
+use Maestros\Domain\Contactos\ContactoErrors;
 use Maestros\Domain\Contactos\ContactoRepository;
 use Maestros\Domain\Contactos\PersonaDeContacto;
 
@@ -28,11 +28,9 @@ final readonly class HabilitarPersonaHandler implements RequestHandler
         $persona = $this->contactos->find($peticion->persona);
 
         if (! $persona instanceof PersonaDeContacto) {
-            return Result::failure(Error::notFound(
-                'CONTACTO_NO_ENCONTRADO',
-                'No existe la persona de contacto {id}',
-                $peticion->persona->value(),
-            ));
+            return Result::failure(
+                ContactoErrors::noEncontrado($peticion->persona->value()),
+            );
         }
 
         $contrasena = bin2hex(random_bytes(16));   // 32 caracteres, nunca la ve nadie

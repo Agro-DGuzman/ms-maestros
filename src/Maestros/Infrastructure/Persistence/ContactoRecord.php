@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Maestros\Infrastructure\Persistence;
 
+use App\Persistence\TablaConEsquema;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
 
 /**
  * @property string $id_de_persona
@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\DB;
  */
 final class ContactoRecord extends Model
 {
+    use TablaConEsquema;
+
     public $incrementing = false;
 
     public $timestamps = false;
@@ -36,6 +38,6 @@ final class ContactoRecord extends Model
 
     public function getTable(): string
     {
-        return DB::getDriverName() === 'sqlsrv' ? 'maestros.contactos' : 'maestros_contactos';
+        return $this->tablaEn('maestros', 'contactos');
     }
 }

@@ -23,6 +23,7 @@ use Identidad\Domain\Dispositivos\Plataforma;
 use Identidad\Domain\Sesiones\IdDeSesion;
 use Identidad\Domain\Sesiones\SesionDeAplicacion;
 use Identidad\Domain\Sesiones\SesionRepository;
+use Maestros\Domain\Contactos\ContactoErrors;
 
 final readonly class IniciarSesionHandler implements RequestHandler
 {
@@ -103,10 +104,9 @@ final readonly class IniciarSesionHandler implements RequestHandler
         $contexto = $this->directorio->contexto($persona);
 
         if ($contexto === null) {
-            return ResultWithValue::failure(Error::notFound(
-                'CONTACTO_NO_ENCONTRADO',
-                'No se pudo armar el contexto de la persona',
-            ));
+            return ResultWithValue::failure(
+                ContactoErrors::noEncontrado($persona->value()),
+            );
         }
 
         return ResultWithValue::of([

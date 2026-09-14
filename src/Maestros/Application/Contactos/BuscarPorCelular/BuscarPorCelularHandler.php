@@ -6,9 +6,9 @@ namespace Maestros\Application\Contactos\BuscarPorCelular;
 
 use Core\Contracts\Request;
 use Core\Contracts\RequestHandler;
-use Core\Results\Error;
 use Core\Results\Result;
 use Core\Results\ResultWithValue;
+use Maestros\Domain\Contactos\ContactoErrors;
 use Maestros\Domain\Contactos\ContactoRepository;
 
 final readonly class BuscarPorCelularHandler implements RequestHandler
@@ -22,10 +22,9 @@ final readonly class BuscarPorCelularHandler implements RequestHandler
         $persona = $this->contactos->porCelular($peticion->celular);
 
         if ($persona === null) {
-            return ResultWithValue::failure(Error::notFound(
-                'CONTACTO_NO_ENCONTRADO',
-                'No hay una persona de contacto con ese celular',
-            ));
+            return ResultWithValue::failure(
+                ContactoErrors::noEncontrado($peticion->celular->e164()),
+            );
         }
 
         return ResultWithValue::of($persona->idDePersona());

@@ -6,14 +6,15 @@ namespace Maestros\Application\Contactos\ObtenerContexto;
 
 use Core\Contracts\Request;
 use Core\Contracts\RequestHandler;
-use Core\Results\Error;
 use Core\Results\Result;
 use Core\Results\ResultWithValue;
+use Maestros\Domain\Contactos\ContactoErrors;
 use Maestros\Domain\Contactos\ContactoRepository;
 use Maestros\Domain\Contactos\PersonaDeContacto;
 use Maestros\Domain\Grupos\GrupoEconomico;
 use Maestros\Domain\Grupos\GrupoRepository;
 use Maestros\Domain\Socios\Socio;
+use Maestros\Domain\Socios\SocioErrors;
 use Maestros\Domain\Socios\SocioRepository;
 
 final readonly class ObtenerContextoHandler implements RequestHandler
@@ -31,21 +32,17 @@ final readonly class ObtenerContextoHandler implements RequestHandler
         $persona = $this->contactos->find($peticion->persona);
 
         if (! $persona instanceof PersonaDeContacto) {
-            return ResultWithValue::failure(Error::notFound(
-                'CONTACTO_NO_ENCONTRADO',
-                'No existe la persona de contacto {id}',
-                $peticion->persona->value(),
-            ));
+            return ResultWithValue::failure(
+                ContactoErrors::noEncontrado($peticion->persona->value()),
+            );
         }
 
         $socioDeLaPersona = $this->socios->find($persona->codigoDeSocio());
 
         if (! $socioDeLaPersona instanceof Socio) {
-            return ResultWithValue::failure(Error::notFound(
-                'SOCIO_NO_ENCONTRADO',
-                'No existe el socio {codigo}',
-                $persona->codigoDeSocio()->value(),
-            ));
+            return ResultWithValue::failure(
+                SocioErrors::noEncontrado($persona->codigoDeSocio()->value()),
+            );
         }
 
         $grupo = $socioDeLaPersona->idDeGrupo();

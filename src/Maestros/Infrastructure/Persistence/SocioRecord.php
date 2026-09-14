@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Maestros\Infrastructure\Persistence;
 
+use App\Persistence\TablaConEsquema;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
 
 /**
  * @property string $codigo_de_socio
@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\DB;
  */
 final class SocioRecord extends Model
 {
+    use TablaConEsquema;
+
     public $incrementing = false;
 
     public $timestamps = false;
@@ -33,6 +35,6 @@ final class SocioRecord extends Model
 
     public function getTable(): string
     {
-        return DB::getDriverName() === 'sqlsrv' ? 'maestros.socios' : 'maestros_socios';
+        return $this->tablaEn('maestros', 'socios');
     }
 }

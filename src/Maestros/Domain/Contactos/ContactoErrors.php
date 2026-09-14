@@ -21,4 +21,13 @@ final class ContactoErrors
     {
         return Error::validation('PERSONA_INVALIDA', 'El identificador de persona no puede estar vacío');
     }
+
+    public static function noEncontrado(string $id): Error
+    {
+        return Error::notFound(
+            'CONTACTO_NO_ENCONTRADO',
+            'No existe la persona de contacto {id}',
+            $id,
+        );
+    }
 }
