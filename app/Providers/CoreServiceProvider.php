@@ -18,6 +18,8 @@ use Identidad\Application\Auth\RenovarSesion\RenovarSesion;
 use Identidad\Application\Auth\RenovarSesion\RenovarSesionHandler;
 use Identidad\Application\Auth\SolicitarDesafio\SolicitarDesafio;
 use Identidad\Application\Auth\SolicitarDesafio\SolicitarDesafioHandler;
+use Identidad\Application\Habilitacion\DeshabilitarPersona\DeshabilitarPersona;
+use Identidad\Application\Habilitacion\DeshabilitarPersona\DeshabilitarPersonaHandler;
 use Identidad\Application\Habilitacion\HabilitarPersona\HabilitarPersona;
 use Identidad\Application\Habilitacion\HabilitarPersona\HabilitarPersonaHandler;
 use Illuminate\Support\ServiceProvider;
@@ -36,6 +38,7 @@ final class CoreServiceProvider extends ServiceProvider
         ListarHabilitadas::class => ListarHabilitadasHandler::class,
         ObtenerContexto::class => ObtenerContextoHandler::class,
         CerrarSesion::class => CerrarSesionHandler::class,
+        DeshabilitarPersona::class => DeshabilitarPersonaHandler::class,
         HabilitarPersona::class => HabilitarPersonaHandler::class,
         IniciarSesion::class => IniciarSesionHandler::class,
         RenovarSesion::class => RenovarSesionHandler::class,

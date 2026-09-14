@@ -17,6 +17,7 @@ use Identidad\Application\Contracts\VerificadorDeToken;
 use Identidad\Domain\Desafios\DesafioRepository;
 use Identidad\Domain\Sesiones\SesionRepository;
 use Identidad\Infrastructure\Habilitacion\ConciliarIdentidadesCommand;
+use Identidad\Infrastructure\Habilitacion\DeshabilitarPersonaCommand;
 use Identidad\Infrastructure\Habilitacion\HabilitarPersonaCommand;
 use Identidad\Infrastructure\Keycloak\KeycloakAdmin;
 use Identidad\Infrastructure\Keycloak\KeycloakEmisorDeToken;
@@ -130,6 +131,7 @@ final class ModulosServiceProvider extends ServiceProvider
             $this->commands([
                 ImportarMaestrosCommand::class,
                 HabilitarPersonaCommand::class,
+                DeshabilitarPersonaCommand::class,
                 ConciliarIdentidadesCommand::class,
             ]);
         }
