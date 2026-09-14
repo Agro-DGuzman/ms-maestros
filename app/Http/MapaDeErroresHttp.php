@@ -10,8 +10,9 @@ use Core\Results\ErrorType;
 final class MapaDeErroresHttp
 {
     /**
-     * `FAILURE` se parte en tres según el código, así que el tipo da el
-     * valor por defecto y esta tabla lo corrige donde hace falta.
+     * `FAILURE` se parte en tres según el código —401, 403, 429—, así que
+     * esta tabla los nombra y el tipo solo da el defecto. Un `FAILURE` que no
+     * está acá es un error nuestro, no del cliente: 500, no 403.
      *
      * @var array<string, int>
      */
@@ -27,8 +28,7 @@ final class MapaDeErroresHttp
             ErrorType::Validation => 422,
             ErrorType::NotFound => 404,
             ErrorType::Conflict => 409,
-            ErrorType::Problem => 500,
-            ErrorType::Failure => 403,
+            ErrorType::Problem, ErrorType::Failure => 500,
         };
     }
 }

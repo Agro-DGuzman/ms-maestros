@@ -44,7 +44,12 @@ it('traduce cada tipo a su codigo http', function () {
         ->and(MapaDeErroresHttp::status(Error::notFound('X', 'x')))->toBe(404)
         ->and(MapaDeErroresHttp::status(Error::conflict('X', 'x')))->toBe(409)
         ->and(MapaDeErroresHttp::status(Error::problem('X', 'x')))->toBe(500)
-        ->and(MapaDeErroresHttp::status(Error::failure('X', 'x')))->toBe(403);
+        ->and(MapaDeErroresHttp::status(Error::failure('X', 'x')))->toBe(500);
+});
+
+it('un FAILURE de codigo desconocido no se confunde con acceso denegado', function () {
+    expect(MapaDeErroresHttp::status(Error::failure('ALGO_RARO', 'x')))->toBe(500)
+        ->and(MapaDeErroresHttp::status(Error::failure('ACCESO_DENEGADO', 'x')))->toBe(403);
 });
 
 it('los codigos con status propio ganan sobre el tipo', function () {
