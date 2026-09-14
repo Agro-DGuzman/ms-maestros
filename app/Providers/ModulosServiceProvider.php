@@ -35,10 +35,12 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 use Maestros\Application\Alcance\ResolutorDeAlcance;
 use Maestros\Domain\Contactos\ContactoRepository;
+use Maestros\Domain\Grupos\GrupoRepository;
 use Maestros\Domain\Socios\SocioRepository;
 use Maestros\Infrastructure\Alcance\ResolutorPorGrupo;
 use Maestros\Infrastructure\Importacion\ImportarMaestrosCommand;
 use Maestros\Infrastructure\Persistence\EloquentContactoRepository;
+use Maestros\Infrastructure\Persistence\EloquentGrupoRepository;
 use Maestros\Infrastructure\Persistence\EloquentSocioRepository;
 use Psr\Log\LoggerInterface;
 
@@ -49,6 +51,7 @@ final class ModulosServiceProvider extends ServiceProvider
         $this->app->bind(SocioRepository::class, EloquentSocioRepository::class);
         $this->app->bind(ResolutorDeAlcance::class, ResolutorPorGrupo::class);
         $this->app->bind(ContactoRepository::class, EloquentContactoRepository::class);
+        $this->app->bind(GrupoRepository::class, EloquentGrupoRepository::class);
 
         $this->app->bind(RelojDelSistema::class, RelojReal::class);
         $this->app->bind(EnviadorDeDesafio::class, function ($app): EnviadorDeDesafio {

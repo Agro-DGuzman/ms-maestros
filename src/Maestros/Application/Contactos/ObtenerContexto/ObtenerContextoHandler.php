@@ -11,15 +11,17 @@ use Core\Results\Result;
 use Core\Results\ResultWithValue;
 use Maestros\Domain\Contactos\ContactoRepository;
 use Maestros\Domain\Contactos\PersonaDeContacto;
+use Maestros\Domain\Grupos\GrupoEconomico;
+use Maestros\Domain\Grupos\GrupoRepository;
 use Maestros\Domain\Socios\Socio;
 use Maestros\Domain\Socios\SocioRepository;
-use Maestros\Infrastructure\Persistence\GrupoRecord;
 
 final readonly class ObtenerContextoHandler implements RequestHandler
 {
     public function __construct(
         private ContactoRepository $contactos,
         private SocioRepository $socios,
+        private GrupoRepository $grupos,
     ) {}
 
     public function handle(Request $peticion): Result
@@ -47,8 +49,11 @@ final readonly class ObtenerContextoHandler implements RequestHandler
         }
 
         $grupo = $socioDeLaPersona->idDeGrupo();
-        $nombre = GrupoRecord::query()->whereKey($grupo->value())->value('nombre');
-        $nombreDelGrupo = is_string($nombre) ? $nombre : '';
+        $grupoEconomico = $this->grupos->find($grupo);
+
+        // Un socio sin su grupo en la réplica no es motivo para negar el
+        // contexto: se responde con el nombre vacío.
+        $nombreDelGrupo = $grupoEconomico instanceof GrupoEconomico ? $grupoEconomico->nombre() : '';
 
         $socios = array_map(
             static fn (Socio $s): array => [
