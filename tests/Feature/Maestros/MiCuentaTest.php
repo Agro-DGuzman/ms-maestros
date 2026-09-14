@@ -4,21 +4,9 @@ declare(strict_types=1);
 
 use Identidad\Application\Contracts\VerificadorDeToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Maestros\Domain\Contactos\IdDePersona;
+use Tests\Dobles\VerificadorFalso;
 
 uses(RefreshDatabase::class);
-
-final class VerificadorFalso implements VerificadorDeToken
-{
-    public function __construct(private readonly ?string $persona) {}
-
-    public function verificar(string $jwt): ?IdDePersona
-    {
-        return $jwt === 'token-bueno' && $this->persona !== null
-            ? IdDePersona::desde($this->persona)
-            : null;
-    }
-}
 
 beforeEach(function () {
     $this->artisan('maestros:importar', ['archivo' => database_path('semillas/maestros-ejemplo.json')]);

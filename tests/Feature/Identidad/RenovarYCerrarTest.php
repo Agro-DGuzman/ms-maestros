@@ -8,14 +8,16 @@ use Identidad\Application\Contracts\EnviadorDeDesafio;
 use Identidad\Domain\Sesiones\SesionRepository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Maestros\Domain\Contactos\IdDePersona;
+use Tests\Dobles\EmisorFalso;
+use Tests\Dobles\EnviadorQueRecuerda;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->artisan('maestros:importar', ['archivo' => database_path('semillas/maestros-ejemplo.json')]);
 
-    $this->emisor = new EmisorFalso;          // definido en IniciarSesionTest.php
-    $this->enviador = new EnviadorQueRecuerda; // idem
+    $this->emisor = new EmisorFalso;
+    $this->enviador = new EnviadorQueRecuerda;
     $this->app->instance(EmisorDeToken::class, $this->emisor);
     $this->app->instance(EnviadorDeDesafio::class, $this->enviador);
 

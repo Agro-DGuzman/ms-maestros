@@ -6,20 +6,9 @@ use Identidad\Application\Contracts\EnviadorDeDesafio;
 use Identidad\Domain\Desafios\DesafioRepository;
 use Identidad\Domain\Desafios\IdDeDesafio;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Maestros\Domain\Contactos\Celular;
+use Tests\Dobles\EnviadorEspia;
 
 uses(RefreshDatabase::class);
-
-final class EnviadorEspia implements EnviadorDeDesafio
-{
-    /** @var list<array{celular: string, digitos: string}> */
-    public array $enviados = [];
-
-    public function enviar(Celular $a, string $digitos): void
-    {
-        $this->enviados[] = ['celular' => $a->e164(), 'digitos' => $digitos];
-    }
-}
 
 beforeEach(function () {
     $this->artisan('maestros:importar', ['archivo' => database_path('semillas/maestros-ejemplo.json')]);
