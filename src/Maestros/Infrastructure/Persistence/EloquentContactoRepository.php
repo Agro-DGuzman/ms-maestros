@@ -15,7 +15,7 @@ use Maestros\Domain\Socios\CodigoDeSocio;
 
 final class EloquentContactoRepository implements ContactoRepository
 {
-    public function find(EntityId $id, bool $readOnly = false): ?PersonaDeContacto
+    public function find(EntityId $id): ?PersonaDeContacto
     {
         $record = ContactoRecord::query()->find($id->value());
 

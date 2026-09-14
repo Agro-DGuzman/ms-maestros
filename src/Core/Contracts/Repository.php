@@ -8,7 +8,7 @@ use Core\Domain\AggregateRoot;
 
 interface Repository
 {
-    public function find(EntityId $id, bool $readOnly = false): ?AggregateRoot;
+    public function find(EntityId $id): ?AggregateRoot;
 
     public function add(AggregateRoot $agregado): void;
 

@@ -26,7 +26,7 @@ final readonly class ObtenerContextoHandler implements RequestHandler
     {
         assert($peticion instanceof ObtenerContexto);
 
-        $persona = $this->contactos->find($peticion->persona, readOnly: true);
+        $persona = $this->contactos->find($peticion->persona);
 
         if (! $persona instanceof PersonaDeContacto) {
             return ResultWithValue::failure(Error::notFound(
@@ -36,7 +36,7 @@ final readonly class ObtenerContextoHandler implements RequestHandler
             ));
         }
 
-        $socioDeLaPersona = $this->socios->find($persona->codigoDeSocio(), readOnly: true);
+        $socioDeLaPersona = $this->socios->find($persona->codigoDeSocio());
 
         if (! $socioDeLaPersona instanceof Socio) {
             return ResultWithValue::failure(Error::notFound(

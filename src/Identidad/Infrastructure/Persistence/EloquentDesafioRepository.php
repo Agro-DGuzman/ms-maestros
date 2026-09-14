@@ -14,7 +14,7 @@ use Maestros\Domain\Contactos\Celular;
 
 final class EloquentDesafioRepository implements DesafioRepository
 {
-    public function find(EntityId $id, bool $readOnly = false): ?DesafioDeIngreso
+    public function find(EntityId $id): ?DesafioDeIngreso
     {
         $record = DesafioRecord::query()->find($id->value());
 

@@ -25,7 +25,7 @@ final readonly class HabilitarPersonaHandler implements RequestHandler
     {
         assert($peticion instanceof HabilitarPersona);
 
-        $persona = $this->contactos->find($peticion->persona, readOnly: true);
+        $persona = $this->contactos->find($peticion->persona);
 
         if (! $persona instanceof PersonaDeContacto) {
             return Result::failure(Error::notFound(

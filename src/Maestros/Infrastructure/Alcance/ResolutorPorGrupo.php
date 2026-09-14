@@ -26,14 +26,14 @@ final readonly class ResolutorPorGrupo implements ResolutorDeAlcance
 
     public function alcanza(IdDePersona $persona, CodigoDeSocio $socio): bool
     {
-        $contacto = $this->contactos->find($persona, readOnly: true);
+        $contacto = $this->contactos->find($persona);
 
         if (! $contacto instanceof PersonaDeContacto) {
             return false;
         }
 
-        $suSocio = $this->socios->find($contacto->codigoDeSocio(), readOnly: true);
-        $pedido = $this->socios->find($socio, readOnly: true);
+        $suSocio = $this->socios->find($contacto->codigoDeSocio());
+        $pedido = $this->socios->find($socio);
 
         if (! $suSocio instanceof Socio || ! $pedido instanceof Socio) {
             return false;

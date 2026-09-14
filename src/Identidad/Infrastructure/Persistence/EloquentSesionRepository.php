@@ -17,7 +17,7 @@ use Maestros\Domain\Contactos\IdDePersona;
 
 final class EloquentSesionRepository implements SesionRepository
 {
-    public function find(EntityId $id, bool $readOnly = false): ?SesionDeAplicacion
+    public function find(EntityId $id): ?SesionDeAplicacion
     {
         $record = SesionRecord::query()->find($id->value());
 

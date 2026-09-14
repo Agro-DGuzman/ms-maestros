@@ -15,7 +15,7 @@ use Maestros\Domain\Socios\SocioRepository;
 
 final class EloquentSocioRepository implements SocioRepository
 {
-    public function find(EntityId $id, bool $readOnly = false): ?Socio
+    public function find(EntityId $id): ?Socio
     {
         $record = SocioRecord::query()->find($id->value());
 

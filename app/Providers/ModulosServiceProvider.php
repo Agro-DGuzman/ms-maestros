@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use Core\Contracts\NotificationPublisher;
-use Core\Contracts\UnitOfWork;
 use Identidad\Application\Auth\IniciarSesion\IniciarSesionHandler;
 use Identidad\Application\Auth\SolicitarDesafio\SolicitarDesafioHandler;
 use Identidad\Application\Contracts\BovedaDeContrasenas;
@@ -40,8 +38,6 @@ use Maestros\Infrastructure\Alcance\ResolutorPorGrupo;
 use Maestros\Infrastructure\Importacion\ImportarMaestrosCommand;
 use Maestros\Infrastructure\Persistence\EloquentContactoRepository;
 use Maestros\Infrastructure\Persistence\EloquentSocioRepository;
-use Maestros\Infrastructure\Persistence\EloquentUnitOfWork;
-use Maestros\Infrastructure\Persistence\EventoDeLaravelPublisher;
 use Psr\Log\LoggerInterface;
 
 final class ModulosServiceProvider extends ServiceProvider
@@ -51,8 +47,6 @@ final class ModulosServiceProvider extends ServiceProvider
         $this->app->bind(SocioRepository::class, EloquentSocioRepository::class);
         $this->app->bind(ResolutorDeAlcance::class, ResolutorPorGrupo::class);
         $this->app->bind(ContactoRepository::class, EloquentContactoRepository::class);
-        $this->app->bind(NotificationPublisher::class, EventoDeLaravelPublisher::class);
-        $this->app->bind(UnitOfWork::class, EloquentUnitOfWork::class);
 
         $this->app->bind(RelojDelSistema::class, RelojReal::class);
         $this->app->bind(EnviadorDeDesafio::class, function ($app): EnviadorDeDesafio {
