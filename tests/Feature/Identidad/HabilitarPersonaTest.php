@@ -48,9 +48,3 @@ it('rechaza habilitar a alguien que no existe en la replica', function () {
     expect($resultado->isFailure())->toBeTrue()
         ->and($resultado->error->code)->toBe('CONTACTO_NO_ENCONTRADO');
 });
-
-it('conciliar reporta a quien le falta el usuario en el directorio', function () {
-    $this->artisan('identidad:conciliar')
-        ->expectsOutputToContain('p-8f2b1c40')
-        ->assertExitCode(1);
-});

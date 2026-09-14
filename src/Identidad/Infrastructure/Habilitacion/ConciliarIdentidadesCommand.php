@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Identidad\Infrastructure\Habilitacion;
 
 use Identidad\Application\Contracts\BovedaDeContrasenas;
+use Identidad\Application\Contracts\DirectorioDeContactos;
 use Identidad\Application\Contracts\DirectorioDeIdentidades;
 use Illuminate\Console\Command;
-use Maestros\Domain\Contactos\IdDePersona;
-use Maestros\Infrastructure\Persistence\ContactoRecord;
 
 /** Detecta el estado parcial: habilitado acá y no allá, o al revés. */
 final class ConciliarIdentidadesCommand extends Command
@@ -17,13 +16,14 @@ final class ConciliarIdentidadesCommand extends Command
 
     protected $description = 'Compara las personas habilitadas contra los usuarios del directorio';
 
-    public function handle(DirectorioDeIdentidades $directorio, BovedaDeContrasenas $boveda): int
-    {
+    public function handle(
+        DirectorioDeContactos $contactos,
+        DirectorioDeIdentidades $directorio,
+        BovedaDeContrasenas $boveda,
+    ): int {
         $discrepancias = 0;
 
-        foreach (ContactoRecord::query()->whereNotNull('habilitada_el')->cursor() as $record) {
-            $persona = IdDePersona::desde((string) $record->id_de_persona);
-
+        foreach ($contactos->habilitadas() as $persona) {
             if (! $directorio->existe($persona)) {
                 $this->warn("Falta en el directorio: {$persona->value()}");
                 $discrepancias++;

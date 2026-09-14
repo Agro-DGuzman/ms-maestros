@@ -23,6 +23,8 @@ use Identidad\Application\Habilitacion\HabilitarPersona\HabilitarPersonaHandler;
 use Illuminate\Support\ServiceProvider;
 use Maestros\Application\Contactos\BuscarPorCelular\BuscarPorCelular;
 use Maestros\Application\Contactos\BuscarPorCelular\BuscarPorCelularHandler;
+use Maestros\Application\Contactos\ListarHabilitadas\ListarHabilitadas;
+use Maestros\Application\Contactos\ListarHabilitadas\ListarHabilitadasHandler;
 use Maestros\Application\Contactos\ObtenerContexto\ObtenerContexto;
 use Maestros\Application\Contactos\ObtenerContexto\ObtenerContextoHandler;
 
@@ -31,6 +33,7 @@ final class CoreServiceProvider extends ServiceProvider
     /** @var array<class-string, class-string> */
     public const HANDLERS = [
         BuscarPorCelular::class => BuscarPorCelularHandler::class,
+        ListarHabilitadas::class => ListarHabilitadasHandler::class,
         ObtenerContexto::class => ObtenerContextoHandler::class,
         CerrarSesion::class => CerrarSesionHandler::class,
         HabilitarPersona::class => HabilitarPersonaHandler::class,

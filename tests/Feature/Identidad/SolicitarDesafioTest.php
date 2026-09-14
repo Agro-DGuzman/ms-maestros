@@ -76,6 +76,12 @@ it('el handler no consulta el directorio', function () {
         {
             return null;
         }
+
+        /** @return list<IdDePersona> */
+        public function habilitadas(): array
+        {
+            return [];
+        }
     };
 
     $this->app->instance(DirectorioDeContactos::class, $directorio);

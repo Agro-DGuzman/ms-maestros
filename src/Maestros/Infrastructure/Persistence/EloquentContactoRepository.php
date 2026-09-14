@@ -44,6 +44,19 @@ final class EloquentContactoRepository implements ContactoRepository
         return $record === null ? null : $this->aDominio($record);
     }
 
+    /** @return list<PersonaDeContacto> */
+    public function habilitadas(): array
+    {
+        return array_values(
+            ContactoRecord::query()
+                ->whereNotNull('habilitada_el')
+                ->orderBy('id_de_persona')
+                ->get()
+                ->map(fn (ContactoRecord $r): PersonaDeContacto => $this->aDominio($r))
+                ->all(),
+        );
+    }
+
     private function aDominio(ContactoRecord $record): PersonaDeContacto
     {
         return PersonaDeContacto::replica(

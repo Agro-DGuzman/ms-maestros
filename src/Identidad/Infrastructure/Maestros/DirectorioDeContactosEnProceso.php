@@ -8,6 +8,7 @@ use Core\Contracts\Mediator;
 use Core\Results\ResultWithValue;
 use Identidad\Application\Contracts\DirectorioDeContactos;
 use Maestros\Application\Contactos\BuscarPorCelular\BuscarPorCelular;
+use Maestros\Application\Contactos\ListarHabilitadas\ListarHabilitadas;
 use Maestros\Application\Contactos\ObtenerContexto\ContextoDeContacto;
 use Maestros\Application\Contactos\ObtenerContexto\ObtenerContexto;
 use Maestros\Domain\Contactos\Celular;
@@ -30,6 +31,23 @@ final readonly class DirectorioDeContactosEnProceso implements DirectorioDeConta
         assert($persona instanceof IdDePersona);
 
         return $persona;
+    }
+
+    /** @return list<IdDePersona> */
+    public function habilitadas(): array
+    {
+        $resultado = $this->mediator->send(new ListarHabilitadas);
+
+        if ($resultado->isFailure()) {
+            return [];
+        }
+
+        assert($resultado instanceof ResultWithValue);
+
+        /** @var list<IdDePersona> $personas */
+        $personas = $resultado->value();
+
+        return $personas;
     }
 
     public function contexto(IdDePersona $id): ?ContextoDeContacto
