@@ -7,6 +7,7 @@ namespace App\Providers;
 use Identidad\Application\Auth\IniciarSesion\IniciarSesionHandler;
 use Identidad\Application\Auth\SolicitarDesafio\SolicitarDesafioHandler;
 use Identidad\Application\Contracts\BovedaDeContrasenas;
+use Identidad\Application\Contracts\DespachadorDeDesafio;
 use Identidad\Application\Contracts\DirectorioDeContactos;
 use Identidad\Application\Contracts\DirectorioDeIdentidades;
 use Identidad\Application\Contracts\EmisorDeToken;
@@ -25,6 +26,7 @@ use Identidad\Infrastructure\Persistence\BovedaCifrada;
 use Identidad\Infrastructure\Persistence\EloquentDesafioRepository;
 use Identidad\Infrastructure\Persistence\EloquentSesionRepository;
 use Identidad\Infrastructure\RelojReal;
+use Identidad\Infrastructure\Whatsapp\DespachadorEnCola;
 use Identidad\Infrastructure\Whatsapp\EnviadorCloudApi;
 use Identidad\Infrastructure\Whatsapp\EnviadorPorLog;
 use Illuminate\Contracts\Cache\Repository as Cache;
@@ -67,6 +69,7 @@ final class ModulosServiceProvider extends ServiceProvider
             );
         });
         $this->app->bind(DirectorioDeContactos::class, DirectorioDeContactosEnProceso::class);
+        $this->app->bind(DespachadorDeDesafio::class, DespachadorEnCola::class);
         $this->app->bind(DesafioRepository::class, EloquentDesafioRepository::class);
         $this->app->bind(SesionRepository::class, EloquentSesionRepository::class);
 

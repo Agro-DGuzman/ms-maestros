@@ -56,9 +56,19 @@ final readonly class IniciarSesionHandler implements RequestHandler
         }
 
         $persona = $this->directorio->buscarPorCelular($desafio->celular());
-        $contrasena = $persona === null ? null : $this->boveda->leer($persona);
 
-        if ($persona === null || $contrasena === null) {
+        // Un desafío emitido para un número que no es de nadie: mismo error
+        // que un código equivocado, para no distinguir un caso del otro.
+        // Desde que /auth/otp emite para cualquier número, este caso existe.
+        if ($persona === null) {
+            return ResultWithValue::failure(DesafioErrors::codigoInvalido());
+        }
+
+        $contrasena = $this->boveda->leer($persona);
+
+        // Acá sí es un problema nuestro: la persona existe pero no tiene
+        // credencial en el proveedor de identidad.
+        if ($contrasena === null) {
             return ResultWithValue::failure(Error::problem(
                 'IDENTIDAD_NO_DISPONIBLE',
                 'La persona no tiene credencial en el proveedor de identidad',
