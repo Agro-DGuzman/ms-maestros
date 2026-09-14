@@ -111,6 +111,42 @@ la línea siguiente ya dice, sobra.
 - Primero el test que falla, y verificarlo en rojo antes de escribir el código.
   Un test nuevo que pasa de entrada no está probando lo que se cree.
 
+## Probar a mano
+
+La colección de Postman está en `docs/ms-maestros.postman_collection.json` y se
+autoencadena: el OTP guarda `idDeDesafio`, el login guarda `token` y
+`refreshToken`. Lo único que se escribe a mano es el `codigo`.
+
+**Hace falta un worker corriendo.** Con la cola en `database`, `POST /auth/otp`
+responde 200 pero no manda nada hasta que alguien levante el trabajo. Si el
+código no aparece en el log, falta `queue:work` — no es un bug.
+
+Local, sin Docker (alcanza para todo `/auth/otp`, los comandos y el envelope):
+
+```sh
+php artisan migrate
+php artisan maestros:importar database/semillas/maestros-ejemplo.json
+php artisan serve --port=8099      # una terminal
+php artisan queue:work             # otra terminal
+tail -f storage/logs/laravel.log   # de aca sale el codigo
+```
+
+Para el login hace falta Keycloak, porque la credencial la emite el proveedor.
+`KEYCLOAK_CLIENT_SECRET` tiene que estar en `.env` (el realm importado usa
+`secreto-de-desarrollo`), y la persona necesita su credencial sincronizada:
+
+```sh
+docker compose up -d keycloak
+php artisan identidad:habilitar p-8f2b1c40
+```
+
+El realm de `docker/keycloak/` ya trae el usuario `p-8f2b1c40`, que es el
+contacto de la semilla, con celular `70741828`.
+
+La verificación de que `POST /auth/otp` no filtra por tiempo **no la hace
+ningún test**: hay que pedir el desafío para un número registrado y para uno
+desconocido y comparar los tiempos, que tienen que ser indistinguibles.
+
 ## Pendientes conocidos
 
 - `VerificadorJwks` no valida `aud` ni `iss`: `JWT::decode` comprueba firma y

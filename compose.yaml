@@ -1,3 +1,33 @@
+# El entorno lo comparten app y worker: el worker resuelve el desafio contra la
+# misma base y el mismo Keycloak, asi que cualquier diferencia entre los dos
+# seria un bug silencioso.
+x-entorno-comun: &entorno-comun
+  APP_ENV: production
+  APP_DEBUG: "false"
+  APP_KEY: "${APP_KEY:?APP_KEY es obligatorio: copialo de tu .env}"
+  LOG_CHANNEL: stderr
+  CACHE_STORE: file
+  SESSION_DRIVER: file
+  # NO poner sync: con sync el envio del desafio vuelve a correr dentro de la
+  # peticion y reaparece la fuga de tiempo de POST /auth/otp, que responde lo
+  # mismo y en el mismo tiempo exista o no el numero.
+  QUEUE_CONNECTION: database
+  DB_CONNECTION: sqlsrv
+  DB_HOST: sqlserver
+  DB_PORT: "1433"
+  DB_DATABASE: maestros
+  DB_USERNAME: sa
+  DB_PASSWORD: "Agro.Local.2026"
+  # El SQL Server local se firma solo; Azure SQL no necesita esto.
+  DB_TRUST_SERVER_CERTIFICATE: "true"
+  # Dentro de la red de compose Keycloak siempre escucha en 8080,
+  # sin importar en que puerto del host lo hayas publicado.
+  KEYCLOAK_BASE_URL: http://keycloak:8080
+  KEYCLOAK_REALM: agropartners
+  KEYCLOAK_CLIENT_ID: ms-maestros
+  KEYCLOAK_CLIENT_SECRET: secreto-de-desarrollo
+  WHATSAPP_DRIVER: log
+
 services:
   app:
     build:
@@ -6,30 +36,19 @@ services:
     # La imagen sirve en 8080. Sin volumen montado: montar el proyecto encima
     # taparia el vendor optimizado que se construyo dentro de la imagen.
     ports: ["${APP_PORT:-8000}:8080"]
-    environment:
-      APP_ENV: production
-      APP_DEBUG: "false"
-      APP_KEY: "${APP_KEY:?APP_KEY es obligatorio: copialo de tu .env}"
-      LOG_CHANNEL: stderr
-      CACHE_STORE: file
-      SESSION_DRIVER: file
-      QUEUE_CONNECTION: sync
-      DB_CONNECTION: sqlsrv
-      DB_HOST: sqlserver
-      DB_PORT: "1433"
-      DB_DATABASE: maestros
-      DB_USERNAME: sa
-      DB_PASSWORD: "Agro.Local.2026"
-      # El SQL Server local se firma solo; Azure SQL no necesita esto.
-      DB_TRUST_SERVER_CERTIFICATE: "true"
-      # Dentro de la red de compose Keycloak siempre escucha en 8080,
-      # sin importar en que puerto del host lo hayas publicado.
-      KEYCLOAK_BASE_URL: http://keycloak:8080
-      KEYCLOAK_REALM: agropartners
-      KEYCLOAK_CLIENT_ID: ms-maestros
-      KEYCLOAK_CLIENT_SECRET: secreto-de-desarrollo
-      WHATSAPP_DRIVER: log
+    environment: *entorno-comun
     depends_on: [sqlserver, keycloak]
+
+  # Sin esto los desafios se encolan y no se envian nunca: el trabajo que
+  # resuelve la persona y habla con WhatsApp corre aca.
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: ["php", "artisan", "queue:work", "--tries=3", "--max-time=3600"]
+    environment: *entorno-comun
+    depends_on: [sqlserver, keycloak]
+    restart: unless-stopped
 
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
