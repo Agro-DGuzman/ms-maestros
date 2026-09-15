@@ -37,7 +37,11 @@ services:
     # taparia el vendor optimizado que se construyo dentro de la imagen.
     ports: ["${APP_PORT:-8000}:8080"]
     environment: *entorno-comun
-    depends_on: [sqlserver, keycloak]
+    depends_on:
+      sqlserver-init:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_started
 
   # Sin esto los desafios se encolan y no se envian nunca: el trabajo que
   # resuelve la persona y habla con WhatsApp corre aca.
@@ -47,7 +51,16 @@ services:
       dockerfile: docker/Dockerfile
     command: ["php", "artisan", "queue:work", "--tries=3", "--max-time=3600"]
     environment: *entorno-comun
-    depends_on: [sqlserver, keycloak]
+    # El healthcheck de la imagen hace curl a /up, que solo tiene sentido para
+    # el que sirve HTTP. El worker no escucha en ningun puerto, asi que
+    # heredarlo lo deja permanentemente unhealthy.
+    healthcheck:
+      disable: true
+    depends_on:
+      sqlserver-init:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_started
     restart: unless-stopped
 
   sqlserver:
@@ -56,6 +69,32 @@ services:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: "Agro.Local.2026"
     ports: ["1433:1433"]
+    # El login de 'sa' no esta listo apenas arranca el contenedor: sin esto,
+    # app y worker arrancan antes y llenan el log de "Login failed for user sa"
+    # hasta que el motor termina de inicializar.
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  # El contenedor de SQL Server arranca sin la base que DB_DATABASE nombra, asi
+  # que sin este paso `migrate` falla en un stack recien levantado. En Azure SQL
+  # la base la crea la plataforma y este servicio no corre.
+  sqlserver-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      MSSQL_SA_PASSWORD: "Agro.Local.2026"
+    command:
+      - /bin/bash
+      - -c
+      - /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P "$$MSSQL_SA_PASSWORD" -C
+        -Q "IF DB_ID('maestros') IS NULL CREATE DATABASE maestros;"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    restart: "no"
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
