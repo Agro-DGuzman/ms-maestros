@@ -68,7 +68,8 @@ it('informa cuantas filas se omitieron por viejas', function () {
     $this->artisan('maestros:importar', ['archivo' => $archivo])->assertExitCode(0);
 
     // La segunda corrida tiene la misma marca: nada es más nuevo, todo se omite.
+    // 43 = 3 grupos + 8 socios + 32 contactos del archivo de semilla.
     $this->artisan('maestros:importar', ['archivo' => $archivo])
-        ->expectsOutputToContain('Omitidos por ser más viejos: 5')
+        ->expectsOutputToContain('Omitidos por ser más viejos: 43')
         ->assertExitCode(0);
 });

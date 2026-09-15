@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Identidad\Application\Contracts\BovedaDeContrasenas;
+use Identidad\Application\Contracts\DirectorioDeContactos;
 use Identidad\Application\Contracts\DirectorioDeIdentidades;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Maestros\Domain\Contactos\IdDePersona;
@@ -16,6 +17,20 @@ beforeEach(function () {
     $this->app->instance(DirectorioDeIdentidades::class, $this->directorio);
 });
 
+/**
+ * Le da acceso completo a toda persona que la réplica marca habilitada.
+ *
+ * Va por el puerto en vez de nombrar personas: «completo» tiene que seguir
+ * significando completo cuando la semilla cambie, y no «alcanza con Monica».
+ */
+function darAccesoATodasLasHabilitadas(DirectorioFalso $directorio): void
+{
+    foreach (app(DirectorioDeContactos::class)->habilitadas() as $persona) {
+        $directorio->crearOActualizar($persona, 'una-contrasena');
+        app(BovedaDeContrasenas::class)->guardar($persona, 'una-contrasena');
+    }
+}
+
 it('reporta a quien le falta el usuario en el directorio', function () {
     $this->artisan('identidad:conciliar')
         ->expectsOutputToContain('p-8f2b1c40')
@@ -23,9 +38,7 @@ it('reporta a quien le falta el usuario en el directorio', function () {
 });
 
 it('no reporta nada cuando directorio y boveda estan completos', function () {
-    $persona = IdDePersona::desde('p-8f2b1c40');
-    $this->directorio->crearOActualizar($persona, 'una-contrasena');
-    app(BovedaDeContrasenas::class)->guardar($persona, 'una-contrasena');
+    darAccesoATodasLasHabilitadas($this->directorio);
 
     $this->artisan('identidad:conciliar')
         ->expectsOutputToContain('Sin discrepancias')
@@ -68,9 +81,9 @@ it('reporta a quien conserva credencial sin estar habilitado en la replica', fun
 });
 
 it('no confunde con discrepancia a quien nunca tuvo credencial', function () {
-    $persona = IdDePersona::desde('p-8f2b1c40');
-    $this->directorio->crearOActualizar($persona, 'una-contrasena');
-    app(BovedaDeContrasenas::class)->guardar($persona, 'una-contrasena');
+    // Las no habilitadas de la réplica no tienen credencial y no deben aparecer:
+    // la conciliación solo habla de estados a medias, no de quien nunca entró.
+    darAccesoATodasLasHabilitadas($this->directorio);
 
     $this->artisan('identidad:conciliar')
         ->expectsOutputToContain('Sin discrepancias')

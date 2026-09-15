@@ -3,6 +3,10 @@
 .env
 .env.backup
 .env.production
+# Cualquier .env con credenciales de un entorno real queda afuera; el ejemplo,
+# que no tiene secretos, es el unico que se versiona.
+.env.*
+!.env.example
 .phpactor.json
 .phpunit.result.cache
 /.codex
@@ -26,3 +30,6 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 /claude_outputs
+/Claude Outputs
+/docs
+.azure.env
