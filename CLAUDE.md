@@ -197,6 +197,33 @@ en el árbol.
 docker compose up -d --build app worker
 ```
 
+### Apuntar la app a una base en Azure SQL
+
+`compose.azure.yaml` sobreescribe la base de `app` y `worker` dejando Keycloak
+local. Los valores salen de un `.env.azure` propio, que git ignora:
+
+```sh
+set -a; . .env.azure; set +a
+export AZ_DB_HOST=$DB_HOST AZ_DB_DATABASE=$DB_DATABASE \
+       AZ_DB_USERNAME=$DB_USERNAME AZ_DB_PASSWORD=$DB_PASSWORD
+docker compose -f compose.yaml -f compose.azure.yaml up -d app worker
+```
+
+Baja `APP_ENV` a `local` a propósito: con `production`, `AutenticadorDeDesarrollo`
+se niega a existir y `RestringirPorIp` exige rangos configurados. Los dos
+resguardos están bien; esto no es producción. Para volver al SQL Server local
+basta `docker compose up -d app worker` sin el segundo archivo.
+
+**El driver `sqlsrv` solo está en la imagen**, no en el PHP del host, así que
+todo lo que toque SQL Server se corre con `docker compose exec app …`. Por lo
+mismo `composer test` nunca puede ejercitar ese motor.
+
+**Ojo al probar acentos con curl desde Git Bash en Windows:** los argumentos no
+ASCII se convierten al codepage del sistema antes de llegar al ejecutable, y
+`--data-urlencode 'q=Chávez'` termina mandando `q=Ch%e1vez`, que no es UTF-8 y
+no encuentra nada. Escribir la URL ya codificada (`q=Ch%C3%A1vez`) sí funciona.
+Es la herramienta, no la aplicación.
+
 ### Si `mi-cuenta` responde 401 con un token que parece válido
 
 Dos causas, en orden de frecuencia:
