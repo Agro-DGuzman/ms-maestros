@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $celular
  * @property CarbonImmutable|null $habilitada_el
  * @property CarbonImmutable $vigente_desde
+ * @property CarbonImmutable|null $vista_en_importacion_el
  */
 final class ContactoRecord extends Model
 {
@@ -34,6 +35,7 @@ final class ContactoRecord extends Model
         'habilitada_el' => 'immutable_datetime',
         'vigente_desde' => 'immutable_datetime',
         'importado_el' => 'immutable_datetime',
+        'vista_en_importacion_el' => 'immutable_datetime',
     ];
 
     public function getTable(): string

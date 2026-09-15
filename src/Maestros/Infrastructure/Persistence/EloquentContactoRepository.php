@@ -57,6 +57,21 @@ final class EloquentContactoRepository implements ContactoRepository
         );
     }
 
+    /** @param list<IdDePersona> $personas */
+    public function marcarVistasEnImportacion(array $personas, DateTimeImmutable $momento): void
+    {
+        if ($personas === []) {
+            return;
+        }
+
+        ContactoRecord::query()
+            ->whereIn('id_de_persona', array_map(
+                static fn (IdDePersona $p): string => $p->value(),
+                $personas,
+            ))
+            ->update(['vista_en_importacion_el' => $momento->format('Y-m-d H:i:s')]);
+    }
+
     private function aDominio(ContactoRecord $record): PersonaDeContacto
     {
         return PersonaDeContacto::replica(

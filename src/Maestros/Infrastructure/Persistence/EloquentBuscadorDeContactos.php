@@ -29,9 +29,11 @@ final class EloquentBuscadorDeContactos implements BuscadorDeContactos
             ->limit($criterio->tamanoDePagina)
             ->get();
 
+        $ultima = $this->ultimaImportacion();
+
         return new PaginaDeContactos(
             items: array_values(array_map(
-                fn (object $fila): ContactoDeBackOffice => $this->aFila((array) $fila),
+                fn (object $fila): ContactoDeBackOffice => $this->aFila((array) $fila, $ultima),
                 $filas->all(),
             )),
             total: $total,
@@ -48,7 +50,7 @@ final class EloquentBuscadorDeContactos implements BuscadorDeContactos
             // todavía no trajo, y esa fila igual tiene que listarse.
             ->leftJoin($this->tabla('grupos').' as g', 'g.id_de_grupo', '=', 's.id_de_grupo')
             ->select([
-                'c.id_de_persona', 'c.nombre', 'c.celular', 'c.habilitada_el', 'c.importado_el',
+                'c.id_de_persona', 'c.nombre', 'c.celular', 'c.habilitada_el', 'c.vista_en_importacion_el',
                 's.codigo_de_socio', 's.razon_social',
                 'g.nombre as grupo_nombre',
             ]);
@@ -78,12 +80,21 @@ final class EloquentBuscadorDeContactos implements BuscadorDeContactos
         return str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $texto);
     }
 
+    /** La corrida más reciente que tocó la réplica, contra la que se compara. */
+    private function ultimaImportacion(): ?DateTimeImmutable
+    {
+        $maximo = DB::table($this->tabla('contactos'))->max('vista_en_importacion_el');
+
+        return is_string($maximo) && $maximo !== '' ? new DateTimeImmutable($maximo) : null;
+    }
+
     /** @param array<string, mixed> $fila */
-    private function aFila(array $fila): ContactoDeBackOffice
+    private function aFila(array $fila, ?DateTimeImmutable $ultimaImportacion): ContactoDeBackOffice
     {
         $celular = $this->textoOpcional($fila, 'celular');
         $nombre = $this->texto($fila, 'nombre');
         $habilitadaEl = $this->momento($fila, 'habilitada_el');
+        $vistaEl = $this->momento($fila, 'vista_en_importacion_el');
 
         return new ContactoDeBackOffice(
             idDePersona: $this->texto($fila, 'id_de_persona'),
@@ -98,9 +109,12 @@ final class EloquentBuscadorDeContactos implements BuscadorDeContactos
             grupoEconomico: $this->textoOpcional($fila, 'grupo_nombre'),
             estaHabilitada: $habilitadaEl !== null,
             habilitadaEl: $habilitadaEl,
-            // TODO(tarea 12): columna propia. `importado_el` no se actualiza
-            // cuando la importación omite una fila por no ser más nueva.
-            vistaEnImportacionEl: $this->momento($fila, 'importado_el'),
+            vistaEnImportacionEl: $vistaEl,
+            // Solo se avisa sobre quien tiene acceso: que no venga alguien que
+            // nunca lo tuvo no le cambia nada a nadie.
+            ausenteEnUltimaImportacion: $habilitadaEl !== null
+                && $ultimaImportacion !== null
+                && ($vistaEl === null || $vistaEl < $ultimaImportacion),
         );
     }
 

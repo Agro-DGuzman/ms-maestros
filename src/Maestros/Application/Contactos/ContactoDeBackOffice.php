@@ -28,5 +28,12 @@ final readonly class ContactoDeBackOffice
         public bool $estaHabilitada,
         public ?DateTimeImmutable $habilitadaEl,
         public ?DateTimeImmutable $vistaEnImportacionEl,
+        /**
+         * Tiene acceso pero la última corrida de importación no la trajo. No
+         * la deshabilita nadie: la pantalla avisa y una persona decide, porque
+         * la ausencia todavía no distingue una baja en SAP de un archivo
+         * incompleto.
+         */
+        public bool $ausenteEnUltimaImportacion = false,
     ) {}
 }

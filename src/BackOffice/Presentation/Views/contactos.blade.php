@@ -29,6 +29,11 @@
                 <td>
                     <strong>{{ $contacto->nombre }}</strong>
                     <span class="tenue">({{ $contacto->iniciales }})</span>
+                    @if ($contacto->ausenteEnUltimaImportacion)
+                        {{-- Avisa, no deshabilita: la ausencia todavia no
+                             distingue una baja en SAP de un archivo incompleto. --}}
+                        <div class="rojo" style="font-size:12px;">No vino en la última importación</div>
+                    @endif
                 </td>
                 {{-- El celular va completo, sin enmascarar (B12): el operador
                      necesita poder compararlo con lo que le dicen por telefono. --}}

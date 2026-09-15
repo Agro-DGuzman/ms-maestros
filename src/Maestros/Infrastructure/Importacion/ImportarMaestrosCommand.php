@@ -105,6 +105,8 @@ final class ImportarMaestrosCommand extends Command
             $socios->save($socio);
         }
 
+        $vistas = [];
+
         foreach ($filasDeContactos as $fila) {
             $persona = PersonaDeContacto::replica(
                 IdDePersona::desde($fila['id'] ?? ''),
@@ -114,6 +116,10 @@ final class ImportarMaestrosCommand extends Command
                 isset($fila['habilitadaEl']) ? new DateTimeImmutable($fila['habilitadaEl']) : null,
                 $vigenteDesde,
             );
+
+            // La vimos en el archivo: eso vale aunque después se omita por
+            // vieja. Es la diferencia entre "no cambió" y "ya no está en SAP".
+            $vistas[] = $persona->idDePersona();
 
             $existente = $contactos->find($persona->idDePersona());
 
@@ -125,6 +131,8 @@ final class ImportarMaestrosCommand extends Command
 
             $contactos->save($persona);
         }
+
+        $contactos->marcarVistasEnImportacion($vistas, new DateTimeImmutable);
 
         $this->info(sprintf(
             'Importados %d grupos, %d socios y %d contactos. Omitidos por ser más viejos: %d.',
