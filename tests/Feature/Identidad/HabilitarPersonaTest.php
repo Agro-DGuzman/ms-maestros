@@ -8,6 +8,7 @@ use Identidad\Application\Contracts\DirectorioDeIdentidades;
 use Identidad\Application\Habilitacion\HabilitarPersona\HabilitarPersona;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Maestros\Domain\Contactos\IdDePersona;
+use Maestros\Infrastructure\Persistence\ContactoRecord;
 use Tests\Dobles\DirectorioFalso;
 
 uses(RefreshDatabase::class);
@@ -40,6 +41,29 @@ it('no guarda contrasena si el directorio falla', function () {
     expect($resultado->isFailure())->toBeTrue()
         ->and($resultado->error->code)->toBe('IDENTIDAD_NO_DISPONIBLE')
         ->and(app(BovedaDeContrasenas::class)->leer($persona))->toBeNull();
+});
+
+it('no habilita a quien no tiene un celular con el que pueda entrar', function () {
+    // La columna es NOT NULL y el objeto de valor valida al leer, asi que un
+    // celular inservible solo llega si alguien escribio la fila por fuera del
+    // dominio. Cuando pasa, el operador tiene que leer que hacer, no un stack.
+    ContactoRecord::query()->where('id_de_persona', 'p-8f2b1c40')->update(['celular' => '12345']);
+
+    $resultado = app(Mediator::class)->send(new HabilitarPersona(IdDePersona::desde('p-8f2b1c40')));
+
+    expect($resultado->isFailure())->toBeTrue()
+        ->and($resultado->error->code)->toBe('CELULAR_INVALIDO')
+        ->and($resultado->error->description)->toContain('SAP')
+        ->and($resultado->error->description)->toContain('importar');
+});
+
+it('no crea el usuario en el directorio si el celular no sirve', function () {
+    ContactoRecord::query()->where('id_de_persona', 'p-8f2b1c40')->update(['celular' => '12345']);
+
+    app(Mediator::class)->send(new HabilitarPersona(IdDePersona::desde('p-8f2b1c40')));
+
+    expect($this->directorio->usuarios)->toBe([])
+        ->and(app(BovedaDeContrasenas::class)->leer(IdDePersona::desde('p-8f2b1c40')))->toBeNull();
 });
 
 it('rechaza habilitar a alguien que no existe en la replica', function () {

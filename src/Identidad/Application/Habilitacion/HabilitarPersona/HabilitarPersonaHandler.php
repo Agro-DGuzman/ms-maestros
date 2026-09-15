@@ -6,6 +6,7 @@ namespace Identidad\Application\Habilitacion\HabilitarPersona;
 
 use Core\Contracts\Request;
 use Core\Contracts\RequestHandler;
+use Core\Results\DomainException;
 use Core\Results\Result;
 use Identidad\Application\Contracts\BovedaDeContrasenas;
 use Identidad\Application\Contracts\DirectorioDeIdentidades;
@@ -25,7 +26,15 @@ final readonly class HabilitarPersonaHandler implements RequestHandler
     {
         assert($peticion instanceof HabilitarPersona);
 
-        $persona = $this->contactos->find($peticion->persona);
+        // Cargar la persona reconstruye su celular, y el objeto de valor
+        // rechaza lo que no sirve. Sin atrapar eso, habilitar a alguien con un
+        // número inservible revienta con un stack en vez de decir qué hacer
+        // —y la regla tiene que ser la misma por pantalla que por consola.
+        try {
+            $persona = $this->contactos->find($peticion->persona);
+        } catch (DomainException) {
+            return Result::failure(ContactoErrors::celularNoUtilizable());
+        }
 
         if (! $persona instanceof PersonaDeContacto) {
             return Result::failure(
