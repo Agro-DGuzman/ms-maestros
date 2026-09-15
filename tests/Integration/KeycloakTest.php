@@ -2,11 +2,24 @@
 
 declare(strict_types=1);
 
+use Core\Results\ResultWithValue;
 use Identidad\Infrastructure\Keycloak\KeycloakAdmin;
 use Identidad\Infrastructure\Keycloak\KeycloakEmisorDeToken;
 use Illuminate\Http\Client\Factory as Http;
 use Maestros\Domain\Contactos\IdDePersona;
 use Psr\Log\NullLogger;
+
+/** La contraseña que el realm importado le pone a `p-8f2b1c40`. */
+const CONTRASENA_DEL_REALM = 'contrasena-de-desarrollo';
+
+/**
+ * El motivo por el que estos dos tests fallan casi siempre, dicho en el propio
+ * fallo: `identidad:habilitar` rota la contraseña del usuario, así que después
+ * de correrlo el realm ya no tiene la que el archivo importado traía.
+ */
+const PISTA_DEL_REALM = 'Keycloak rechazó la contraseña del realm importado. '
+    .'Si corriste identidad:habilitar o usaste el back-office, la rotó: recreá el '
+    .'contenedor de Keycloak para reimportar el realm y volvé a intentar.';
 
 function emisorReal(): KeycloakEmisorDeToken
 {
@@ -21,20 +34,33 @@ function emisorReal(): KeycloakEmisorDeToken
     );
 }
 
-it('Keycloak entrega un token con grant_type=password', function () {
-    $resultado = emisorReal()->emitirPara(IdDePersona::desde('p-8f2b1c40'), 'contrasena-de-desarrollo');
+/**
+ * Emite un token y se detiene con una explicación si no puede, en vez de
+ * devolver un `Result` fallido cuyo `value()` reventaría más adelante con un
+ * `LogicException` que apunta al core y no dice nada de la causa.
+ */
+function tokenDelRealm(KeycloakEmisorDeToken $emisor): ResultWithValue
+{
+    $resultado = $emisor->emitirPara(IdDePersona::desde('p-8f2b1c40'), CONTRASENA_DEL_REALM);
 
-    expect($resultado->isSuccess)->toBeTrue()
-        ->and($resultado->value()->accessToken)->toBeString()
-        ->and($resultado->value()->refreshToken)->toBeString()
-        ->and($resultado->value()->expiraEnSegundos)->toBeGreaterThan(0);
+    expect($resultado->isSuccess)->toBeTrue(PISTA_DEL_REALM);
+
+    return $resultado;
+}
+
+it('Keycloak entrega un token con grant_type=password', function () {
+    $emitido = tokenDelRealm(emisorReal())->value();
+
+    expect($emitido->accessToken)->toBeString()
+        ->and($emitido->refreshToken)->toBeString()
+        ->and($emitido->expiraEnSegundos)->toBeGreaterThan(0);
 });
 
 it('renueva y despues revoca', function () {
     $emisor = emisorReal();
-    $primero = $emisor->emitirPara(IdDePersona::desde('p-8f2b1c40'), 'contrasena-de-desarrollo');
+    $primero = tokenDelRealm($emisor)->value();
 
-    $renovado = $emisor->renovar($primero->value()->refreshToken);
+    $renovado = $emisor->renovar($primero->refreshToken);
     expect($renovado->isSuccess)->toBeTrue();
 
     expect($emisor->revocar($renovado->value()->refreshToken)->isSuccess)->toBeTrue();
