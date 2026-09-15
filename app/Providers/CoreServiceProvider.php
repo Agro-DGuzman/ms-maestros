@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Persistence\TransactorEloquent;
+use BackOffice\Application\Accesos\ConcederAcceso\ConcederAcceso;
+use BackOffice\Application\Accesos\ConcederAcceso\ConcederAccesoHandler;
+use BackOffice\Application\Accesos\RevocarAcceso\RevocarAcceso;
+use BackOffice\Application\Accesos\RevocarAcceso\RevocarAccesoHandler;
 use Core\Contracts\Mediator;
 use Core\Contracts\Transactor;
 use Core\Mediator\Behaviors\AlcanceBehavior;
@@ -37,7 +41,9 @@ final class CoreServiceProvider extends ServiceProvider
     /** @var array<class-string, class-string> */
     public const HANDLERS = [
         BuscarPorCelular::class => BuscarPorCelularHandler::class,
+        ConcederAcceso::class => ConcederAccesoHandler::class,
         ListarContactos::class => ListarContactosHandler::class,
+        RevocarAcceso::class => RevocarAccesoHandler::class,
         ListarHabilitadas::class => ListarHabilitadasHandler::class,
         ObtenerContexto::class => ObtenerContextoHandler::class,
         CerrarSesion::class => CerrarSesionHandler::class,
