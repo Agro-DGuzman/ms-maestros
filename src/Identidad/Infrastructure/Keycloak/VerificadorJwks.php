@@ -10,6 +10,7 @@ use Identidad\Application\Contracts\VerificadorDeToken;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Http\Client\Factory as Http;
 use Maestros\Domain\Contactos\IdDePersona;
+use stdClass;
 use Throwable;
 
 /**
@@ -25,6 +26,7 @@ final readonly class VerificadorJwks implements VerificadorDeToken
         private Cache $cache,
         private string $baseUrl,
         private string $realm,
+        private string $clientId,
         private int $minutosDeCache = 60,
     ) {}
 
@@ -37,6 +39,14 @@ final readonly class VerificadorJwks implements VerificadorDeToken
             return null;
         }
 
+        // `JWT::decode` comprueba la firma y las marcas de tiempo, no de dónde
+        // viene ni para quién es. Sin estas dos, cualquier token firmado por
+        // una clave que este realm publique entra: el de otro realm del mismo
+        // Keycloak, y el que el propio realm emitió para otra aplicación.
+        if (! $this->esDeNuestroEmisor($claims) || ! $this->esParaNosotros($claims)) {
+            return null;
+        }
+
         $usuario = $claims->preferred_username ?? null;
 
         if (! is_string($usuario) || trim($usuario) === '') {
@@ -44,6 +54,31 @@ final readonly class VerificadorJwks implements VerificadorDeToken
         }
 
         return IdDePersona::desde($usuario);
+    }
+
+    private function esDeNuestroEmisor(stdClass $claims): bool
+    {
+        $emisor = sprintf('%s/realms/%s', rtrim($this->baseUrl, '/'), $this->realm);
+
+        return ($claims->iss ?? null) === $emisor;
+    }
+
+    /**
+     * `aud` es la afirmación explícita de para quién es el token, así que si
+     * está, manda. Pero Keycloak no la agrega salvo que el realm tenga un
+     * audience mapper, y este realm no lo tiene: exigirla a secas rechazaría
+     * todos los tokens que emite hoy. Cuando falta, `azp` dice a qué cliente
+     * se le entregó, que es la misma pregunta.
+     */
+    private function esParaNosotros(stdClass $claims): bool
+    {
+        $audiencia = $claims->aud ?? null;
+
+        if ($audiencia !== null) {
+            return in_array($this->clientId, (array) $audiencia, true);
+        }
+
+        return ($claims->azp ?? null) === $this->clientId;
     }
 
     /** @return array<string, mixed> */

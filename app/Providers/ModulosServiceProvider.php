@@ -84,6 +84,7 @@ final class ModulosServiceProvider extends ServiceProvider
             $app->make(Cache::class),
             Config::string('keycloak.base_url'),
             Config::string('keycloak.realm'),
+            Config::string('keycloak.client_id'),
         ));
 
         $this->app->singleton(EmisorDeToken::class, fn ($app): EmisorDeToken => new KeycloakEmisorDeToken(

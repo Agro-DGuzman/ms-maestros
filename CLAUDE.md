@@ -94,6 +94,12 @@ la línea siguiente ya dice, sobra.
   parte de la decisión: el contador de intentos del desafío se persiste justo
   antes de devolver `CODIGO_INVALIDO`, y si el fallo deshiciera, el límite de
   cinco intentos no existiría.
+- **Un token vale solo si viene de nuestro realm y es para nuestro cliente.**
+  `JWT::decode` comprueba firma y expiración, no de dónde viene ni para quién
+  es, así que `VerificadorJwks` valida además `iss` y la audiencia. La
+  audiencia sale de `aud` cuando está, y de `azp` cuando no: Keycloak no emite
+  `aud` salvo que el realm tenga un audience mapper, y exigirla a secas
+  rechazaría todos los tokens que este realm emite hoy.
 - **No borrar `DomainEvent` ni `Entity::addDomainEvent()`**: son el core
   portado desde Java, están probados, y la fase 2 los usa.
 
@@ -215,9 +221,6 @@ después. Un fallo de `KeycloakTest` casi siempre es esto y no una regresión.
 
 ## Pendientes conocidos
 
-- `VerificadorJwks` no valida `aud` ni `iss`: `JWT::decode` comprueba firma y
-  expiración, no audiencia. Con un solo cliente en el realm no se explota, pero
-  el día que aparezca un segundo la falla es silenciosa.
 - Keycloak arranca con `start-dev` en `compose.yaml`, con base embebida que se
   pierde al recrear el contenedor.
 - Sin responder: si una persona de contacto puede estar registrada en socios de
