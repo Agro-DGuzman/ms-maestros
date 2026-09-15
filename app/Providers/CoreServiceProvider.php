@@ -9,6 +9,8 @@ use BackOffice\Application\Accesos\ConcederAcceso\ConcederAcceso;
 use BackOffice\Application\Accesos\ConcederAcceso\ConcederAccesoHandler;
 use BackOffice\Application\Accesos\RevocarAcceso\RevocarAcceso;
 use BackOffice\Application\Accesos\RevocarAcceso\RevocarAccesoHandler;
+use BackOffice\Application\Bitacora\HistorialDePersona\HistorialDePersona;
+use BackOffice\Application\Bitacora\HistorialDePersona\HistorialDePersonaHandler;
 use Core\Contracts\Mediator;
 use Core\Contracts\Transactor;
 use Core\Mediator\Behaviors\AlcanceBehavior;
@@ -42,6 +44,7 @@ final class CoreServiceProvider extends ServiceProvider
     public const HANDLERS = [
         BuscarPorCelular::class => BuscarPorCelularHandler::class,
         ConcederAcceso::class => ConcederAccesoHandler::class,
+        HistorialDePersona::class => HistorialDePersonaHandler::class,
         ListarContactos::class => ListarContactosHandler::class,
         RevocarAcceso::class => RevocarAccesoHandler::class,
         ListarHabilitadas::class => ListarHabilitadasHandler::class,
