@@ -29,6 +29,7 @@
             "Core\\": "src/Core/",
             "Maestros\\": "src/Maestros/",
             "Identidad\\": "src/Identidad/",
+            "BackOffice\\": "src/BackOffice/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
         }
