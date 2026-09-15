@@ -7,6 +7,7 @@ namespace Identidad\Application\Habilitacion\DeshabilitarPersona;
 use Core\Contracts\Request;
 use Core\Contracts\RequestHandler;
 use Core\Results\Result;
+use Identidad\Application\Contracts\BovedaDeContrasenas;
 use Identidad\Application\Contracts\DirectorioDeIdentidades;
 use Identidad\Application\Contracts\RelojDelSistema;
 use Identidad\Domain\Sesiones\SesionRepository;
@@ -26,6 +27,7 @@ final readonly class DeshabilitarPersonaHandler implements RequestHandler
         private DirectorioDeIdentidades $directorio,
         private SesionRepository $sesiones,
         private RelojDelSistema $reloj,
+        private BovedaDeContrasenas $boveda,
     ) {}
 
     public function handle(Request $peticion): Result
@@ -44,6 +46,10 @@ final readonly class DeshabilitarPersonaHandler implements RequestHandler
             $sesion->cerrar($ahora);
             $this->sesiones->save($sesion);
         }
+
+        // Recién con el bloqueo confirmado: nuestra copia cifrada ya no abre
+        // nada, y mientras exista, «tiene credencial» sigue diciendo que sí.
+        $this->boveda->olvidar($peticion->persona);
 
         return Result::success();
     }

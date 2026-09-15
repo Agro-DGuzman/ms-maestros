@@ -26,6 +26,11 @@ final readonly class BovedaCifrada implements BovedaDeContrasenas
         );
     }
 
+    public function olvidar(IdDePersona $persona): void
+    {
+        CredencialRecord::query()->whereKey($persona->value())->delete();
+    }
+
     public function leer(IdDePersona $persona): ?string
     {
         $record = CredencialRecord::query()->find($persona->value());

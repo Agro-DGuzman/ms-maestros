@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace BackOffice\Presentation\Http;
 
 use BackOffice\Application\Accesos\ConcederAcceso\ConcederAcceso;
+use BackOffice\Application\Accesos\ListarContactos\ListarContactos;
+use BackOffice\Application\Accesos\ListarContactos\PaginaDeAccesos;
 use BackOffice\Application\Accesos\RevocarAcceso\RevocarAcceso;
 use BackOffice\Application\Bitacora\HistorialDePersona\HistorialDePersona;
 use BackOffice\Domain\Operadores\Operador;
@@ -17,8 +19,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Maestros\Application\Contactos\CriterioDeBusqueda;
 use Maestros\Application\Contactos\FiltroDeEstado;
-use Maestros\Application\Contactos\ListarContactos\ListarContactos;
-use Maestros\Application\Contactos\PaginaDeContactos;
 use RuntimeException;
 
 final readonly class AccesosController
@@ -44,7 +44,7 @@ final readonly class AccesosController
         assert($resultado instanceof ResultWithValue);
 
         $pagina = $resultado->value();
-        assert($pagina instanceof PaginaDeContactos);
+        assert($pagina instanceof PaginaDeAccesos);
 
         return view('backoffice::contactos', [
             'pagina' => $pagina,

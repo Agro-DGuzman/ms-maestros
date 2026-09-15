@@ -93,6 +93,43 @@ it('filtra por estado', function () {
         ->assertDontSee('Ana Roca');
 });
 
+it('el boton responde a la credencial y no a lo que dice SAP', function () {
+    // Monica esta habilitada en SAP pero nunca le dimos acceso: el boton
+    // ofrece darselo, y la pantalla avisa que falta.
+    $this->get('/admin/contactos')
+        ->assertSee('Dar acceso')
+        ->assertSee('Falta darle acceso');
+
+    $this->post('/admin/contactos/p-001/habilitar')->assertRedirect(route('admin.contactos'));
+
+    // Ahora si tiene credencial: el boton se da vuelta.
+    $this->get('/admin/contactos')
+        ->assertSee('Quitar acceso')
+        ->assertDontSee('Falta darle acceso');
+
+    $this->post('/admin/contactos/p-001/deshabilitar')->assertRedirect(route('admin.contactos'));
+
+    $this->get('/admin/contactos')->assertSee('Dar acceso');
+});
+
+it('avisa cuando alguien conserva acceso sin respaldo en SAP', function () {
+    $persona = IdDePersona::desde('p-005');
+
+    app(ContactoRepository::class)->save(PersonaDeContacto::replica(
+        $persona,
+        CodigoDeSocio::desde('C-004871'),
+        'Sin Respaldo',
+        Celular::desdeLocalBoliviano('76000001'),
+        null,
+        new DateTimeImmutable('2026-09-15T12:00:00Z'),
+    ));
+
+    $this->post('/admin/contactos/p-005/habilitar');
+
+    $this->get('/admin/contactos?q=Respaldo')
+        ->assertSee('Conserva acceso sin respaldo en SAP');
+});
+
 it('no ofrece habilitar a quien no tiene celular valido', function () {
     $this->get('/admin/contactos')->assertSee('Sin celular válido en SAP', false);
 });

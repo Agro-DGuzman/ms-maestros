@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Core\Contracts\Mediator;
+use Identidad\Application\Contracts\BovedaDeContrasenas;
 use Identidad\Application\Contracts\DirectorioDeIdentidades;
 use Identidad\Application\Habilitacion\DeshabilitarPersona\DeshabilitarPersona;
 use Identidad\Domain\Sesiones\IdDeSesion;
@@ -37,6 +38,28 @@ it('saca el usuario del directorio y cierra sus sesiones abiertas', function () 
     expect($resultado->isSuccess)->toBeTrue()
         ->and($this->directorio->estaActivo($persona))->toBeFalse()
         ->and(app(SesionRepository::class)->abiertasDe($persona))->toBe([]);
+});
+
+it('olvida la credencial guardada', function () {
+    $persona = IdDePersona::desde('p-8f2b1c40');
+    app(BovedaDeContrasenas::class)->guardar($persona, 'una-contrasena');
+
+    app(Mediator::class)->send(new DeshabilitarPersona($persona));
+
+    // Bloqueado en el directorio, nuestra copia cifrada no sirve para nada y
+    // ademas miente: sin borrarla, "tiene credencial" sigue diciendo que si.
+    expect(app(BovedaDeContrasenas::class)->leer($persona))->toBeNull()
+        ->and(app(BovedaDeContrasenas::class)->personas())->toBe([]);
+});
+
+it('no olvida la credencial si el directorio fallo', function () {
+    $persona = IdDePersona::desde('p-8f2b1c40');
+    app(BovedaDeContrasenas::class)->guardar($persona, 'una-contrasena');
+    $this->directorio->caido = true;
+
+    app(Mediator::class)->send(new DeshabilitarPersona($persona));
+
+    expect(app(BovedaDeContrasenas::class)->leer($persona))->not->toBeNull();
 });
 
 it('es idempotente: deshabilitar dos veces no falla', function () {

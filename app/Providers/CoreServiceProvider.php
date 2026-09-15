@@ -7,6 +7,8 @@ namespace App\Providers;
 use App\Persistence\TransactorEloquent;
 use BackOffice\Application\Accesos\ConcederAcceso\ConcederAcceso;
 use BackOffice\Application\Accesos\ConcederAcceso\ConcederAccesoHandler;
+use BackOffice\Application\Accesos\ListarContactos\ListarContactos as ListarAccesos;
+use BackOffice\Application\Accesos\ListarContactos\ListarContactosHandler as ListarAccesosHandler;
 use BackOffice\Application\Accesos\RevocarAcceso\RevocarAcceso;
 use BackOffice\Application\Accesos\RevocarAcceso\RevocarAccesoHandler;
 use BackOffice\Application\Bitacora\HistorialDePersona\HistorialDePersona;
@@ -45,6 +47,7 @@ final class CoreServiceProvider extends ServiceProvider
         BuscarPorCelular::class => BuscarPorCelularHandler::class,
         ConcederAcceso::class => ConcederAccesoHandler::class,
         HistorialDePersona::class => HistorialDePersonaHandler::class,
+        ListarAccesos::class => ListarAccesosHandler::class,
         ListarContactos::class => ListarContactosHandler::class,
         RevocarAcceso::class => RevocarAccesoHandler::class,
         ListarHabilitadas::class => ListarHabilitadasHandler::class,
