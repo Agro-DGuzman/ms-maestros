@@ -21,7 +21,15 @@ arch('Maestros no conoce Identidad')
     ->expect('Maestros')
     ->not->toUse('Identidad');
 
+// La dependencia va en un solo sentido: BackOffice -> Identidad -> Maestros.
+// Nadie mira hacia el back-office: Identidad sigue sin saber que hay pantallas.
 foreach (['Core', 'Maestros', 'Identidad'] as $modulo) {
+    arch("{$modulo} no conoce BackOffice")
+        ->expect($modulo)
+        ->not->toUse('BackOffice');
+}
+
+foreach (['Core', 'Maestros', 'Identidad', 'BackOffice'] as $modulo) {
     arch("{$modulo} declara tipos estrictos")
         ->expect($modulo)
         ->toUseStrictTypes();
@@ -50,8 +58,10 @@ foreach ($ajenoAIdentidad as $prohibido) {
 $prohibidosPorCapa = [
     'Maestros\Domain' => ['Illuminate', 'Eloquent'],
     'Identidad\Domain' => ['Illuminate', 'Eloquent'],
+    'BackOffice\Domain' => ['Illuminate', 'Eloquent'],
     'Maestros\Application' => ['Illuminate', 'Eloquent', 'Maestros\Infrastructure', 'Identidad\Infrastructure'],
     'Identidad\Application' => ['Illuminate', 'Eloquent', 'Maestros\Infrastructure', 'Identidad\Infrastructure'],
+    'BackOffice\Application' => ['Eloquent', 'BackOffice\Infrastructure', 'Maestros\Infrastructure', 'Identidad\Infrastructure'],
 ];
 
 foreach ($prohibidosPorCapa as $capa => $prohibidos) {
