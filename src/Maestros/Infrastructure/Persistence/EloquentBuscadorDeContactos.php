@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maestros\Infrastructure\Persistence;
 
+use App\Persistence\ComparacionSinAcentos;
 use Core\Results\DomainException;
 use DateTimeImmutable;
 use Illuminate\Database\Query\Builder;
@@ -18,6 +19,8 @@ use Maestros\Domain\Socios\RazonSocial;
 
 final class EloquentBuscadorDeContactos implements BuscadorDeContactos
 {
+    use ComparacionSinAcentos;
+
     public function buscar(CriterioDeBusqueda $criterio): PaginaDeContactos
     {
         $total = $this->consulta($criterio)->count();
@@ -62,11 +65,22 @@ final class EloquentBuscadorDeContactos implements BuscadorDeContactos
         };
 
         if ($criterio->texto !== null) {
-            $patron = '%'.$this->escaparLike($criterio->texto).'%';
+            // El patrón va en minúsculas desde PHP: en SQLite la comparación es
+            // `lower(columna)` y necesita el otro lado igual. En SQL Server la
+            // colación ya ignora la caja y esto no le cambia nada.
+            $patron = '%'.$this->escaparLike(mb_strtolower($criterio->texto)).'%';
+            $nombre = $this->comoTextoInsensible('c.nombre');
+            $razonSocial = $this->comoTextoInsensible('s.razon_social');
 
-            $consulta->where(function (Builder $q) use ($patron): void {
-                $q->whereRaw('lower(c.nombre) like lower(?)', [$patron])
-                    ->orWhereRaw('lower(s.razon_social) like lower(?)', [$patron])
+            // La expresión va del lado de la columna y el patrón sigue siendo un
+            // parámetro ligado. Con `whereRaw()` habría que armar la cadena
+            // completa, y ahí PHPStan exige `literal-string` justamente para
+            // que nadie construya SQL con lo que tecleó el operador.
+            $consulta->where(function (Builder $q) use ($patron, $nombre, $razonSocial): void {
+                // El celular no pasa por la colación: son dígitos, no tiene
+                // acentos ni caja que resolver.
+                $q->where(DB::raw($nombre), 'like', $patron)
+                    ->orWhere(DB::raw($razonSocial), 'like', $patron)
                     ->orWhere('c.celular', 'like', $patron);
             });
         }

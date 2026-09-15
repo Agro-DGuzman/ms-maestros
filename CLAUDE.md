@@ -109,6 +109,13 @@ la línea siguiente ya dice, sobra.
   la réplica y no tiene acceso, y quién conserva credencial sin seguir
   habilitado. La segunda es la que detecta una revocación a medias, porque
   nada propaga solo que SAP deje de marcar a alguien.
+- **La búsqueda del back-office ignora mayúsculas y acentos.** La colación por
+  defecto de Azure SQL (`SQL_Latin1_General_CP1_CI_AS`) distingue acentos, así
+  que sin pedir `Latin1_General_CI_AI` en la comparación un operador que teclea
+  «Chavez» no encuentra a «Chávez». Lo resuelve el trait
+  `App\Persistence\ComparacionSinAcentos`. **En SQLite no hay equivalente**, así
+  que la batería solo puede afirmar qué SQL se genera; el comportamiento se
+  comprueba contra SQL Server.
 - **No borrar `DomainEvent` ni `Entity::addDomainEvent()`**: son el core
   portado desde Java, están probados, y la fase 2 los usa.
 
