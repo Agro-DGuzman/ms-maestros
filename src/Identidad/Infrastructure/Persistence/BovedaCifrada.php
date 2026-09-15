@@ -32,4 +32,16 @@ final readonly class BovedaCifrada implements BovedaDeContrasenas
 
         return $record === null ? null : $this->cifrador->decryptString((string) $record->contrasena_cifrada);
     }
+
+    /** @return list<IdDePersona> */
+    public function personas(): array
+    {
+        return array_values(
+            CredencialRecord::query()
+                ->orderBy('id_de_persona')
+                ->get()
+                ->map(fn (CredencialRecord $r): IdDePersona => IdDePersona::desde((string) $r->id_de_persona))
+                ->all(),
+        );
+    }
 }

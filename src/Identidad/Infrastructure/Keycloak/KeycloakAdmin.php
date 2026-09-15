@@ -92,31 +92,46 @@ final readonly class KeycloakAdmin implements DirectorioDeIdentidades
         }
     }
 
-    public function existe(IdDePersona $persona): bool
+    public function estaActivo(IdDePersona $persona): bool
     {
         $token = $this->tokenDeServicio();
 
-        return $token !== null && $this->buscar($token, $persona) !== null;
+        if ($token === null) {
+            return false;
+        }
+
+        // El `enabled` es el que decide: deshabilitar deja al usuario en su
+        // lugar, así que encontrarlo no dice nada sobre si puede entrar.
+        return ($this->fila($token, $persona)['enabled'] ?? false) === true;
     }
 
     private function buscar(string $token, IdDePersona $persona): ?string
+    {
+        $id = $this->fila($token, $persona)['id'] ?? null;
+
+        return is_string($id) ? $id : null;
+    }
+
+    /** @return array<string, mixed> */
+    private function fila(string $token, IdDePersona $persona): array
     {
         $respuesta = $this->http->withToken($token)->timeout($this->timeout)
             ->get($this->admin('users'), ['username' => $persona->value(), 'exact' => 'true']);
 
         if (! $respuesta->successful()) {
-            return null;
+            return [];
         }
 
         $usuarios = $respuesta->json();
 
         if (! is_array($usuarios) || ! isset($usuarios[0]) || ! is_array($usuarios[0])) {
-            return null;
+            return [];
         }
 
-        $id = $usuarios[0]['id'] ?? null;
+        /** @var array<string, mixed> $fila */
+        $fila = $usuarios[0];
 
-        return is_string($id) ? $id : null;
+        return $fila;
     }
 
     private function tokenDeServicio(): ?string

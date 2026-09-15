@@ -100,6 +100,15 @@ la línea siguiente ya dice, sobra.
   audiencia sale de `aud` cuando está, y de `azp` cuando no: Keycloak no emite
   `aud` salvo que el realm tenga un audience mapper, y exigirla a secas
   rechazaría todos los tokens que este realm emite hoy.
+- **Deshabilitar no borra: pone `enabled = false`.** Por eso el puerto pregunta
+  `estaActivo()` y no «existe»: buscar al usuario por username lo encuentra
+  igual después de darlo de baja. Los dobles de prueba tienen que modelar eso
+  — uno que hiciera `unset()` afirma que el usuario desapareció y tapa el
+  agujero.
+- **`identidad:conciliar` mira las dos direcciones**: quién está habilitado en
+  la réplica y no tiene acceso, y quién conserva credencial sin seguir
+  habilitado. La segunda es la que detecta una revocación a medias, porque
+  nada propaga solo que SAP deje de marcar a alguien.
 - **No borrar `DomainEvent` ni `Entity::addDomainEvent()`**: son el core
   portado desde Java, están probados, y la fase 2 los usa.
 
@@ -209,8 +218,9 @@ curl -s http://localhost:8081/realms/agropartners/protocol/openid-connect/certs
 `composer test:integration` espera que `p-8f2b1c40` tenga en Keycloak la
 contraseña `contrasena-de-desarrollo` que trae el realm importado. Pero
 `identidad:habilitar` **sobreescribe** esa contraseña con una aleatoria, y
-`identidad:deshabilitar` borra el usuario. Después de correr cualquiera de los
-dos, la batería de integración falla hasta reimportar el realm:
+`identidad:deshabilitar` le pone `enabled = false`. Después de correr
+cualquiera de los dos, la batería de integración falla hasta reimportar el
+realm:
 
 ```sh
 docker compose down keycloak && docker compose up -d keycloak

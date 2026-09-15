@@ -35,7 +35,7 @@ it('saca el usuario del directorio y cierra sus sesiones abiertas', function () 
     $resultado = app(Mediator::class)->send(new DeshabilitarPersona($persona));
 
     expect($resultado->isSuccess)->toBeTrue()
-        ->and($this->directorio->existe($persona))->toBeFalse()
+        ->and($this->directorio->estaActivo($persona))->toBeFalse()
         ->and(app(SesionRepository::class)->abiertasDe($persona))->toBe([]);
 });
 

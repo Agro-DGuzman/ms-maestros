@@ -22,7 +22,7 @@ it('crea el usuario en el directorio y guarda la contrasena cifrada', function (
     $persona = IdDePersona::desde('p-8f2b1c40');
 
     expect(app(Mediator::class)->send(new HabilitarPersona($persona))->isSuccess)->toBeTrue()
-        ->and($this->directorio->existe($persona))->toBeTrue();
+        ->and($this->directorio->estaActivo($persona))->toBeTrue();
 
     $guardada = app(BovedaDeContrasenas::class)->leer($persona);
 

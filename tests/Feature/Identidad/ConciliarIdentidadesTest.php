@@ -40,3 +40,39 @@ it('reporta a quien tiene usuario pero no contrasena guardada', function () {
         ->expectsOutputToContain('Sin contraseña guardada')
         ->assertExitCode(1);
 });
+
+it('reporta a quien quedo deshabilitado en el directorio', function () {
+    // Keycloak no borra al usuario: le pone enabled=false. Preguntar si existe
+    // lo encuentra igual, y por eso esto pasaba desapercibido.
+    $persona = IdDePersona::desde('p-8f2b1c40');
+    $this->directorio->crearOActualizar($persona, 'una-contrasena');
+    app(BovedaDeContrasenas::class)->guardar($persona, 'una-contrasena');
+    $this->directorio->deshabilitar($persona);
+
+    $this->artisan('identidad:conciliar')
+        ->expectsOutputToContain('p-8f2b1c40')
+        ->assertExitCode(1);
+});
+
+it('reporta a quien conserva credencial sin estar habilitado en la replica', function () {
+    // La direccion que el plan prometia y nadie implemento: si SAP deja de
+    // marcar habilitada a una persona, su credencial y su usuario siguen ahi,
+    // y hasta ahora nada lo decia.
+    $persona = IdDePersona::desde('p-fantasma');
+    $this->directorio->crearOActualizar($persona, 'una-contrasena');
+    app(BovedaDeContrasenas::class)->guardar($persona, 'una-contrasena');
+
+    $this->artisan('identidad:conciliar')
+        ->expectsOutputToContain('p-fantasma')
+        ->assertExitCode(1);
+});
+
+it('no confunde con discrepancia a quien nunca tuvo credencial', function () {
+    $persona = IdDePersona::desde('p-8f2b1c40');
+    $this->directorio->crearOActualizar($persona, 'una-contrasena');
+    app(BovedaDeContrasenas::class)->guardar($persona, 'una-contrasena');
+
+    $this->artisan('identidad:conciliar')
+        ->expectsOutputToContain('Sin discrepancias')
+        ->assertExitCode(0);
+});
