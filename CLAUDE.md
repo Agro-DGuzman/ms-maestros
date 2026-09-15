@@ -147,6 +147,34 @@ La verificación de que `POST /auth/otp` no filtra por tiempo **no la hace
 ningún test**: hay que pedir el desafío para un número registrado y para uno
 desconocido y comparar los tiempos, que tienen que ser indistinguibles.
 
+### El stack completo, contra SQL Server
+
+`docker compose up -d` levanta SQL Server, Keycloak, el `app` en `:8000` y el
+`worker`. El orden lo resuelve solo: `sqlserver-init` crea la base que
+`DB_DATABASE` nombra y recién entonces arrancan los otros dos.
+
+```sh
+docker compose up -d
+docker compose exec app php artisan migrate --force
+docker compose exec app php artisan maestros:importar database/semillas/maestros-ejemplo.json
+docker compose exec app php artisan identidad:habilitar p-8f2b1c40
+```
+
+El código del desafío sale del log del worker, no del app:
+
+```sh
+docker compose logs -f worker
+```
+
+**Después de tocar código hay que reconstruir.** `docker compose up -d` reusa
+la imagen que ya existe: sin `--build` el contenedor sigue corriendo el código
+viejo y las pruebas manuales dan resultados que no corresponden a lo que hay
+en el árbol.
+
+```sh
+docker compose up -d --build app worker
+```
+
 ### Si `mi-cuenta` responde 401 con un token que parece válido
 
 Dos causas, en orden de frecuencia:
