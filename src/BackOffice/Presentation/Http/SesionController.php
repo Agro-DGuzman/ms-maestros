@@ -24,6 +24,10 @@ final readonly class SesionController
 
         $desafio = rtrim(strtr(base64_encode(hash('sha256', $verificador, true)), '+/', '-_'), '=');
 
+        // Esta acción es un rebote, no una pantalla: el mensaje que dejó el
+        // callback tiene que llegar a donde sí se muestra, un request más allá.
+        $pedido->session()->reflash();
+
         return redirect()->away($this->autenticador->urlDeIngreso($estado, $desafio));
     }
 

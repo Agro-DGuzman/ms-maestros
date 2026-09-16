@@ -9,7 +9,13 @@ return [
         array_map('trim', explode(',', (string) env('BACKOFFICE_RANGOS_IP', ''))),
     )),
 
-    'autenticador' => env('BACKOFFICE_AUTENTICADOR', 'desarrollo'), // desarrollo | entra
+    'autenticador' => env('BACKOFFICE_AUTENTICADOR', 'desarrollo'), // desarrollo | contrasena | entra
+
+    'contrasena' => [
+        // `correo|hash|Nombre` separados por `;`. El hash es bcrypt; se genera
+        // con `php artisan backoffice:hash`. Ver OperadorConContrasena.
+        'operadores' => env('BACKOFFICE_OPERADORES', ''),
+    ],
 
     'desarrollo' => [
         'oid' => env('BACKOFFICE_DEV_OID', 'dev-0001'),

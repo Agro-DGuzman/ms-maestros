@@ -3,16 +3,23 @@
 declare(strict_types=1);
 
 use BackOffice\Presentation\Http\AccesosController;
+use BackOffice\Presentation\Http\IngresoConContrasenaController;
 use BackOffice\Presentation\Http\SesionController;
 use Illuminate\Support\Facades\Route;
 
 /*
- * Siete rutas, ninguna bajo /v1/. `backoffice.ip` envuelve tambien a entrar y
- * callback: la restriccion por IP es anterior al login, no posterior.
+ * Nueve rutas, ninguna bajo /v1/. `backoffice.ip` envuelve tambien a entrar,
+ * al formulario y al callback: la restriccion por IP es anterior al login, no
+ * posterior.
  */
 Route::prefix('admin')->name('admin.')->middleware(['web', 'backoffice.ip'])->group(function (): void {
     Route::get('/entrar', [SesionController::class, 'entrar'])->name('entrar');
     Route::get('/callback', [SesionController::class, 'callback'])->name('callback');
+
+    // Solo responden con el autenticador de contraseña puesto; con cualquier
+    // otro dan 404. Se van junto con el piloto.
+    Route::get('/formulario', [IngresoConContrasenaController::class, 'formulario'])->name('formulario');
+    Route::post('/verificar', [IngresoConContrasenaController::class, 'verificar'])->name('verificar');
 
     Route::middleware('backoffice.sesion')->group(function (): void {
         Route::post('/salir', [SesionController::class, 'salir'])->name('salir');

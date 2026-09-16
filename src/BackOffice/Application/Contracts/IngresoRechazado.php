@@ -7,9 +7,9 @@ namespace BackOffice\Application\Contracts;
 use RuntimeException;
 
 /**
- * El código distingue las tres causas porque la pantalla responde distinto a
- * cada una: reintentar, pedirle el rol a TI, o esperar. El mensaje ya viene
- * redactado para mostrarse tal cual.
+ * El código distingue las causas porque la pantalla responde distinto a cada
+ * una: corregir lo tecleado, reintentar, pedirle el rol a TI, o esperar. El
+ * mensaje ya viene redactado para mostrarse tal cual.
  */
 final class IngresoRechazado extends RuntimeException
 {
@@ -23,6 +23,25 @@ final class IngresoRechazado extends RuntimeException
         return new self(
             'CODIGO_INVALIDO',
             'El ingreso no se pudo completar. Volvé a intentar desde la pantalla de entrada.',
+        );
+    }
+
+    public static function credencialesInvalidas(): self
+    {
+        // Un solo mensaje para «ese correo no es de nadie» y «la contraseña no
+        // es esa»: distinguirlos le confirma a quien prueba cuáles correos son
+        // de operadores de verdad.
+        return new self(
+            'CREDENCIALES_INVALIDAS',
+            'Correo o contraseña incorrectos.',
+        );
+    }
+
+    public static function demasiadosIntentos(): self
+    {
+        return new self(
+            'DEMASIADOS_INTENTOS',
+            'Demasiados intentos fallidos. Esperá unos minutos y volvé a probar.',
         );
     }
 

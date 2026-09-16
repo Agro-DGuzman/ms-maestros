@@ -6,10 +6,14 @@ namespace BackOffice;
 
 use BackOffice\Application\Contracts\AutenticadorDeOperador;
 use BackOffice\Domain\Bitacora\BitacoraRepository;
+use BackOffice\Infrastructure\Contrasena\AutenticadorDeContrasena;
+use BackOffice\Infrastructure\Contrasena\HashDeContrasenaCommand;
+use BackOffice\Infrastructure\Contrasena\OperadorConContrasena;
 use BackOffice\Infrastructure\Entra\AutenticadorDeDesarrollo;
 use BackOffice\Infrastructure\Persistence\EloquentBitacoraRepository;
 use BackOffice\Presentation\Http\Middleware\ExigirSesionDeOperador;
 use BackOffice\Presentation\Http\Middleware\RestringirPorIp;
+use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
@@ -34,6 +38,18 @@ final class BackOfficeServiceProvider extends ServiceProvider
             // que fallar al arrancar y no dejar entrar a cualquiera.
             if ($elegido === 'entra') {
                 throw new RuntimeException('BACKOFFICE_AUTENTICADOR_ENTRA_NO_IMPLEMENTADO');
+            }
+
+            // Lo que corre en el piloto: los dos operadores del equipo entran
+            // con contraseña propia, así la bitácora dice quién fue cada uno.
+            if ($elegido === 'contrasena') {
+                return new AutenticadorDeContrasena(
+                    operadores: OperadorConContrasena::listaDesde(
+                        Config::string('backoffice.contrasena.operadores'),
+                    ),
+                    cache: $this->app->make(Cache::class),
+                    urlDelFormulario: route('admin.formulario'),
+                );
             }
 
             return new AutenticadorDeDesarrollo(
@@ -62,5 +78,9 @@ final class BackOfficeServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom([database_path('migrations/backoffice')]);
         $this->loadRoutesFrom(__DIR__.'/Presentation/Http/routes.php');
         $this->loadViewsFrom(__DIR__.'/Presentation/Views', 'backoffice');
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([HashDeContrasenaCommand::class]);
+        }
     }
 }
