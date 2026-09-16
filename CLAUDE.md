@@ -100,6 +100,17 @@ la línea siguiente ya dice, sobra.
   audiencia sale de `aud` cuando está, y de `azp` cuando no: Keycloak no emite
   `aud` salvo que el realm tenga un audience mapper, y exigirla a secas
   rechazaría todos los tokens que este realm emite hoy.
+- **«Quién emite» y «dónde está» son dos valores distintos.** `KEYCLOAK_ISSUER`
+  es la identidad que viaja como `iss` dentro de cada token; `KEYCLOAK_BASE_URL`
+  es la dirección de red por la que se llama a Keycloak. En local coinciden y el
+  issuer cae por defecto en la base. En Azure no: el `iss` es
+  `https://identidad.agropartners.com.bo` —un nombre propio que no resuelve a
+  ningún lado y por eso no necesita DNS ni certificado— y las llamadas van al
+  FQDN interno del entorno. **Cambiar el issuer invalida todo token emitido**,
+  así que se elige una vez; la dirección, en cambio, puede cambiar sin
+  consecuencias. Del lado de Keycloak esto exige
+  `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true`, que a su vez **exige que `KC_HOSTNAME`
+  sea una URL con esquema**, no un hostname pelado.
 - **Deshabilitar no borra: pone `enabled = false`.** Por eso el puerto pregunta
   `estaActivo()` y no «existe»: buscar al usuario por username lo encuentra
   igual después de darlo de baja. Los dobles de prueba tienen que modelar eso
@@ -315,10 +326,37 @@ docker compose down keycloak && docker compose up -d keycloak
 O sea: integración contra un realm recién levantado, y el recorrido manual
 después. Un fallo de `KeycloakTest` casi siempre es esto y no una regresión.
 
+### La imagen de Keycloak para la nube
+
+`docker/keycloak/Dockerfile` construye la imagen de Container Apps. `kc.sh build`
+graba adentro el proveedor de SQL Server y la salud; el arranque usa
+`--optimized` y no recompila. **No importa el realm de desarrollo a propósito**:
+`agropartners-realm.json` trae el secreto del cliente y la contraseña del
+usuario de ejemplo.
+
+Se puede probar entera contra SQL Server local antes de tocar Azure:
+
+```sh
+docker build -f docker/keycloak/Dockerfile -t keycloak-agro docker/keycloak
+docker compose up -d sqlserver
+docker exec ms-maestros-sqlserver-1 /opt/mssql-tools18/bin/sqlcmd \
+  -S localhost -U sa -P "Agro.Local.2026" -C \
+  -Q "IF DB_ID('keycloak') IS NULL CREATE DATABASE keycloak;"
+```
+
+Y después el contenedor en la red de compose, con la configuración de la nube.
+La comprobación que importa es que el descubrimiento devuelva el `iss` fijo y
+las demás URLs apuntando a por donde entró el pedido:
+
+```sh
+curl -s localhost:8082/realms/master/.well-known/openid-configuration
+```
+
 ## Pendientes conocidos
 
 - Keycloak arranca con `start-dev` en `compose.yaml`, con base embebida que se
-  pierde al recrear el contenedor.
+  pierde al recrear el contenedor. La imagen de `docker/keycloak/Dockerfile` es
+  la que lo reemplaza en la nube; el `compose.yaml` local todavía no la usa.
 - Sin responder: si una persona de contacto puede estar registrada en socios de
   dos grupos distintos. Si el caso existe, hoy no falla con un error claro: le
   muestra al usuario la mitad de sus socios.
