@@ -116,6 +116,30 @@ la línea siguiente ya dice, sobra.
   `App\Persistence\ComparacionSinAcentos`. **En SQLite no hay equivalente**, así
   que la batería solo puede afirmar qué SQL se genera; el comportamiento se
   comprueba contra SQL Server.
+- **Quién entra al back-office lo decide `AutenticadorDeOperador`, y hay tres
+  implementaciones.** `AutenticadorDeDesarrollo` **no pide contraseña**: le
+  devuelve a cualquiera el operador del `.env`, y siempre el mismo, así que
+  todos los asientos de bitácora quedan firmados por la misma persona. Sirve
+  para trabajar en local y nada más — por eso muere en el constructor con
+  `APP_ENV=production`. Lo que corre en el piloto es
+  `AutenticadorDeContrasena`, con una contraseña por persona, para que la
+  bitácora pueda decir quién hizo cada cosa. `AutenticadorEntra` es el destino
+  y todavía no existe.
+- **El ingreso con contraseña pasa por el mismo recorrido que tendrá Entra.**
+  El formulario no abre la sesión: verifica la contraseña, emite un código de un
+  solo uso y redirige a `/admin/callback`, que es donde ya estaban el control de
+  `state` y la regeneración de sesión. Así la contraseña no viaja en ninguna URL
+  y el día que entre Entra se borran el controlador, sus dos rutas y su vista
+  sin tocar nada más. El código vive 60 segundos, se guarda hasheado en el caché
+  (es una credencial: en claro, cualquiera que liste llaves entra) y se gasta al
+  canjearse.
+- **Correo desconocido y contraseña equivocada responden lo mismo**, igual que
+  el desafío de ingreso, y también tardan lo mismo: cuando el correo no es de
+  nadie se compara contra un hash de descarte, porque rechazar sin hashear es
+  notablemente más rápido y eso delata qué correos son de operadores.
+- **El freno de intentos cuenta por correo y por IP, no solo por IP.** Los dos
+  operadores salen por la misma oficina; contar solo la IP dejaría que uno
+  bloquee al otro equivocándose cinco veces.
 - **No borrar `DomainEvent` ni `Entity::addDomainEvent()`**: son el core
   portado desde Java, están probados, y la fase 2 los usa.
 
@@ -168,6 +192,34 @@ contacto de la semilla, con celular `70741828`.
 La verificación de que `POST /auth/otp` no filtra por tiempo **no la hace
 ningún test**: hay que pedir el desafío para un número registrado y para uno
 desconocido y comparar los tiempos, que tienen que ser indistinguibles.
+
+### Entrar al back-office con contraseña
+
+En local no hace falta: con `BACKOFFICE_AUTENTICADOR=desarrollo`, abrir
+`/admin/entrar` ya deja adentro. Para probar el ingreso de verdad —el que va al
+piloto— hay que generar una línea por persona y pegarlas todas en una sola
+variable:
+
+```sh
+php artisan backoffice:hash ana@agropartners.com.bo "Ana Suárez"
+```
+
+Pide la contraseña sin mostrarla (mínimo 12 caracteres) e imprime
+`correo|hash|Nombre`. Varias personas van separadas por `;` en
+`BACKOFFICE_OPERADORES`, y hay que poner `BACKOFFICE_AUTENTICADOR=contrasena`.
+El valor va **entre comillas** en el `.env`, porque el nombre lleva espacios y
+sin comillas dotenv corta la línea con un error de parseo que impide arrancar
+del todo. El `$` del hash no molesta: no se interpola.
+
+`/admin/formulario` y `/admin/verificar` **existen siempre pero responden 404**
+con cualquier otro autenticador puesto. Se registran incondicionalmente a
+propósito: si dependieran de la configuración, `route:cache` congelaría la que
+estaba cuando se cacheó.
+
+Sin `BACKOFFICE_OPERADORES` el autenticador **no arranca** (`BACKOFFICE_SIN_OPERADORES`),
+y una entrada mal formada tampoco (`BACKOFFICE_OPERADOR_MAL_FORMADO`). Los dos
+son a propósito: saltear en silencio a quien quedó mal escrito se descubre
+recién cuando esa persona no puede trabajar.
 
 ### El stack completo, contra SQL Server
 
