@@ -1,7 +1,19 @@
-# Apunta `app` y `worker` a una base en Azure SQL, dejando Keycloak local.
+# Apunta `app`, `worker` y `keycloak` a bases en Azure SQL.
+#
+# En PowerShell, que es donde se corre esto:
+#
+#   Get-Content .env.azure | Where-Object { $_ -match '^\s*[A-Z_]+=' } |
+#     ForEach-Object { $n,$v = $_ -split '=',2; Set-Item "Env:$($n.Trim())" $v.Trim() }
+#   $env:AZ_DB_HOST=$env:DB_HOST; $env:AZ_DB_DATABASE=$env:DB_DATABASE
+#   $env:AZ_DB_USERNAME=$env:DB_USERNAME; $env:AZ_DB_PASSWORD=$env:DB_PASSWORD
+#   docker compose -f compose.yaml -f compose.azure.yaml up -d app worker keycloak
+#
+# En POSIX:
 #
 #   set -a; . .env.azure; set +a
-#   docker compose -f compose.yaml -f compose.azure.yaml up -d app worker
+#   export AZ_DB_HOST=$DB_HOST AZ_DB_DATABASE=$DB_DATABASE \
+#          AZ_DB_USERNAME=$DB_USERNAME AZ_DB_PASSWORD=$DB_PASSWORD
+#   docker compose -f compose.yaml -f compose.azure.yaml up -d app worker keycloak
 #
 # No lleva credenciales: los valores entran por variables de entorno, que salen
 # de `.env.azure` (ignorado por git).
@@ -37,3 +49,41 @@ services:
       DB_PASSWORD: "${AZ_DB_PASSWORD:?falta AZ_DB_PASSWORD}"
       DB_ENCRYPT: "yes"
       DB_TRUST_SERVER_CERTIFICATE: "false"
+
+  # El Keycloak de verdad: la imagen propia, contra su propia base en el mismo
+  # servidor de Azure. Reemplaza al `start-dev` con base embebida de
+  # `compose.yaml`, que pierde todo al recrear el contenedor.
+  #
+  # Es el ensayo de lo que va a Container Apps: misma imagen, misma base, mismo
+  # emisor. Lo unico que cambia alla es de donde sale cada credencial.
+  keycloak:
+    build:
+      context: ./docker/keycloak
+      dockerfile: Dockerfile
+    image: ms-maestros-keycloak:local
+    command: []
+    environment:
+      KC_DB_URL: "jdbc:sqlserver://${AZ_DB_HOST:?falta AZ_DB_HOST}:${AZ_DB_PORT:-1433};databaseName=${AZ_KC_DATABASE:-keycloak};encrypt=true;trustServerCertificate=false;loginTimeout=30"
+      KC_DB_USERNAME: "${AZ_DB_USERNAME:?falta AZ_DB_USERNAME}"
+      KC_DB_PASSWORD: "${AZ_DB_PASSWORD:?falta AZ_DB_PASSWORD}"
+
+      # El `iss` de todos los tokens. Es el mismo valor en local y en la nube a
+      # proposito: si difiriera, un token emitido en el ensayo no serviria alla
+      # y estariamos probando otra cosa.
+      KC_HOSTNAME: "${AZ_KC_ISSUER:-https://identidad.agropartners.com.bo}"
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+
+      KC_BOOTSTRAP_ADMIN_USERNAME: "${AZ_KC_ADMIN:-admin}"
+      KC_BOOTSTRAP_ADMIN_PASSWORD: "${AZ_KC_ADMIN_PASSWORD:?falta AZ_KC_ADMIN_PASSWORD}"
+
+      # Lo sustituye el import dentro del realm. Tiene que ser identico al
+      # KEYCLOAK_CLIENT_SECRET de `app` y `worker`.
+      MS_MAESTROS_CLIENT_SECRET: "${AZ_KC_CLIENT_SECRET:?falta AZ_KC_CLIENT_SECRET}"
+
+    # `!reset` y no `[]`: una lista vacia en un override NO borra la del archivo
+    # base, la deja intacta. Sin esto seguiria montado `docker/keycloak/`, que
+    # tapa con el realm de desarrollo el de produccion que va dentro de la
+    # imagen — e importaria `secreto-de-desarrollo` contra la base de Azure.
+    volumes: !reset []

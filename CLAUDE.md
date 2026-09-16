@@ -317,6 +317,26 @@ que quedó cacheado — si difieren, es el caché:
 curl -s http://localhost:8081/realms/agropartners/protocol/openid-connect/certs
 ```
 
+### Keycloak contra la base de Azure
+
+`compose.azure.yaml` también levanta el Keycloak de verdad —la imagen propia,
+contra su propia base en el mismo servidor— en lugar del `start-dev` con base
+embebida. Es el ensayo de lo que va a Container Apps. Las variables salen de
+`.env.azure`, que git ignora:
+
+```
+AZ_KC_DATABASE        keycloak
+AZ_KC_ADMIN_PASSWORD  para la consola de administración
+AZ_KC_CLIENT_SECRET   el secreto del cliente; idéntico al KEYCLOAK_CLIENT_SECRET de la app
+```
+
+**El `iss` es el mismo en el ensayo y en la nube a propósito.** Si difiriera, un
+token emitido acá no serviría allá y estaríamos probando otra cosa.
+
+**Ojo con `volumes: []` en un override de compose: no borra nada.** Una lista
+vacía deja intacta la del archivo base, así que `docker/keycloak/` seguiría
+montado y taparía con el realm de desarrollo —secreto y contraseña incluidos—
+al de producción que viaja dentro de la imagen. Se cancela con `volumes: !reset []`.
 ### El orden importa: integración antes de habilitar
 
 `composer test:integration` espera que `p-8f2b1c40` tenga en Keycloak la
