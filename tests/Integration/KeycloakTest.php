@@ -5,6 +5,9 @@ declare(strict_types=1);
 use Core\Results\ResultWithValue;
 use Identidad\Infrastructure\Keycloak\KeycloakAdmin;
 use Identidad\Infrastructure\Keycloak\KeycloakEmisorDeToken;
+use Identidad\Infrastructure\Keycloak\VerificadorJwks;
+use Illuminate\Cache\ArrayStore;
+use Illuminate\Cache\Repository;
 use Illuminate\Http\Client\Factory as Http;
 use Maestros\Domain\Contactos\IdDePersona;
 use Psr\Log\NullLogger;
@@ -116,4 +119,34 @@ it('un usuario deshabilitado deja de estar activo', function () {
 it('alguien que nunca existio tampoco esta activo', function () {
     expect(adminReal()->estaActivo(IdDePersona::desde('p-no-existe-'.bin2hex(random_bytes(4)))))
         ->toBeFalse();
+});
+
+it('el token de una persona creada por el Admin API pasa el verificador', function () {
+    // El recorrido real de punta a punta, que ninguna prueba cubria: las
+    // personas de verdad no vienen del realm importado, las crea
+    // `identidad:habilitar` por el Admin API. Keycloak les pone `aud: account`
+    // por los roles por defecto del realm, y con eso el verificador las
+    // rechazaba: entraban y despues todos sus pedidos daban NO_AUTENTICADO.
+    $admin = adminReal();
+    $persona = IdDePersona::desde('p-integracion-'.bin2hex(random_bytes(4)));
+    $contrasena = 'Una-Contrasena-Larga-1';
+
+    expect($admin->crearOActualizar($persona, $contrasena)->isSuccess)->toBeTrue();
+
+    $emitido = emisorReal()->emitirPara($persona, $contrasena);
+    expect($emitido->isSuccess)->toBeTrue();
+
+    $verificador = new VerificadorJwks(
+        new Http,
+        new Repository(new ArrayStore),
+        (string) env('KEYCLOAK_BASE_URL', 'http://localhost:8080'),
+        'agropartners',
+        'ms-maestros',
+        (string) env('KEYCLOAK_BASE_URL', 'http://localhost:8080'),
+    );
+
+    expect($verificador->verificar($emitido->value()->accessToken)?->value())
+        ->toBe($persona->value());
+
+    $admin->deshabilitar($persona);
 });

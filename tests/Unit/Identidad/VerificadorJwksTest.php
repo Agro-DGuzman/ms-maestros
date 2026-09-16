@@ -86,14 +86,6 @@ it('acepta cuando aud es un string con nuestro cliente', function () {
     expect(verificador()->verificar($conAud)?->value())->toBe('p-8f2b1c40');
 });
 
-it('rechaza cuando aud existe y no nos nombra, aunque azp si', function () {
-    // `aud` presente es la afirmacion explicita de para quien es el token.
-    // Si esta y no nos incluye, no es para nosotros.
-    $ajeno = tokenCon(['aud' => ['account'], 'azp' => CLIENTE]);
-
-    expect(verificador()->verificar($ajeno))->toBeNull();
-});
-
 it('cae en azp cuando el realm no emite aud', function () {
     // Keycloak no agrega `aud` salvo que el realm tenga un audience mapper.
     // Los tokens de este realm hoy no lo traen, asi que exigir `aud` a secas
@@ -167,4 +159,32 @@ it('rechaza un token que dice venir de la direccion interna y no del emisor', fu
     );
 
     expect($verificador->verificar(tokenCon()))->toBeNull();
+});
+
+it('acepta el token que Keycloak emite para una persona creada por el Admin API', function () {
+    // Keycloak le pone `aud: account` a todo usuario con los roles por defecto
+    // del realm, que son todos los que crea `identidad:habilitar`. Nuestra
+    // audiencia no aparece en `aud`; quien dice que el token se emitio para
+    // nosotros es `azp`. Preferir `aud` cuando esta rechazaba a toda persona
+    // real, y solo dejaba entrar al usuario del realm importado, que no tiene
+    // roles por defecto y por eso no trae `aud`.
+    $deUnaPersonaReal = tokenCon(['aud' => 'account', 'azp' => CLIENTE]);
+
+    expect(verificador()->verificar($deUnaPersonaReal)?->value())->toBe('p-8f2b1c40');
+});
+
+it('sigue rechazando un token que el realm emitio para otro cliente', function () {
+    // La razon de ser de la comprobacion: mismo realm, misma firma, otro
+    // cliente. Ni `aud` ni `azp` nos nombran.
+    $deOtroCliente = tokenCon(['aud' => 'account', 'azp' => 'otra-aplicacion']);
+
+    expect(verificador()->verificar($deOtroCliente))->toBeNull();
+});
+
+it('acepta cuando la audiencia si nos nombra, aunque haya otras', function () {
+    // El caso de un realm con audience mapper: `aud` trae varias y una es la
+    // nuestra.
+    $conMapper = tokenCon(['aud' => ['account', CLIENTE], 'azp' => CLIENTE]);
+
+    expect($verificado = verificador()->verificar($conMapper)?->value())->toBe('p-8f2b1c40');
 });

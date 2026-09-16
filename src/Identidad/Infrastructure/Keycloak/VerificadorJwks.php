@@ -71,18 +71,25 @@ final readonly class VerificadorJwks implements VerificadorDeToken
     }
 
     /**
-     * `aud` es la afirmación explícita de para quién es el token, así que si
-     * está, manda. Pero Keycloak no la agrega salvo que el realm tenga un
-     * audience mapper, y este realm no lo tiene: exigirla a secas rechazaría
-     * todos los tokens que emite hoy. Cuando falta, `azp` dice a qué cliente
-     * se le entregó, que es la misma pregunta.
+     * Dos formas de que el token sea nuestro, y alcanza con una.
+     *
+     * `aud` nos nombra explícitamente, que es lo que pasa cuando el realm tiene
+     * un audience mapper. O `azp` dice que se emitió para nuestro cliente, que
+     * es lo que Keycloak pone siempre.
+     *
+     * No se puede preferir `aud` cuando está: Keycloak le pone `aud: account` a
+     * todo usuario con los roles por defecto del realm —o sea, a toda persona
+     * que crea `identidad:habilitar`— sin que eso tenga nada que ver con
+     * nosotros. Exigir entonces que `aud` nos nombre rechaza a todas ellas.
+     *
+     * Lo que la comprobación tiene que impedir sigue en pie: un token que el
+     * mismo realm emitió para otra aplicación no nos nombra en `aud` ni lleva
+     * nuestro cliente en `azp`.
      */
     private function esParaNosotros(stdClass $claims): bool
     {
-        $audiencia = $claims->aud ?? null;
-
-        if ($audiencia !== null) {
-            return in_array($this->clientId, (array) $audiencia, true);
+        if (in_array($this->clientId, (array) ($claims->aud ?? []), true)) {
+            return true;
         }
 
         return ($claims->azp ?? null) === $this->clientId;
