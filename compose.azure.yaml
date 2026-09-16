@@ -1,19 +1,18 @@
 # Apunta `app`, `worker` y `keycloak` a bases en Azure SQL.
 #
-# En PowerShell, que es donde se corre esto:
+# Cada uno con sus credenciales y su archivo. Compose lee los dos y no hace
+# falta exportar nada al shell, asi que el comando es el mismo en PowerShell y
+# en bash:
 #
-#   Get-Content .env.azure | Where-Object { $_ -match '^\s*[A-Z_]+=' } |
-#     ForEach-Object { $n,$v = $_ -split '=',2; Set-Item "Env:$($n.Trim())" $v.Trim() }
-#   $env:AZ_DB_HOST=$env:DB_HOST; $env:AZ_DB_DATABASE=$env:DB_DATABASE
-#   $env:AZ_DB_USERNAME=$env:DB_USERNAME; $env:AZ_DB_PASSWORD=$env:DB_PASSWORD
-#   docker compose -f compose.yaml -f compose.azure.yaml up -d app worker keycloak
+#   docker compose --env-file .env.azure --env-file .env.keycloak.azure \
+#     -f compose.yaml -f compose.azure.yaml up -d app worker keycloak
 #
-# En POSIX:
+#   .env.azure           la base de maestros, con su usuario
+#   .env.keycloak.azure  la base de Keycloak, con el suyo
 #
-#   set -a; . .env.azure; set +a
-#   export AZ_DB_HOST=$DB_HOST AZ_DB_DATABASE=$DB_DATABASE \
-#          AZ_DB_USERNAME=$DB_USERNAME AZ_DB_PASSWORD=$DB_PASSWORD
-#   docker compose -f compose.yaml -f compose.azure.yaml up -d app worker keycloak
+# Estan separados porque son credenciales distintas de verdad: el usuario de
+# Keycloak no necesita ver la replica de SAP, ni el de maestros el esquema de
+# Keycloak. Los dos los ignora git por la regla `.env.*`.
 #
 # No lleva credenciales: los valores entran por variables de entorno, que salen
 # de `.env.azure` (ignorado por git).
@@ -63,9 +62,12 @@ services:
     image: ms-maestros-keycloak:local
     command: []
     environment:
-      KC_DB_URL: "jdbc:sqlserver://${AZ_DB_HOST:?falta AZ_DB_HOST}:${AZ_DB_PORT:-1433};databaseName=${AZ_KC_DATABASE:-keycloak};encrypt=true;trustServerCertificate=false;loginTimeout=30"
-      KC_DB_USERNAME: "${AZ_DB_USERNAME:?falta AZ_DB_USERNAME}"
-      KC_DB_PASSWORD: "${AZ_DB_PASSWORD:?falta AZ_DB_PASSWORD}"
+      # Credenciales propias, no las de maestros. Keycloak es dueño de su base
+      # y no tiene por qué poder leer la réplica de SAP: si algún día su usuario
+      # se filtra, lo que alcanza es su propio esquema.
+      KC_DB_URL: "jdbc:sqlserver://${AZ_KC_HOST:?falta AZ_KC_HOST}:${AZ_KC_PORT:-1433};databaseName=${AZ_KC_DATABASE:?falta AZ_KC_DATABASE};encrypt=true;trustServerCertificate=false;loginTimeout=30"
+      KC_DB_USERNAME: "${AZ_KC_USERNAME:?falta AZ_KC_USERNAME}"
+      KC_DB_PASSWORD: "${AZ_KC_PASSWORD:?falta AZ_KC_PASSWORD}"
 
       # El `iss` de todos los tokens. Es el mismo valor en local y en la nube a
       # proposito: si difiriera, un token emitido en el ensayo no serviria alla

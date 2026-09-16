@@ -320,15 +320,24 @@ curl -s http://localhost:8081/realms/agropartners/protocol/openid-connect/certs
 ### Keycloak contra la base de Azure
 
 `compose.azure.yaml` también levanta el Keycloak de verdad —la imagen propia,
-contra su propia base en el mismo servidor— en lugar del `start-dev` con base
-embebida. Es el ensayo de lo que va a Container Apps. Las variables salen de
-`.env.azure`, que git ignora:
+contra su propia base— en lugar del `start-dev` con base embebida. Es el ensayo
+de lo que va a Container Apps.
 
+**Cada uno con su archivo y sus credenciales**, porque son usuarios distintos:
+el de Keycloak es dueño solo de su base y no necesita ver la réplica de SAP.
+Compose lee los dos archivos y no hace falta exportar nada al shell, así que el
+comando es idéntico en PowerShell y en bash:
+
+```sh
+docker compose --env-file .env.azure --env-file .env.keycloak.azure \
+  -f compose.yaml -f compose.azure.yaml up -d app worker keycloak
 ```
-AZ_KC_DATABASE        keycloak
-AZ_KC_ADMIN_PASSWORD  para la consola de administración
-AZ_KC_CLIENT_SECRET   el secreto del cliente; idéntico al KEYCLOAK_CLIENT_SECRET de la app
-```
+
+`.env.keycloak.azure` lleva `AZ_KC_HOST`, `AZ_KC_DATABASE`, `AZ_KC_USERNAME`,
+`AZ_KC_PASSWORD`, `AZ_KC_ADMIN_PASSWORD` y `AZ_KC_CLIENT_SECRET`. Este último
+tiene que ser **idéntico** al `KEYCLOAK_CLIENT_SECRET` de la app: Keycloak lo
+mete en el realm al importar y la app lo usa para autenticarse. Si difieren,
+`identidad:habilitar` falla con `IDENTIDAD_NO_DISPONIBLE`.
 
 **El `iss` es el mismo en el ensayo y en la nube a propósito.** Si difiriera, un
 token emitido acá no serviría allá y estaríamos probando otra cosa.
