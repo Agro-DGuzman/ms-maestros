@@ -21,12 +21,19 @@ use Throwable;
  */
 final readonly class VerificadorJwks implements VerificadorDeToken
 {
+    /**
+     * `$baseUrl` es dónde vive Keycloak y `$emisor` es quién dice ser. En local
+     * coinciden, pero en Azure no: el `iss` es un nombre propio y estable que
+     * viaja dentro de cada token, y la llamada al JWKS va al FQDN interno del
+     * entorno, que puede cambiar sin que eso invalide nada de lo ya emitido.
+     */
     public function __construct(
         private Http $http,
         private Cache $cache,
         private string $baseUrl,
         private string $realm,
         private string $clientId,
+        private string $emisor,
         private int $minutosDeCache = 60,
     ) {}
 
@@ -58,9 +65,9 @@ final readonly class VerificadorJwks implements VerificadorDeToken
 
     private function esDeNuestroEmisor(stdClass $claims): bool
     {
-        $emisor = sprintf('%s/realms/%s', rtrim($this->baseUrl, '/'), $this->realm);
+        $esperado = sprintf('%s/realms/%s', rtrim($this->emisor, '/'), $this->realm);
 
-        return ($claims->iss ?? null) === $emisor;
+        return ($claims->iss ?? null) === $esperado;
     }
 
     /**

@@ -12,18 +12,22 @@ const BASE_URL = 'http://keycloak:8080';
 const REALM = 'agropartners';
 const CLIENTE = 'ms-maestros';
 const EMISOR = BASE_URL.'/realms/'.REALM;
+const EMISOR_PUBLICO = 'https://identidad.agropartners.com.bo';
 
 function verificador(): VerificadorJwks
 {
     $http = new Http;
     $http->fake(['*' => $http->response(ClaveDePrueba::jwks())]);
 
+    // El caso de local: Keycloak vive donde dice vivir, asi que emisor y
+    // direccion son el mismo valor.
     return new VerificadorJwks(
         $http,
         new CacheRepository(new ArrayStore),
         BASE_URL,
         REALM,
         CLIENTE,
+        BASE_URL,
     );
 }
 
@@ -123,4 +127,44 @@ it('sigue rechazando un token sin preferred_username', function () {
     ]);
 
     expect(verificador()->verificar($sinUsuario))->toBeNull();
+});
+
+it('acepta el emisor configurado aunque a Keycloak lo llame por otra direccion', function () {
+    // En Azure el `iss` es un nombre estable que no resuelve a ningun lado y el
+    // JWKS se trae del FQDN interno del entorno. Con un solo valor para las dos
+    // cosas habria que elegir: o el token verifica, o el JWKS se puede traer.
+    $http = new Http;
+    $http->fake(['*' => $http->response(ClaveDePrueba::jwks())]);
+
+    $verificador = new VerificadorJwks(
+        $http,
+        new CacheRepository(new ArrayStore),
+        BASE_URL,
+        REALM,
+        CLIENTE,
+        EMISOR_PUBLICO,
+    );
+
+    $token = tokenCon(['iss' => EMISOR_PUBLICO.'/realms/'.REALM]);
+
+    expect($verificador->verificar($token)?->value())->toBe('p-8f2b1c40');
+});
+
+it('rechaza un token que dice venir de la direccion interna y no del emisor', function () {
+    // Una vez que el emisor es un nombre propio, el FQDN interno deja de ser
+    // una identidad valida: quien alcance a Keycloak por dentro no puede
+    // hacerse pasar por el emisor publico.
+    $http = new Http;
+    $http->fake(['*' => $http->response(ClaveDePrueba::jwks())]);
+
+    $verificador = new VerificadorJwks(
+        $http,
+        new CacheRepository(new ArrayStore),
+        BASE_URL,
+        REALM,
+        CLIENTE,
+        EMISOR_PUBLICO,
+    );
+
+    expect($verificador->verificar(tokenCon()))->toBeNull();
 });
