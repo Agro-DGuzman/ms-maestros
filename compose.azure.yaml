@@ -14,9 +14,6 @@
 # Keycloak no necesita ver la replica de SAP, ni el de maestros el esquema de
 # Keycloak. Los dos los ignora git por la regla `.env.*`.
 #
-# No lleva credenciales: los valores entran por variables de entorno, que salen
-# de `.env.azure` (ignorado por git).
-#
 # `APP_ENV` baja a `local` a propósito. Con `production`, dos resguardos del
 # back-office fallan al primer pedido y hacen bien: `AutenticadorDeDesarrollo`
 # se niega a existir, y `RestringirPorIp` exige rangos configurados. Esto no es
@@ -27,11 +24,11 @@ services:
       APP_ENV: local
       APP_DEBUG: "true"
       DB_CONNECTION: sqlsrv
-      DB_HOST: "${AZ_DB_HOST:?falta AZ_DB_HOST}"
-      DB_PORT: "${AZ_DB_PORT:-1433}"
-      DB_DATABASE: "${AZ_DB_DATABASE:?falta AZ_DB_DATABASE}"
-      DB_USERNAME: "${AZ_DB_USERNAME:?falta AZ_DB_USERNAME}"
-      DB_PASSWORD: "${AZ_DB_PASSWORD:?falta AZ_DB_PASSWORD}"
+      DB_HOST: "${DB_HOST:?falta DB_HOST}"
+      DB_PORT: "${DB_PORT:-1433}"
+      DB_DATABASE: "${DB_DATABASE:?falta DB_DATABASE}"
+      DB_USERNAME: "${DB_USERNAME:?falta DB_USERNAME}"
+      DB_PASSWORD: "${DB_PASSWORD:?falta DB_PASSWORD}"
       # Azure SQL presenta un certificado válido: se cifra sin confiar a ciegas.
       DB_ENCRYPT: "yes"
       DB_TRUST_SERVER_CERTIFICATE: "false"
@@ -41,11 +38,11 @@ services:
       APP_ENV: local
       APP_DEBUG: "true"
       DB_CONNECTION: sqlsrv
-      DB_HOST: "${AZ_DB_HOST:?falta AZ_DB_HOST}"
-      DB_PORT: "${AZ_DB_PORT:-1433}"
-      DB_DATABASE: "${AZ_DB_DATABASE:?falta AZ_DB_DATABASE}"
-      DB_USERNAME: "${AZ_DB_USERNAME:?falta AZ_DB_USERNAME}"
-      DB_PASSWORD: "${AZ_DB_PASSWORD:?falta AZ_DB_PASSWORD}"
+      DB_HOST: "${DB_HOST:?falta DB_HOST}"
+      DB_PORT: "${DB_PORT:-1433}"
+      DB_DATABASE: "${DB_DATABASE:?falta DB_DATABASE}"
+      DB_USERNAME: "${DB_USERNAME:?falta DB_USERNAME}"
+      DB_PASSWORD: "${DB_PASSWORD:?falta DB_PASSWORD}"
       DB_ENCRYPT: "yes"
       DB_TRUST_SERVER_CERTIFICATE: "false"
 
