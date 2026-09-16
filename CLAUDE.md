@@ -96,10 +96,17 @@ la línea siguiente ya dice, sobra.
   cinco intentos no existiría.
 - **Un token vale solo si viene de nuestro realm y es para nuestro cliente.**
   `JWT::decode` comprueba firma y expiración, no de dónde viene ni para quién
-  es, así que `VerificadorJwks` valida además `iss` y la audiencia. La
-  audiencia sale de `aud` cuando está, y de `azp` cuando no: Keycloak no emite
-  `aud` salvo que el realm tenga un audience mapper, y exigirla a secas
-  rechazaría todos los tokens que este realm emite hoy.
+  es, así que `VerificadorJwks` valida además `iss` y la audiencia.
+- **La audiencia se cumple con `aud` o con `azp`, y alcanza con una.** No se
+  puede preferir `aud` cuando está: Keycloak le pone `aud: account` a todo
+  usuario con los roles por defecto del realm, o sea a **toda persona que crea
+  `identidad:habilitar`**, y eso no tiene nada que ver con nosotros. Exigir
+  entonces que `aud` nos nombre rechazaba a todas ellas — entraban, recibían su
+  token, y después cada pedido daba `NO_AUTENTICADO`. El único usuario que
+  funcionaba era el del realm importado, que no tiene roles por defecto y por
+  eso no trae `aud`; por ahí se escondió el agujero durante toda la fase 1.
+  **Cualquier prueba sobre tokens tiene que usar una persona creada por el
+  Admin API**, no la del realm, porque son formas de token distintas.
 - **«Quién emite» y «dónde está» son dos valores distintos.** `KEYCLOAK_ISSUER`
   es la identidad que viaja como `iss` dentro de cada token; `KEYCLOAK_BASE_URL`
   es la dirección de red por la que se llama a Keycloak. En local coinciden y el

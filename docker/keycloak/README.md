@@ -30,3 +30,36 @@ pueden iniciar sesión.
 La cuenta de servicio de `ms-maestros` lleva `manage-users` y `view-users` del
 cliente `realm-management`. Sin esos roles, `KeycloakAdmin` no puede dar de alta
 ni buscar usuarios y la habilitación falla con `IDENTIDAD_NO_DISPONIBLE`.
+
+## El realm de producción
+
+`agropartners-realm.produccion.json` es el que va a la nube. Se diferencia del
+de desarrollo en cuatro cosas, y ninguna es cosmética:
+
+- **No trae al usuario `p-8f2b1c40`.** Ese usuario existe para probar en local y
+  su contraseña está escrita en el archivo.
+- **El secreto del cliente es `${MS_MAESTROS_CLIENT_SECRET}`.** El import de
+  Keycloak sustituye `${VARIABLE}` desde el entorno, así que el secreto real
+  llega como variable del Container App y nunca se versiona.
+- **`sslRequired` es `external`** en vez de `none`.
+- **Lleva un audience mapper** que pone `ms-maestros` en `aud`. El verificador
+  acepta igual por `azp`, pero un gateway que valide audiencias necesita que
+  `aud` nombre al cliente.
+
+Lo que **sí** se conserva del de desarrollo es lo que el resto de este archivo
+explica: el perfil de usuario redefinido y los roles de la cuenta de servicio.
+Sin cualquiera de los dos, el realm arranca pero `identidad:habilitar` produce
+usuarios que no pueden entrar.
+
+### Probarlo entero antes de Azure
+
+Se importa en un Keycloak local contra SQL Server y se ejercita con el código de
+la aplicación: crear una persona por el Admin API, emitir su token y verificarlo.
+Ese recorrido —y no el del usuario del realm— es el que hace de verdad la
+aplicación, y es el que destapó que `aud: account` rechazaba a toda persona real.
+
+### Al re-serializar el JSON con PHP
+
+`json_decode($s, true)` convierte los `{}` vacíos en arrays y `json_encode` los
+escribe como `[]`. El import falla con un error de Jackson sobre `subComponents`
+que no menciona la causa. Hay que decodificar como objetos.
