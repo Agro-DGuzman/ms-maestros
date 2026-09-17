@@ -71,6 +71,12 @@ services:
       # y estariamos probando otra cosa.
       KC_HOSTNAME: "${AZ_KC_ISSUER:-https://identidad.agropartners.com.bo}"
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+
+      # Sin esto la consola de administración es inalcanzable: Keycloak redirige
+      # al hostname que anuncia, y ese nombre no resuelve a ningún lado a
+      # propósito. El navegador da DNS_PROBE_FINISHED_NXDOMAIN. `hostname-admin`
+      # existe para separar por dónde se administra de quién dice ser.
+      KC_HOSTNAME_ADMIN: "${AZ_KC_ADMIN_URL:-http://localhost:8081}"
       KC_HTTP_ENABLED: "true"
       KC_PROXY_HEADERS: xforwarded
 
