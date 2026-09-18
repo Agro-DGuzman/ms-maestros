@@ -31,6 +31,13 @@ return [
     'env' => env('APP_ENV', 'production'),
 
     /*
+    | Hay un proxy adelante que agrega la IP real a X-Forwarded-For (el ingress
+    | de Container Apps). Encendido sin proxy, la lista de rangos del
+    | back-office se vuelve falsificable: ver IpRealDetrasDelIngress.
+    */
+    'detras_de_proxy' => (bool) env('DETRAS_DE_PROXY', false),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Debug Mode
     |--------------------------------------------------------------------------

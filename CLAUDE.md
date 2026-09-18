@@ -158,6 +158,17 @@ la línea siguiente ya dice, sobra.
 - **El freno de intentos cuenta por correo y por IP, no solo por IP.** Los dos
   operadores salen por la misma oficina; contar solo la IP dejaría que uno
   bloquee al otro equivocándose cinco veces.
+- **La IP de la persona sale de `IpRealDetrasDelIngress`, no de `X-Forwarded-For`
+  a secas.** De `$pedido->ip()` cuelgan tres cosas: el filtro de rangos del
+  back-office, el freno de intentos del ingreso, y la dirección que la bitácora
+  guarda **para siempre** —y que es append-only, así que un dato malo no se
+  corrige nunca—. Detrás del ingress de Container Apps las tres verían la
+  dirección de Azure. La cabecera se recorta a su **última** entrada, que es la
+  que agrega el ingress; Symfony resuelve la cadena tomando la primera, que acá
+  es justo la parte que el cliente escribe. Va con interruptor
+  (`DETRAS_DE_PROXY`) y **apagado por defecto**: encenderlo sin un proxy delante
+  convierte la lista de rangos en decoración, porque entonces la cabecera la
+  controla quien conecta.
 - **No borrar `DomainEvent` ni `Entity::addDomainEvent()`**: son el core
   portado desde Java, están probados, y la fase 2 los usa.
 

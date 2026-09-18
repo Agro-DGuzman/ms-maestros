@@ -43,3 +43,36 @@ it('admite una ip suelta ademas de un rango', function () {
         ->and(pasar($middleware, '10.1.2.3'))->toBe('pasó')
         ->and(fn () => pasar($middleware, '190.129.4.8'))->toThrow(AccessDeniedHttpException::class);
 });
+
+/*
+ * Los de abajo pasan por la pila HTTP completa y no por el middleware suelto:
+ * lo que se está probando es la configuración de proxies confiables, que vive
+ * en `bootstrap/app.php` y no se aplica si uno instancia el middleware a mano.
+ *
+ * Detrás del ingress de Container Apps el pedido llega desde el proxy y la IP
+ * real viaja en `X-Forwarded-For`. Azure la **agrega al final**: lo que el
+ * cliente haya mandado antes queda a la izquierda.
+ */
+
+it('detras del proxy filtra por la ip que el ingress agrego', function () {
+    // Sin esto el middleware compara la direccion del ingress contra los rangos
+    // de la oficina: bloquea a todos, y ensanchar el rango hasta que alguien
+    // entre termina dejando pasar a internet entera.
+    config(['backoffice.rangos_ip' => ['190.129.4.0/24'], 'app.detras_de_proxy' => true]);
+    app()->forgetInstance(RestringirPorIp::class);
+
+    $this->withServerVariables(['REMOTE_ADDR' => '100.100.0.5'])
+        ->get('/admin/entrar', ['X-Forwarded-For' => '190.129.4.7'])
+        ->assertRedirect();
+});
+
+it('no se deja enganar por una cabecera falsificada', function () {
+    // La mentira del cliente queda a la izquierda de la que agrega Azure, y
+    // tomar la ultima es lo que la vuelve inofensiva.
+    config(['backoffice.rangos_ip' => ['190.129.4.0/24'], 'app.detras_de_proxy' => true]);
+    app()->forgetInstance(RestringirPorIp::class);
+
+    $this->withServerVariables(['REMOTE_ADDR' => '100.100.0.5'])
+        ->get('/admin/entrar', ['X-Forwarded-For' => '190.129.4.7, 8.8.8.8'])
+        ->assertForbidden();
+});
