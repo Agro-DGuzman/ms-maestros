@@ -4,25 +4,20 @@
 # roto: si las compuertas fallan, no se publica nada.
 #
 # Por ahora despliega solo la aplicación. Keycloak y el worker vienen después;
-# cuando estén, se agregan a la etapa de publicación y a la de despliegue.
+# cuando estén, se agregan a la etapa de despliegue — el worker con la misma
+# imagen que la app, o los dos van a correr código distinto sobre la misma cola.
 
 trigger:
   branches:
     include:
       - main
 
-pr:
-  branches:
-    include:
-      - main
-
 variables:
-  # --- Completar con los valores del entorno ---
-  conexionAzure: 'agropartners-azure'      # nombre de la conexión de servicio en DevOps
-  grupoDeRecursos: ''                      # grupo donde vive el Container App
-  registro: ''                             # nombre del ACR, sin dominio
-  appDeContenedor: 'ms-maestros'           # nombre del Container App ya creado
-  # ---------------------------------------------
+  conexionAzure: 'sc-agropartners-azure'
+  conexionDelRegistro: 'sc-agropartners-acr'
+  servidorDelRegistro: 'acragropartnerseus2.azurecr.io'
+  grupoDeRecursos: 'rg-agropartners-int-eus2'
+  appDeContenedor: 'ms-maestros'
 
   repositorioDeImagen: 'ms-maestros'
   # La etiqueta es el commit: mirando un contenedor se sabe exactamente qué
@@ -37,32 +32,40 @@ stages:
         displayName: tests, análisis estático y estilo
         pool:
           vmImage: ubuntu-latest
-        container: php:8.4-cli
         steps:
+          # El agente trae PHP 8.3 y el proyecto pide 8.4. Tampoco sirve un job
+          # con `container:`: DevOps corre esos pasos con un usuario sin root, y
+          # la imagen oficial de PHP no trae sudo, así que apt-get no instala
+          # nada. Un contenedor lanzado a mano corre como root.
           - script: |
               set -e
-              apt-get update -qq && apt-get install -y -qq git unzip libzip-dev
-              docker-php-ext-install -j$(nproc) zip > /dev/null
-              curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-            displayName: preparar PHP y composer
+              docker run -d --name php -v "$(Build.SourcesDirectory)":/app -w /app php:8.4-cli sleep infinity
+              docker exec php bash -ec '
+                apt-get update -qq
+                apt-get install -y -qq git unzip libzip-dev > /dev/null
+                docker-php-ext-install zip > /dev/null
+                curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+              '
+            displayName: preparar PHP 8.4 y composer
 
-          - script: composer install --no-interaction --prefer-dist --no-progress
+          - script: docker exec php composer install --no-interaction --prefer-dist --no-progress
             displayName: dependencias
 
           # La aplicación necesita una clave para arrancar, incluso en pruebas.
           # Esta es descartable y solo vive en el agente.
           - script: |
-              cp .env.example .env
-              php artisan key:generate
+              set -e
+              docker exec php cp .env.example .env
+              docker exec php php artisan key:generate
             displayName: entorno de prueba
 
-          - script: composer test
+          - script: docker exec php composer test
             displayName: pruebas
 
-          - script: composer stan
+          - script: docker exec php composer stan
             displayName: análisis estático
 
-          - script: composer lint -- --test
+          - script: docker exec php composer lint -- --test
             displayName: estilo
 
           # `test:integration` NO corre acá: necesita un Keycloak vivo con el
@@ -75,25 +78,24 @@ stages:
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
     jobs:
       - job: imagen
-        displayName: construir en el registro
+        displayName: construir y subir al registro
         pool:
           vmImage: ubuntu-latest
         steps:
-          # `az acr build` construye dentro de Azure: el agente no necesita
-          # Docker, y la imagen no viaja por la red del agente.
-          - task: AzureCLI@2
+          # Por la conexión del registro y no con `az acr build`: esta es la que
+          # ya publicaba en este registro. La conexión de Azure no se sabe si
+          # tiene permiso de escritura sobre él, y si no lo tiene el error
+          # aparece recién acá, después de pasar las compuertas.
+          - task: Docker@2
             displayName: construir y publicar
             inputs:
-              azureSubscription: $(conexionAzure)
-              scriptType: bash
-              scriptLocation: inlineScript
-              inlineScript: |
-                set -e
-                az acr build \
-                  --registry $(registro) \
-                  --image $(repositorioDeImagen):$(etiqueta) \
-                  --file docker/Dockerfile \
-                  .
+              command: buildAndPush
+              containerRegistry: $(conexionDelRegistro)
+              repository: $(repositorioDeImagen)
+              Dockerfile: docker/Dockerfile
+              buildContext: .
+              tags: |
+                $(etiqueta)
 
   - stage: Desplegar
     displayName: Desplegar en Container Apps
@@ -104,7 +106,7 @@ stages:
         displayName: actualizar la revisión
         pool:
           vmImage: ubuntu-latest
-        environment: produccion
+        environment: integracion
         strategy:
           runOnce:
             deploy:
@@ -126,7 +128,7 @@ stages:
                       az containerapp update \
                         --name $(appDeContenedor) \
                         --resource-group $(grupoDeRecursos) \
-                        --image $(registro).azurecr.io/$(repositorioDeImagen):$(etiqueta)
+                        --image $(servidorDelRegistro)/$(repositorioDeImagen):$(etiqueta)
 
                 # Las migraciones van después de que la revisión esté arriba, y
                 # a mano por ahora: correrlas dentro del arranque del contenedor
