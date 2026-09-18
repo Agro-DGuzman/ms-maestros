@@ -1,0 +1,158 @@
+# Construye y despliega ms-maestros en Azure Container Apps.
+#
+# Tres etapas, y la primera existe para que las otras dos no corran sobre algo
+# roto: si las compuertas fallan, no se publica nada.
+#
+# Por ahora despliega solo la aplicación. Keycloak y el worker vienen después;
+# cuando estén, se agregan a la etapa de publicación y a la de despliegue.
+
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+variables:
+  # --- Completar con los valores del entorno ---
+  conexionAzure: 'agropartners-azure'      # nombre de la conexión de servicio en DevOps
+  grupoDeRecursos: ''                      # grupo donde vive el Container App
+  registro: ''                             # nombre del ACR, sin dominio
+  appDeContenedor: 'ms-maestros'           # nombre del Container App ya creado
+  # ---------------------------------------------
+
+  repositorioDeImagen: 'ms-maestros'
+  # La etiqueta es el commit: mirando un contenedor se sabe exactamente qué
+  # código está corriendo, y se puede volver a esa versión. Con `latest` no.
+  etiqueta: '$(Build.SourceVersion)'
+
+stages:
+  - stage: Verificar
+    displayName: Compuertas
+    jobs:
+      - job: compuertas
+        displayName: tests, análisis estático y estilo
+        pool:
+          vmImage: ubuntu-latest
+        container: php:8.4-cli
+        steps:
+          - script: |
+              set -e
+              apt-get update -qq && apt-get install -y -qq git unzip libzip-dev
+              docker-php-ext-install -j$(nproc) zip > /dev/null
+              curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+            displayName: preparar PHP y composer
+
+          - script: composer install --no-interaction --prefer-dist --no-progress
+            displayName: dependencias
+
+          # La aplicación necesita una clave para arrancar, incluso en pruebas.
+          # Esta es descartable y solo vive en el agente.
+          - script: |
+              cp .env.example .env
+              php artisan key:generate
+            displayName: entorno de prueba
+
+          - script: composer test
+            displayName: pruebas
+
+          - script: composer stan
+            displayName: análisis estático
+
+          - script: composer lint -- --test
+            displayName: estilo
+
+          # `test:integration` NO corre acá: necesita un Keycloak vivo con el
+          # realm de desarrollo. Se corre a mano, y está documentado por qué en
+          # CLAUDE.md.
+
+  - stage: Publicar
+    displayName: Construir y publicar la imagen
+    dependsOn: Verificar
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - job: imagen
+        displayName: construir en el registro
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          # `az acr build` construye dentro de Azure: el agente no necesita
+          # Docker, y la imagen no viaja por la red del agente.
+          - task: AzureCLI@2
+            displayName: construir y publicar
+            inputs:
+              azureSubscription: $(conexionAzure)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -e
+                az acr build \
+                  --registry $(registro) \
+                  --image $(repositorioDeImagen):$(etiqueta) \
+                  --file docker/Dockerfile \
+                  .
+
+  - stage: Desplegar
+    displayName: Desplegar en Container Apps
+    dependsOn: Publicar
+    condition: succeeded()
+    jobs:
+      - deployment: desplegar
+        displayName: actualizar la revisión
+        pool:
+          vmImage: ubuntu-latest
+        environment: produccion
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureCLI@2
+                  displayName: apuntar a la imagen nueva
+                  inputs:
+                    azureSubscription: $(conexionAzure)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -e
+                      az extension add --name containerapp --upgrade --only-show-errors
+
+                      # Solo cambia la imagen. Las variables de entorno y los
+                      # secretos son configuración del Container App y se tocan
+                      # aparte: un pipeline que los reescriba en cada despliegue
+                      # los puede borrar sin que nadie lo note.
+                      az containerapp update \
+                        --name $(appDeContenedor) \
+                        --resource-group $(grupoDeRecursos) \
+                        --image $(registro).azurecr.io/$(repositorioDeImagen):$(etiqueta)
+
+                # Las migraciones van después de que la revisión esté arriba, y
+                # a mano por ahora: correrlas dentro del arranque del contenedor
+                # es una carrera apenas hay más de una réplica.
+                - task: AzureCLI@2
+                  displayName: comprobar que responde
+                  inputs:
+                    azureSubscription: $(conexionAzure)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -e
+                      fqdn=$(az containerapp show \
+                        --name $(appDeContenedor) \
+                        --resource-group $(grupoDeRecursos) \
+                        --query properties.configuration.ingress.fqdn -o tsv)
+
+                      for intento in $(seq 1 12); do
+                        codigo=$(curl -s -o /dev/null -w '%{http_code}' "https://$fqdn/up" || true)
+                        if [ "$codigo" = "200" ]; then
+                          echo "responde en https://$fqdn"
+                          exit 0
+                        fi
+                        echo "intento $intento: http $codigo"
+                        sleep 10
+                      done
+
+                      echo "la revisión nueva no respondió en 2 minutos"
+                      exit 1
