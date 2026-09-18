@@ -26,8 +26,11 @@ param imagenApp string
 @description('Imagen de Keycloak con etiqueta.')
 param imagenKeycloak string
 
-@description('Registro del que se bajan las imágenes. Ej: miacr.azurecr.io')
-param servidorDelRegistro string
+@description('Nombre del registro de contenedores, sin dominio. Ej: miacr')
+param nombreDelRegistro string
+
+@description('Grupo de recursos donde vive el registro, si no es este.')
+param grupoDelRegistro string = resourceGroup().name
 
 @description('Servidor de Azure SQL. Ej: agro.database.windows.net')
 param servidorSql string
@@ -67,6 +70,43 @@ param contrasenaDeAdminDeKeycloak string
 @description('Operadores del back-office: correo|hash|Nombre separados por punto y coma.')
 param operadoresDelBackOffice string
 
+// Identidad compartida por las tres aplicaciones, y asignada por el usuario a
+// propósito.
+//
+// Con identidad del sistema no se puede: esa identidad nace recién cuando el
+// Container App se crea, y el contenedor intenta bajar su imagen en ese mismo
+// momento, cuando todavía no tiene permiso sobre el registro. El primer
+// despliegue falla bajando la imagen, y el error habla de la imagen y no del
+// permiso. Creándola aparte se autoriza antes de que nadie la necesite.
+resource identidad 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: '${prefijo}-identidad'
+  location: ubicacion
+}
+
+resource registro 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
+  name: nombreDelRegistro
+  scope: resourceGroup(grupoDelRegistro)
+}
+
+// AcrPull. El identificador del rol es fijo en todo Azure.
+var rolDeLectura = subscriptionResourceId(
+  'Microsoft.Authorization/roleDefinitions',
+  '7f951dda-4ed3-4680-a7ca-43fe172d538d'
+)
+
+module permisoSobreElRegistro 'registro.bicep' = {
+  name: 'permiso-sobre-el-registro'
+  scope: resourceGroup(grupoDelRegistro)
+  params: {
+    nombreDelRegistro: nombreDelRegistro
+    idDeLaIdentidad: identidad.id
+    principalDeLaIdentidad: identidad.properties.principalId
+    rolDeLectura: rolDeLectura
+  }
+}
+
+var servidorDelRegistro = registro.properties.loginServer
+
 // Los logs van a Log Analytics porque Container Apps no guarda historial por sí
 // mismo: sin esto, un contenedor que se reinicia se lleva la razón con él.
 resource logs 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
@@ -95,10 +135,14 @@ resource entorno 'Microsoft.App/managedEnvironments@2024-03-01' = {
 }
 
 resource keycloak 'Microsoft.App/containerApps@2024-03-01' = {
+  dependsOn: [permisoSobreElRegistro]
   name: '${prefijo}-keycloak'
   location: ubicacion
   identity: {
-    type: 'SystemAssigned'
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${identidad.id}': {}
+    }
   }
   properties: {
     environmentId: entorno.id
@@ -112,7 +156,7 @@ resource keycloak 'Microsoft.App/containerApps@2024-03-01' = {
       registries: [
         {
           server: servidorDelRegistro
-          identity: 'system'
+          identity: identidad.id
         }
       ]
       secrets: [
@@ -229,10 +273,14 @@ resource keycloak 'Microsoft.App/containerApps@2024-03-01' = {
 }
 
 resource app 'Microsoft.App/containerApps@2024-03-01' = {
+  dependsOn: [permisoSobreElRegistro]
   name: '${prefijo}-ms-maestros'
   location: ubicacion
   identity: {
-    type: 'SystemAssigned'
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${identidad.id}': {}
+    }
   }
   properties: {
     environmentId: entorno.id
@@ -245,7 +293,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
       registries: [
         {
           server: servidorDelRegistro
-          identity: 'system'
+          identity: identidad.id
         }
       ]
       secrets: [
@@ -418,10 +466,14 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
 }
 
 resource worker 'Microsoft.App/containerApps@2024-03-01' = {
+  dependsOn: [permisoSobreElRegistro]
   name: '${prefijo}-worker'
   location: ubicacion
   identity: {
-    type: 'SystemAssigned'
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${identidad.id}': {}
+    }
   }
   properties: {
     environmentId: entorno.id
@@ -430,7 +482,7 @@ resource worker 'Microsoft.App/containerApps@2024-03-01' = {
       registries: [
         {
           server: servidorDelRegistro
-          identity: 'system'
+          identity: identidad.id
         }
       ]
       secrets: [
@@ -565,9 +617,5 @@ output urlDeLaApp string = 'https://${app.properties.configuration.ingress.fqdn}
 @description('FQDN interno de Keycloak. No resuelve desde afuera del entorno.')
 output urlInternaDeKeycloak string = 'https://${keycloak.properties.configuration.ingress.fqdn}'
 
-@description('Identidades que hay que autorizar con AcrPull sobre el registro.')
-output identidadesParaElRegistro array = [
-  app.identity.principalId
-  worker.identity.principalId
-  keycloak.identity.principalId
-]
+@description('La identidad que baja las imágenes. Ya quedó autorizada por la plantilla.')
+output identidadDeLasAplicaciones string = identidad.properties.principalId

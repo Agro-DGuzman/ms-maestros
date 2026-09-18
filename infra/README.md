@@ -36,7 +36,7 @@ az deployment group create \
   --parameters \
       imagenApp=<registro>.azurecr.io/ms-maestros:<etiqueta> \
       imagenKeycloak=<registro>.azurecr.io/keycloak:<etiqueta> \
-      servidorDelRegistro=<registro>.azurecr.io \
+      nombreDelRegistro=<registro> \
       servidorSql=<servidor>.database.windows.net \
       baseDeMaestros=<base> usuarioDeMaestros=<usuario> \
       usuarioDeKeycloak=<usuario> \
@@ -46,15 +46,23 @@ az deployment group create \
 Los parámetros marcados `@secure()` los va a pedir de forma interactiva y no
 quedan en el historial del shell. **No pasarlos por línea de comandos.**
 
+**Quien despliegue necesita poder crear asignaciones de rol** sobre el registro
+—`Owner` o `User Access Administrator`—, porque la plantilla autoriza ella misma
+a la identidad. Si no tiene ese permiso, hay que sacar el módulo `registro.bicep`
+y asignar `AcrPull` a mano antes de desplegar, usando la salida
+`identidadDeLasAplicaciones`.
+
+## Por qué la identidad es asignada por el usuario
+
+Con identidad **del sistema** el primer despliegue falla. Esa identidad nace
+recién cuando el Container App se crea, y el contenedor intenta bajar su imagen
+en ese mismo instante, sin permiso todavía sobre el registro. El error habla de
+la imagen y no del permiso, así que se busca donde no es.
+
+Creándola aparte se la autoriza antes de que exista algo que la necesite, y las
+tres aplicaciones declaran que esperan a esa autorización.
+
 ## Después del primer despliegue
-
-**Autorizar las identidades a bajar del registro.** La salida
-`identidadesParaElRegistro` trae los tres identificadores:
-
-```sh
-az role assignment create --assignee <identificador> \
-  --role AcrPull --scope <id del registro>
-```
 
 **Correr las migraciones**, que la aplicación no ejecuta sola a propósito —
 migrar al arrancar, con varias réplicas, es una carrera:
