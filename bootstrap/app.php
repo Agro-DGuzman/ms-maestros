@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Envelope;
 use App\Http\MapaDeErroresHttp;
 use App\Http\Middleware\AutenticarPorToken;
+use App\Http\Middleware\EsquemaRealDetrasDelIngress;
 use App\Http\Middleware\IpRealDetrasDelIngress;
 use Core\Results\DomainException;
 use Core\Results\Error;
@@ -27,8 +28,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Primero de la cadena: todo lo que después mire `ip()` —el filtro de
         // rangos, el freno de intentos, la bitácora— tiene que ver ya la
-        // dirección de la persona y no la del ingress.
-        $middleware->prepend(IpRealDetrasDelIngress::class);
+        // dirección de la persona y no la del ingress. Y toda URL que se arme
+        // tiene que salir con el esquema por el que entró la persona.
+        $middleware->prepend([IpRealDetrasDelIngress::class, EsquemaRealDetrasDelIngress::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

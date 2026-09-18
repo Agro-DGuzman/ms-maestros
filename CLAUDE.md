@@ -168,7 +168,11 @@ la línea siguiente ya dice, sobra.
   es justo la parte que el cliente escribe. Va con interruptor
   (`DETRAS_DE_PROXY`) y **apagado por defecto**: encenderlo sin un proxy delante
   convierte la lista de rangos en decoración, porque entonces la cabecera la
-  controla quien conecta.
+  controla quien conecta. El mismo interruptor enciende
+  `EsquemaRealDetrasDelIngress`: el ingress atiende HTTPS y le pasa HTTP plano,
+  y sin eso cada formulario y cada redirección apuntan a `http://`. El ingress
+  redirige a HTTPS y en esa redirección **el POST llega como GET**, así que el
+  ingreso al back-office no funciona.
 - **No borrar `DomainEvent` ni `Entity::addDomainEvent()`**: son el core
   portado desde Java, están probados, y la fase 2 los usa.
 
