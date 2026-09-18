@@ -362,6 +362,13 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'KEYCLOAK_CLIENT_SECRET'
               secretRef: 'client-secret'
             }
+            // Cinco segundos quedaban en el borde: emitir un token tarda entre 2
+            // y 5,3 segundos medidos contra esta misma base. Con el valor viejo
+            // el login fallaba de forma intermitente.
+            {
+              name: 'KEYCLOAK_TIMEOUT'
+              value: '15'
+            }
             // Hay un ingress adelante: la IP de la persona viaja en la cabecera.
             // De esto dependen el filtro de rangos, el freno de intentos del
             // ingreso, y la dirección que la bitácora guarda para siempre.
@@ -531,6 +538,13 @@ resource worker 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'KEYCLOAK_CLIENT_SECRET'
               secretRef: 'client-secret'
+            }
+            // Cinco segundos quedaban en el borde: emitir un token tarda entre 2
+            // y 5,3 segundos medidos contra esta misma base. Con el valor viejo
+            // el login fallaba de forma intermitente.
+            {
+              name: 'KEYCLOAK_TIMEOUT'
+              value: '15'
             }
           ]
         }

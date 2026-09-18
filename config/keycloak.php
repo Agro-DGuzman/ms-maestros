@@ -15,5 +15,12 @@ return [
     'realm' => (string) env('KEYCLOAK_REALM', 'agropartners'),
     'client_id' => (string) env('KEYCLOAK_CLIENT_ID', 'ms-maestros'),
     'client_secret' => (string) env('KEYCLOAK_CLIENT_SECRET', ''),
-    'timeout' => (int) env('KEYCLOAK_TIMEOUT', 5),
+    /*
+     * Cinco segundos quedaban justo en el borde. Medido contra el Keycloak de
+     * Azure: emitir un token tarda entre 2 y 5,3 segundos —el hashing de la
+     * contraseña más la base— y el primer pedido tras arrancar, bastante más.
+     * Con el valor viejo el login fallaba de forma intermitente con
+     * `IDENTIDAD_NO_DISPONIBLE`, que no se parece a un problema de tiempo.
+     */
+    'timeout' => (int) env('KEYCLOAK_TIMEOUT', 15),
 ];
