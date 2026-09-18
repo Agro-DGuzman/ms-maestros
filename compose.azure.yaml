@@ -33,6 +33,12 @@ services:
       DB_ENCRYPT: "yes"
       DB_TRUST_SERVER_CERTIFICATE: "false"
 
+      # Cada token dice venir de `identidad.agropartners.com.bo`, pero a
+      # Keycloak se lo llama por la red interna. Sin declarar el emisor, la app
+      # espera el otro y rechaza todo con NO_AUTENTICADO.
+      KEYCLOAK_ISSUER: "${AZ_KC_ISSUER:-https://identidad.agropartners.com.bo}"
+      KEYCLOAK_CLIENT_SECRET: "${AZ_KC_CLIENT_SECRET:?falta AZ_KC_CLIENT_SECRET}"
+
   worker:
     environment:
       APP_ENV: local
@@ -45,6 +51,8 @@ services:
       DB_PASSWORD: "${DB_PASSWORD:?falta DB_PASSWORD}"
       DB_ENCRYPT: "yes"
       DB_TRUST_SERVER_CERTIFICATE: "false"
+      KEYCLOAK_ISSUER: "${AZ_KC_ISSUER:-https://identidad.agropartners.com.bo}"
+      KEYCLOAK_CLIENT_SECRET: "${AZ_KC_CLIENT_SECRET:?falta AZ_KC_CLIENT_SECRET}"
 
   # El Keycloak de verdad: la imagen propia, contra su propia base en el mismo
   # servidor de Azure. Reemplaza al `start-dev` con base embebida de
