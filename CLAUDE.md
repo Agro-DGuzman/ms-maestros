@@ -193,7 +193,7 @@ la línea siguiente ya dice, sobra.
 ## Probar a mano
 
 La colección de Postman está en `docs/ms-maestros.postman_collection.json` y se
-autoencadena: el OTP guarda `idDeDesafio`, el login guarda `token` y
+autoencadena: el OTP guarda `otpId`, el login guarda `token` y
 `refreshToken`. Lo único que se escribe a mano es el `codigo`.
 
 **Hace falta un worker corriendo.** Con la cola en `database`, `POST /auth/otp`

@@ -33,8 +33,8 @@ it('responde igual para un numero registrado y uno que no lo esta', function () 
         ->and($desconocido->json('success'))->toBeTrue()
         ->and($registrado->json('error'))->toBeNull()
         ->and($desconocido->json('error'))->toBeNull()
-        ->and($registrado->json('data.idDeDesafio'))->toBeString()
-        ->and($desconocido->json('data.idDeDesafio'))->toBeString();
+        ->and($registrado->json('data.otpId'))->toBeString()
+        ->and($desconocido->json('data.otpId'))->toBeString();
 });
 
 it('encola el envio para cualquier numero, registrado o no', function () {
@@ -54,8 +54,8 @@ it('persiste el desafio para cualquier numero, registrado o no', function () {
 
     $repo = app(DesafioRepository::class);
 
-    expect($repo->find(IdDeDesafio::desde((string) $conocido->json('data.idDeDesafio'))))->not->toBeNull()
-        ->and($repo->find(IdDeDesafio::desde((string) $desconocido->json('data.idDeDesafio'))))->not->toBeNull();
+    expect($repo->find(IdDeDesafio::desde((string) $conocido->json('data.otpId'))))->not->toBeNull()
+        ->and($repo->find(IdDeDesafio::desde((string) $desconocido->json('data.otpId'))))->not->toBeNull();
 });
 
 it('el handler no consulta el directorio', function () {
@@ -95,7 +95,7 @@ it('el desafio encolado sigue llevando el celular que lo pidio', function () {
     $respuesta = $this->postJson('/v1/auth/otp', ['telefono' => '70741828']);
 
     $desafio = app(DesafioRepository::class)->find(
-        IdDeDesafio::desde((string) $respuesta->json('data.idDeDesafio')),
+        IdDeDesafio::desde((string) $respuesta->json('data.otpId')),
     );
 
     expect($desafio)->not->toBeNull()
@@ -119,4 +119,15 @@ it('corta con 429 al superar el limite por celular', function () {
     $this->postJson('/v1/auth/otp', ['telefono' => '70741828'])
         ->assertStatus(429)
         ->assertJsonPath('error.code', ['LIMITE_DE_TASA']);
+});
+
+it('respeta el nombre del contrato: otpId, no idDeDesafio', function () {
+    // La App se construye contra el contrato OpenAPI, no contra este código.
+    // Con el nombre viejo, todo login de la App responde 422 porque manda un
+    // campo que nadie lee. Adentro el concepto sigue siendo un desafío; esto es
+    // solo el nombre en el cable.
+    $datos = $this->postJson('/v1/auth/otp', ['telefono' => '70741828'])->json('data');
+
+    expect($datos)->toHaveKey('otpId')
+        ->and($datos)->not->toHaveKey('idDeDesafio');
 });

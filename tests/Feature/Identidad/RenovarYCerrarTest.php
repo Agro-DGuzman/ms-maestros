@@ -23,9 +23,9 @@ beforeEach(function () {
 
     app(BovedaDeContrasenas::class)->guardar(IdDePersona::desde('p-8f2b1c40'), 'la-contrasena');
 
-    $id = (string) $this->postJson('/v1/auth/otp', ['telefono' => '70741828'])->json('data.idDeDesafio');
+    $id = (string) $this->postJson('/v1/auth/otp', ['telefono' => '70741828'])->json('data.otpId');
     $this->login = $this->postJson('/v1/auth/login', [
-        'idDeDesafio' => $id,
+        'otpId' => $id,
         'codigo' => $this->enviador->ultimoCodigo,
     ]);
 });

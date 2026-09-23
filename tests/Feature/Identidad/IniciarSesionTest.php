@@ -26,14 +26,14 @@ beforeEach(function () {
 
 function pedirDesafio(): string
 {
-    return (string) test()->postJson('/v1/auth/otp', ['telefono' => '70741828'])->json('data.idDeDesafio');
+    return (string) test()->postJson('/v1/auth/otp', ['telefono' => '70741828'])->json('data.otpId');
 }
 
 it('entrega token, sesion y contexto con el codigo correcto', function () {
     $id = pedirDesafio();
 
     $respuesta = $this->postJson('/v1/auth/login', [
-        'idDeDesafio' => $id,
+        'otpId' => $id,
         'codigo' => $this->enviador->ultimoCodigo,
         'instalacionId' => 'inst-1',
         'plataforma' => 'android',
@@ -51,7 +51,7 @@ it('registra la sesion con su dispositivo', function () {
     $id = pedirDesafio();
 
     $this->postJson('/v1/auth/login', [
-        'idDeDesafio' => $id,
+        'otpId' => $id,
         'codigo' => $this->enviador->ultimoCodigo,
         'instalacionId' => 'inst-1',
         'plataforma' => 'ios',
@@ -66,7 +66,7 @@ it('registra la sesion con su dispositivo', function () {
 it('rechaza el codigo equivocado con 422 y no pide token', function () {
     $id = pedirDesafio();
 
-    $this->postJson('/v1/auth/login', ['idDeDesafio' => $id, 'codigo' => '0000'])
+    $this->postJson('/v1/auth/login', ['otpId' => $id, 'codigo' => '0000'])
         ->assertStatus(422)
         ->assertJsonPath('error.code', ['CODIGO_INVALIDO']);
 
@@ -77,12 +77,12 @@ it('no deja usar el mismo desafio dos veces', function () {
     $id = pedirDesafio();
     $codigo = $this->enviador->ultimoCodigo;
 
-    $this->postJson('/v1/auth/login', ['idDeDesafio' => $id, 'codigo' => $codigo])->assertStatus(200);
-    $this->postJson('/v1/auth/login', ['idDeDesafio' => $id, 'codigo' => $codigo])->assertStatus(422);
+    $this->postJson('/v1/auth/login', ['otpId' => $id, 'codigo' => $codigo])->assertStatus(200);
+    $this->postJson('/v1/auth/login', ['otpId' => $id, 'codigo' => $codigo])->assertStatus(422);
 });
 
 it('un desafio inexistente responde el mismo CODIGO_INVALIDO', function () {
-    $this->postJson('/v1/auth/login', ['idDeDesafio' => 'no-existe', 'codigo' => '1234'])
+    $this->postJson('/v1/auth/login', ['otpId' => 'no-existe', 'codigo' => '1234'])
         ->assertStatus(422)
         ->assertJsonPath('error.code', ['CODIGO_INVALIDO']);
 });
@@ -91,7 +91,7 @@ it('si Keycloak no responde devuelve 500 y no abre sesion', function () {
     $id = pedirDesafio();
     $this->emisor->caido = true;
 
-    $this->postJson('/v1/auth/login', ['idDeDesafio' => $id, 'codigo' => $this->enviador->ultimoCodigo])
+    $this->postJson('/v1/auth/login', ['otpId' => $id, 'codigo' => $this->enviador->ultimoCodigo])
         ->assertStatus(500)
         ->assertJsonPath('error.type', 'PROBLEM');
 

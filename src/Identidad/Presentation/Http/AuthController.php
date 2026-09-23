@@ -43,20 +43,23 @@ final readonly class AuthController
         $id = $resultado->value();
         assert($id instanceof IdDeDesafio);
 
-        return Envelope::responder($resultado, ['idDeDesafio' => $id->value()]);
+        // `otpId` es el nombre del contrato OpenAPI, contra el que se construye la
+        // App. Adentro el concepto sigue siendo un desafío de ingreso: esto es
+        // solo el nombre en el cable.
+        return Envelope::responder($resultado, ['otpId' => $id->value()]);
     }
 
     public function login(Request $peticion): JsonResponse
     {
         $datos = $peticion->validate([
-            'idDeDesafio' => ['required', 'string', 'max:40'],
+            'otpId' => ['required', 'string', 'max:40'],
             'codigo' => ['required', 'string', 'size:4'],
             'instalacionId' => ['nullable', 'string', 'max:80'],
             'plataforma' => ['nullable', 'string', 'in:android,ios'],
         ]);
 
         $resultado = $this->mediator->send(new IniciarSesion(
-            IdDeDesafio::desde((string) $datos['idDeDesafio']),
+            IdDeDesafio::desde((string) $datos['otpId']),
             (string) $datos['codigo'],
             isset($datos['instalacionId']) ? (string) $datos['instalacionId'] : null,
             isset($datos['plataforma']) ? (string) $datos['plataforma'] : null,
