@@ -3,9 +3,9 @@
 # Tres etapas, y la primera existe para que las otras dos no corran sobre algo
 # roto: si las compuertas fallan, no se publica nada.
 #
-# Por ahora despliega solo la aplicación. Keycloak y el worker vienen después;
-# cuando estén, se agregan a la etapa de despliegue — el worker con la misma
-# imagen que la app, o los dos van a correr código distinto sobre la misma cola.
+# Despliega la aplicación y el worker, siempre con la misma imagen: si no, los
+# dos corren código distinto sobre la misma cola. Keycloak no pasa por acá; su
+# imagen cambia rara vez y se publica aparte (ver infra/README.md).
 
 trigger:
   branches:
@@ -18,6 +18,7 @@ variables:
   servidorDelRegistro: 'acragropartnerseus2.azurecr.io'
   grupoDeRecursos: 'rg-agropartners-int-eus2'
   appDeContenedor: 'ms-maestros'
+  workerDeContenedor: 'worker'
 
   repositorioDeImagen: 'ms-maestros'
   # La etiqueta es el commit: mirando un contenedor se sabe exactamente qué
@@ -129,6 +130,37 @@ stages:
                         --name $(appDeContenedor) \
                         --resource-group $(grupoDeRecursos) \
                         --image $(servidorDelRegistro)/$(repositorioDeImagen):$(etiqueta)
+
+                      # Mismo paso y misma etiqueta que la app: un despliegue
+                      # que actualizara solo uno de los dos saldría en verde con
+                      # la cola partida entre dos versiones.
+                      az containerapp update \
+                        --name $(workerDeContenedor) \
+                        --resource-group $(grupoDeRecursos) \
+                        --image $(servidorDelRegistro)/$(repositorioDeImagen):$(etiqueta)
+
+                      # Que la plantilla diga la imagen nueva no alcanza: si la
+                      # revisión no arranca, el worker viejo sigue atendiendo y
+                      # nadie se entera. Se exige que la revisión lista sea la
+                      # última.
+                      for intento in $(seq 1 12); do
+                        ultima=$(az containerapp show --name $(workerDeContenedor) \
+                          --resource-group $(grupoDeRecursos) \
+                          --query properties.latestRevisionName -o tsv)
+                        lista=$(az containerapp show --name $(workerDeContenedor) \
+                          --resource-group $(grupoDeRecursos) \
+                          --query properties.latestReadyRevisionName -o tsv)
+                        if [ "$ultima" = "$lista" ]; then
+                          echo "worker en la revisión $lista"
+                          break
+                        fi
+                        if [ "$intento" = "12" ]; then
+                          echo "la revisión $ultima del worker no quedó lista en 2 minutos"
+                          exit 1
+                        fi
+                        echo "intento $intento: lista $lista, esperando $ultima"
+                        sleep 10
+                      done
 
                 # Las migraciones van después de que la revisión esté arriba, y
                 # a mano por ahora: correrlas dentro del arranque del contenedor
