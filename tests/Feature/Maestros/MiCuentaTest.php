@@ -19,7 +19,7 @@ it('devuelve el contexto de la persona del token', function () {
 
     expect($respuesta->json('data.nombre'))->toBe('Monica Salvatierra')
         ->and($respuesta->json('data.iniciales'))->toBe('MS')
-        ->and($respuesta->json('data.celular'))->toBe('+59170741828')
+        ->and($respuesta->json('data.celular'))->toBe('+591 707 41 828')
         ->and($respuesta->json('data.grupoEconomico.id'))->toBe('GRP-014')
         ->and($respuesta->json('data.grupoEconomico.socios'))->toHaveCount(3)
         ->and($respuesta->json('error'))->toBeNull();
@@ -28,14 +28,14 @@ it('devuelve el contexto de la persona del token', function () {
 it('responde 401 sin cabecera Authorization', function () {
     $this->getJson('/v1/mi-cuenta')
         ->assertStatus(401)
-        ->assertJsonPath('error.code', ['NO_AUTENTICADO'])
+        ->assertJsonPath('error.code', ['TOKEN_INVALIDO'])
         ->assertJsonPath('data', null);
 });
 
 it('responde 401 con un token que no verifica', function () {
     $this->getJson('/v1/mi-cuenta', ['Authorization' => 'Bearer token-falso'])
         ->assertStatus(401)
-        ->assertJsonPath('error.code', ['NO_AUTENTICADO']);
+        ->assertJsonPath('error.code', ['TOKEN_INVALIDO']);
 });
 
 it('responde 404 si el token nombra a alguien que no existe', function () {

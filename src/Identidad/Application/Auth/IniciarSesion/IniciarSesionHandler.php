@@ -111,7 +111,7 @@ final readonly class IniciarSesionHandler implements RequestHandler
 
         return ResultWithValue::of([
             'token' => $emitido,
-            'sesion' => $sesion->idDeSesion(),
+            'sesion' => $sesion,
             'contexto' => $contexto,
         ]);
     }

@@ -15,7 +15,7 @@ final class DesafioErrors
      */
     public static function codigoInvalido(): Error
     {
-        return Error::validation('CODIGO_INVALIDO', 'El código no es válido o ya venció');
+        return Error::failure('CODIGO_INVALIDO', 'El código no es correcto. Revisa el mensaje de WhatsApp.');
     }
 
     public static function digitosInvalidos(): Error
@@ -25,6 +25,6 @@ final class DesafioErrors
 
     public static function limiteDeTasa(): Error
     {
-        return Error::failure('LIMITE_DE_TASA', 'Demasiadas solicitudes para este número. Intente más tarde.');
+        return Error::failure('LIMITE_TASA_SUPERADO', 'Demasiados intentos. Vuelve a intentarlo más tarde.');
     }
 }

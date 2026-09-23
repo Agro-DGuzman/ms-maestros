@@ -17,15 +17,19 @@ final class MapaDeErroresHttp
      * @var array<string, int>
      */
     private const POR_CODIGO = [
-        'NO_AUTENTICADO' => 401,
+        'TOKEN_INVALIDO' => 401,
+        'CODIGO_INVALIDO' => 401,
+        'REFRESH_TOKEN_INVALIDO' => 401,
         'ACCESO_DENEGADO' => 403,
-        'LIMITE_DE_TASA' => 429,
+        'LIMITE_TASA_SUPERADO' => 429,
     ];
 
     public static function status(Error $error): int
     {
+        // El contrato reserva 422 para una regla de negocio violada; una
+        // petición mal formada es 400.
         return self::POR_CODIGO[$error->code] ?? match ($error->type) {
-            ErrorType::Validation => 422,
+            ErrorType::Validation => 400,
             ErrorType::NotFound => 404,
             ErrorType::Conflict => 409,
             ErrorType::Problem, ErrorType::Failure => 500,

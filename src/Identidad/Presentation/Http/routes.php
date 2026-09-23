@@ -9,5 +9,6 @@ Route::prefix('v1/auth')->group(function (): void {
     Route::post('otp', [AuthController::class, 'otp']);
     Route::post('login', [AuthController::class, 'login']);
     Route::post('refresh', [AuthController::class, 'refresh']);
-    Route::post('logout', [AuthController::class, 'logout']);
+    // Cierra la sesión de quien la pide: sin token no se sabe de quién es.
+    Route::post('logout', [AuthController::class, 'logout'])->middleware('auth.token');
 });

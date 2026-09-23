@@ -35,13 +35,13 @@ it('entrega token, sesion y contexto con el codigo correcto', function () {
     $respuesta = $this->postJson('/v1/auth/login', [
         'otpId' => $id,
         'codigo' => $this->enviador->ultimoCodigo,
-        'instalacionId' => 'inst-1',
-        'plataforma' => 'android',
+        'dispositivo' => ['instalacionId' => '3f1c9a20-8d44-4b6e-9d21-6a7f0c4b18ee', 'plataforma' => 'android'],
     ])->assertStatus(200);
 
     expect($respuesta->json('success'))->toBeTrue()
-        ->and($respuesta->json('data.token'))->toBe('jwt-de-prueba')
-        ->and($respuesta->json('data.refreshToken'))->toBe('refresh-de-prueba')
+        ->and($respuesta->json('data.tokens.accessToken'))->toBe('jwt-de-prueba')
+        ->and($respuesta->json('data.tokens.refreshToken'))->toBe('refresh-de-prueba')
+        ->and($respuesta->json('data.dispositivoRegistrado'))->toBeTrue()
         ->and($respuesta->json('data.contexto.nombre'))->toBe('Monica Salvatierra')
         ->and($respuesta->json('data.contexto.grupoEconomico.socios'))->toHaveCount(3)
         ->and($this->emisor->pedidos)->toBe(['p-8f2b1c40']);
@@ -53,21 +53,20 @@ it('registra la sesion con su dispositivo', function () {
     $this->postJson('/v1/auth/login', [
         'otpId' => $id,
         'codigo' => $this->enviador->ultimoCodigo,
-        'instalacionId' => 'inst-1',
-        'plataforma' => 'ios',
+        'dispositivo' => ['instalacionId' => '3f1c9a20-8d44-4b6e-9d21-6a7f0c4b18ee', 'plataforma' => 'ios'],
     ]);
 
     $abiertas = app(SesionRepository::class)->abiertasDe(IdDePersona::desde('p-8f2b1c40'));
 
     expect($abiertas)->toHaveCount(1)
-        ->and($abiertas[0]->dispositivo()->instalacion()->value())->toBe('inst-1');
+        ->and($abiertas[0]->dispositivo()->instalacion()->value())->toBe('3f1c9a20-8d44-4b6e-9d21-6a7f0c4b18ee');
 });
 
-it('rechaza el codigo equivocado con 422 y no pide token', function () {
+it('rechaza el codigo equivocado con 401 y no pide token', function () {
     $id = pedirDesafio();
 
     $this->postJson('/v1/auth/login', ['otpId' => $id, 'codigo' => '0000'])
-        ->assertStatus(422)
+        ->assertStatus(401)
         ->assertJsonPath('error.code', ['CODIGO_INVALIDO']);
 
     expect($this->emisor->pedidos)->toBe([]);
@@ -78,12 +77,12 @@ it('no deja usar el mismo desafio dos veces', function () {
     $codigo = $this->enviador->ultimoCodigo;
 
     $this->postJson('/v1/auth/login', ['otpId' => $id, 'codigo' => $codigo])->assertStatus(200);
-    $this->postJson('/v1/auth/login', ['otpId' => $id, 'codigo' => $codigo])->assertStatus(422);
+    $this->postJson('/v1/auth/login', ['otpId' => $id, 'codigo' => $codigo])->assertStatus(401);
 });
 
 it('un desafio inexistente responde el mismo CODIGO_INVALIDO', function () {
-    $this->postJson('/v1/auth/login', ['otpId' => 'no-existe', 'codigo' => '1234'])
-        ->assertStatus(422)
+    $this->postJson('/v1/auth/login', ['otpId' => '9d4f0c1e-2b7a-4c3d-8e5f-6a7b8c9d0e1f', 'codigo' => '1234'])
+        ->assertStatus(401)
         ->assertJsonPath('error.code', ['CODIGO_INVALIDO']);
 });
 

@@ -42,3 +42,8 @@ it('una persona habilitada lo esta', function () {
 
     expect($habilitada->estaHabilitada())->toBeTrue();
 });
+
+it('muestra el celular agrupado como lo lee una persona', function () {
+    // Es lo que *Mi perfil* pinta tal cual; el contrato lo fija así.
+    expect(Celular::desdeLocalBoliviano('70741828')->paraMostrar())->toBe('+591 707 41 828');
+});

@@ -25,7 +25,7 @@ it('arma el contexto con la persona, su grupo y todos los socios del grupo', fun
     expect($contexto)->toBeInstanceOf(ContextoDeContacto::class)
         ->and($contexto->nombre)->toBe('Monica Salvatierra')
         ->and($contexto->iniciales)->toBe('MS')
-        ->and($contexto->celular)->toBe('+59170741828')
+        ->and($contexto->celular)->toBe('+591 707 41 828')
         ->and($contexto->grupoId)->toBe('GRP-014')
         ->and($contexto->grupoNombre)->toBe('Grupo Monasterio')
         ->and($contexto->socios)->toHaveCount(3)

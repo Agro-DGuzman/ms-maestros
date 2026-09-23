@@ -39,7 +39,7 @@ final readonly class AutenticarPorToken
     private function noAutenticado(): JsonResponse
     {
         return new JsonResponse(
-            Envelope::fallo(Error::failure('NO_AUTENTICADO', 'Falta un token válido')),
+            Envelope::fallo(Error::failure('TOKEN_INVALIDO', 'Falta el token de acceso, o ya no es válido. Solicita uno nuevo con el refresh token.')),
             401,
         );
     }

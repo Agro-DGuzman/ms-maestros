@@ -37,6 +37,6 @@ it('son los mismos socios que muestra mi-cuenta', function () {
 it('responde 401 sin cabecera Authorization', function () {
     $this->getJson('/v1/socios')
         ->assertStatus(401)
-        ->assertJsonPath('error.code', ['NO_AUTENTICADO'])
+        ->assertJsonPath('error.code', ['TOKEN_INVALIDO'])
         ->assertJsonPath('data', null);
 });

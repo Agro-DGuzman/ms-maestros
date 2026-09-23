@@ -71,7 +71,12 @@ la línea siguiente ya dice, sobra.
 
 - **Envelope:** `{ data, success, error }`, exactamente esos tres campos,
   construido desde un `Result` y nunca a mano. `success: true ⟹ error: null`;
-  `success: false ⟹ data: null`.
+  `success: false ⟹ data: null`. La forma de cada respuesta la fija el
+  contrato, y `ContratoDeRespuestasTest` valida cada status contra su esquema.
+- **`structuredMessage` es el desglose por campo** (`{ campo, codigo, mensaje }`),
+  no la plantilla del mensaje: solo lo llenan los `FieldError`, y un error que
+  no es de un campo lo deja vacío. Una petición mal formada es **400**; el
+  contrato reserva 422 para una regla de negocio violada.
 - **Un solo control de autorización: el alcance.** Fuera de alcance → 403
   `ACCESO_DENEGADO`, nunca 404 ni lista vacía, y **el alcance se verifica antes
   que la existencia**. Toda petición que recibe un `CodigoDeSocio` declara
@@ -102,7 +107,7 @@ la línea siguiente ya dice, sobra.
   usuario con los roles por defecto del realm, o sea a **toda persona que crea
   `identidad:habilitar`**, y eso no tiene nada que ver con nosotros. Exigir
   entonces que `aud` nos nombre rechazaba a todas ellas — entraban, recibían su
-  token, y después cada pedido daba `NO_AUTENTICADO`. El único usuario que
+  token, y después cada pedido daba 401. El único usuario que
   funcionaba era el del realm importado, que no tiene roles por defecto y por
   eso no trae `aud`; por ahí se escondió el agujero durante toda la fase 1.
   **Cualquier prueba sobre tokens tiene que usar una persona creada por el
@@ -420,6 +425,14 @@ curl -s localhost:8082/realms/master/.well-known/openid-configuration
   lo que protege de verdad es la lista. Está en un commit propio para poder
   revertirlo solo, sin arrastrar el renombre a `otpId`.
 
+- **Reglas del contrato que todavía no se cumplen** (la forma de las respuestas
+  sí; esto es comportamiento): 3 envíos por hora por número (hoy 5, por
+  `DESAFIO_MAX_POR_CELULAR_POR_HORA`), 10 por IP y por hora, el plazo mínimo
+  de reenvío (`REENVIO_DEMASIADO_PRONTO`), que un envío nuevo invalide el
+  desafío previo, y 10 verificaciones por minuto por IP en el login. Además
+  el contrato distingue `DESAFIO_EXPIRADO` e `INTENTOS_AGOTADOS`, lo que
+  choca con la regla de arriba de responder todo como `CODIGO_INVALIDO`:
+  hay que decidirlo antes de implementarlo.
 - Keycloak arranca con `start-dev` en `compose.yaml`, con base embebida que se
   pierde al recrear el contenedor. La imagen de `docker/keycloak/Dockerfile` es
   la que lo reemplaza en la nube; el `compose.yaml` local todavía no la usa.

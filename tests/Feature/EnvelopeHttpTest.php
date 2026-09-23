@@ -28,17 +28,20 @@ it('una excepcion de dominio se renderiza en el envelope con su status', functio
             'error' => [
                 'code' => ['SOCIO_NO_ENCONTRADO'],
                 'description' => 'No existe el socio C-1',
-                'structuredMessage' => ['No existe el socio {codigo}'],
+                'structuredMessage' => [],
                 'type' => 'NOT_FOUND',
             ],
         ]);
 });
 
-it('la validacion de Laravel usa el mismo envelope', function () {
-    $respuesta = $this->postJson('/_prueba/validacion', [])->assertStatus(422);
+it('la validacion de Laravel usa el mismo envelope, con 400 y el desglose por campo', function () {
+    $respuesta = $this->postJson('/_prueba/validacion', [])->assertStatus(400);
 
     expect($respuesta->json('success'))->toBeFalse()
         ->and($respuesta->json('data'))->toBeNull()
         ->and($respuesta->json('error.type'))->toBe('VALIDATION')
-        ->and($respuesta->json('error.code'))->toBeArray();
+        ->and($respuesta->json('error.code'))->toBe(['CAMPO_REQUERIDO'])
+        ->and($respuesta->json('error.structuredMessage'))->toBe([
+            ['campo' => 'celular', 'codigo' => 'CAMPO_REQUERIDO', 'mensaje' => 'Requerido.'],
+        ]);
 });

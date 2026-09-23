@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Identidad\Infrastructure\Keycloak;
 
+use Core\Results\Error;
 use Core\Results\Result;
 use Core\Results\ResultWithValue;
 use Identidad\Application\Contracts\EmisorDeToken;
 use Identidad\Application\Contracts\TokenEmitido;
+use Identidad\Domain\Sesiones\SesionErrors;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as Http;
 use Maestros\Domain\Contactos\IdDePersona;
@@ -40,7 +42,7 @@ final readonly class KeycloakEmisorDeToken implements EmisorDeToken
         return $this->pedirToken([
             'grant_type' => 'refresh_token',
             'refresh_token' => $refreshToken,
-        ]);
+        ], alRechazarLaConcesion: SesionErrors::refreshInvalido());
     }
 
     public function revocar(string $refreshToken): Result
@@ -64,8 +66,14 @@ final readonly class KeycloakEmisorDeToken implements EmisorDeToken
             : Result::failure(KeycloakErrors::noDisponible('logout '.$respuesta->status()));
     }
 
-    /** @param array<string, string> $campos */
-    private function pedirToken(array $campos): ResultWithValue
+    /**
+     * `invalid_grant` significa cosas distintas según la concesión: en la
+     * renovación es una sesión vencida, cosa de todos los días; en el ingreso,
+     * que la contraseña guardada no coincide, que es un problema nuestro.
+     *
+     * @param  array<string, string>  $campos
+     */
+    private function pedirToken(array $campos, ?Error $alRechazarLaConcesion = null): ResultWithValue
     {
         try {
             $respuesta = $this->http->asForm()->timeout($this->timeout)->post($this->url('token'), [
@@ -83,6 +91,10 @@ final readonly class KeycloakEmisorDeToken implements EmisorDeToken
             $this->log->error('Keycloak rechazó la credencial', ['status' => 401]);
 
             return ResultWithValue::failure(KeycloakErrors::credencialRechazada());
+        }
+
+        if ($alRechazarLaConcesion !== null && $respuesta->status() === 400 && $respuesta->json('error') === 'invalid_grant') {
+            return ResultWithValue::failure($alRechazarLaConcesion);
         }
 
         if (! $respuesta->successful()) {

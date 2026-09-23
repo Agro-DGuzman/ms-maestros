@@ -66,7 +66,7 @@ final readonly class ObtenerContextoHandler implements RequestHandler
         return ResultWithValue::of(new ContextoDeContacto(
             nombre: $persona->nombre(),
             iniciales: (string) $persona->iniciales(),
-            celular: $persona->celular()->e164(),
+            celular: $persona->celular()->paraMostrar(),
             grupoId: $grupo->value(),
             grupoNombre: $nombreDelGrupo,
             socios: array_values($socios),

@@ -105,10 +105,11 @@ it('el desafio encolado sigue llevando el celular que lo pidio', function () {
         ->and($this->enviador->enviados[0]['digitos'])->toMatch('/^\d{4}$/');
 });
 
-it('rechaza un telefono que no es movil boliviano con 422', function () {
+it('rechaza un telefono que no es movil boliviano con 400, marcando el campo', function () {
     $this->postJson('/v1/auth/otp', ['telefono' => '123'])
-        ->assertStatus(422)
-        ->assertJsonPath('error.type', 'VALIDATION');
+        ->assertStatus(400)
+        ->assertJsonPath('error.type', 'VALIDATION')
+        ->assertJsonPath('error.structuredMessage.0.campo', 'telefono');
 });
 
 it('corta con 429 al superar el limite por celular', function () {
@@ -119,7 +120,7 @@ it('corta con 429 al superar el limite por celular', function () {
 
     $this->postJson('/v1/auth/otp', ['telefono' => '70741828'])
         ->assertStatus(429)
-        ->assertJsonPath('error.code', ['LIMITE_DE_TASA']);
+        ->assertJsonPath('error.code', ['LIMITE_TASA_SUPERADO']);
 });
 
 it('respeta el nombre del contrato: otpId, no idDeDesafio', function () {

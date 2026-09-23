@@ -8,7 +8,7 @@ use App\Http\Middleware\AutenticarPorToken;
 use App\Http\Middleware\EsquemaRealDetrasDelIngress;
 use App\Http\Middleware\IpRealDetrasDelIngress;
 use Core\Results\DomainException;
-use Core\Results\Error;
+use Core\Results\FieldError;
 use Core\Results\ValidationError;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -53,17 +53,22 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
+            // Uno por campo, con el código del contrato. Los mensajes de las
+            // reglas de Laravel están en inglés; solo se conservan los de las
+            // reglas propias, que ya están escritos para mostrar.
             $errores = [];
+            $fallidas = $e->validator->failed();
 
             foreach ($e->errors() as $campo => $mensajes) {
-                foreach ($mensajes as $mensaje) {
-                    $errores[] = Error::validation(
-                        mb_strtoupper((string) $campo).'_INVALIDO',
-                        (string) $mensaje,
-                    );
-                }
+                $regla = (string) array_key_first($fallidas[$campo] ?? []);
+
+                $errores[] = match (true) {
+                    $regla === 'Required', str_starts_with($regla, 'RequiredWith') => new FieldError((string) $campo, 'CAMPO_REQUERIDO', 'Requerido.'),
+                    str_contains($regla, '\\') => new FieldError((string) $campo, 'PARAMETRO_INVALIDO', (string) $mensajes[0]),
+                    default => new FieldError((string) $campo, 'PARAMETRO_INVALIDO', 'Valor inválido.'),
+                };
             }
 
-            return new JsonResponse(Envelope::fallo(new ValidationError(...$errores)), 422);
+            return new JsonResponse(Envelope::fallo(new ValidationError(...$errores)), 400);
         });
     })->create();

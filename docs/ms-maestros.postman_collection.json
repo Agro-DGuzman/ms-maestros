@@ -72,7 +72,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"otpId\": \"{{otpId}}\",\n  \"codigo\": \"{{codigo}}\",\n  \"instalacionId\": \"inst-postman\",\n  \"plataforma\": \"android\"\n}"
+          "raw": "{\n  \"otpId\": \"{{otpId}}\",\n  \"codigo\": \"{{codigo}}\",\n  \"dispositivo\": {\n    \"instalacionId\": \"3f1c9a20-8d44-4b6e-9d21-6a7f0c4b18ee\",\n    \"plataforma\": \"android\"\n  }\n}"
         },
         "url": { "raw": "{{baseUrl}}/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["v1", "auth", "login"] },
         "description": "Canjea el desafio por un JWT emitido por Keycloak, mas el contexto del socio.\n\nPone `codigo` primero. El desafio vence a los 5 minutos, tolera 5 intentos y se consume al primer acierto."
@@ -84,17 +84,17 @@
             "type": "text/javascript",
             "exec": [
               "const b = pm.response.json();",
-              "if (pm.response.code === 422) {",
+              "if (pm.response.code === 401) {",
               "  console.log('CODIGO_INVALIDO: vencido, ya usado, o mal copiado. Volve al paso 1.');",
               "}",
               "pm.test('200 con token y contexto', () => {",
               "  pm.response.to.have.status(200);",
-              "  pm.expect(b.data.token).to.be.a('string');",
+              "  pm.expect(b.data.tokens.accessToken).to.be.a('string');",
               "  pm.expect(b.data.contexto.grupoEconomico.socios).to.be.an('array');",
               "});",
               "if (pm.response.code === 200) {",
-              "  pm.collectionVariables.set('token', b.data.token);",
-              "  pm.collectionVariables.set('refreshToken', b.data.refreshToken);",
+              "  pm.collectionVariables.set('token', b.data.tokens.accessToken);",
+              "  pm.collectionVariables.set('refreshToken', b.data.tokens.refreshToken);",
               "}"
             ]
           }
@@ -163,7 +163,7 @@
         "method": "GET",
         "header": [{ "key": "Accept", "value": "application/json" }],
         "url": { "raw": "{{baseUrl}}/v1/mi-cuenta", "host": ["{{baseUrl}}"], "path": ["v1", "mi-cuenta"] },
-        "description": "Comprueba que la ruta esta cerrada. Debe responder 401 con code [NO_AUTENTICADO] y data nula."
+        "description": "Comprueba que la ruta esta cerrada. Debe responder 401 con code [TOKEN_INVALIDO] y data nula."
       },
       "event": [
         {
@@ -172,10 +172,10 @@
             "type": "text/javascript",
             "exec": [
               "const b = pm.response.json();",
-              "pm.test('401 NO_AUTENTICADO', () => {",
+              "pm.test('401 TOKEN_INVALIDO', () => {",
               "  pm.response.to.have.status(401);",
               "  pm.expect(b.data).to.be.null;",
-              "  pm.expect(b.error.code).to.deep.equal(['NO_AUTENTICADO']);",
+              "  pm.expect(b.error.code).to.deep.equal(['TOKEN_INVALIDO']);",
               "});"
             ]
           }
@@ -203,10 +203,10 @@
               "const b = pm.response.json();",
               "pm.test('entrega token nuevo', () => {",
               "  pm.response.to.have.status(200);",
-              "  pm.expect(b.data.token).to.be.a('string');",
+              "  pm.expect(b.data.accessToken).to.be.a('string');",
               "});",
               "if (pm.response.code === 200) {",
-              "  pm.collectionVariables.set('token', b.data.token);",
+              "  pm.collectionVariables.set('token', b.data.accessToken);",
               "  pm.collectionVariables.set('refreshToken', b.data.refreshToken);",
               "}"
             ]
@@ -220,11 +220,12 @@
         "method": "POST",
         "header": [
           { "key": "Content-Type", "value": "application/json" },
-          { "key": "Accept", "value": "application/json" }
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
         ],
-        "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" },
+        "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\",\n  \"instalacionId\": \"3f1c9a20-8d44-4b6e-9d21-6a7f0c4b18ee\"\n}" },
         "url": { "raw": "{{baseUrl}}/v1/auth/logout", "host": ["{{baseUrl}}"], "path": ["v1", "auth", "logout"] },
-        "description": "Idempotente: cerrar una sesion ya cerrada responde 200 igual. Despues de esto, el paso 5 debe dar 401."
+        "description": "Pide el token de acceso: sin el no se sabe de quien es la sesion. Idempotente: cerrar una sesion ya cerrada responde 200 con sesionCerrada en false. Despues de esto, el paso 5 debe dar 401."
       },
       "event": [
         {
@@ -232,9 +233,9 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('200 y envelope de exito', () => {",
+              "pm.test('200 y dice si habia sesion', () => {",
               "  pm.response.to.have.status(200);",
-              "  pm.expect(pm.response.json().success).to.be.true;",
+              "  pm.expect(pm.response.json().data.sesionCerrada).to.be.a('boolean');",
               "});"
             ]
           }
@@ -242,7 +243,7 @@
       ]
     },
     {
-      "name": "7. Telefono invalido (espera 422)",
+      "name": "7. Telefono invalido (espera 400)",
       "request": {
         "method": "POST",
         "header": [
@@ -259,8 +260,8 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('422 VALIDATION', () => {",
-              "  pm.response.to.have.status(422);",
+              "pm.test('400 VALIDATION', () => {",
+              "  pm.response.to.have.status(400);",
               "  pm.expect(pm.response.json().error.type).to.equal('VALIDATION');",
               "});"
             ]

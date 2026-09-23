@@ -34,6 +34,14 @@ final readonly class Celular
         return $this->e164;
     }
 
+    /** `+591 707 41 828`: la forma con que una persona reconoce su número. */
+    public function paraMostrar(): string
+    {
+        $local = substr($this->e164, 4);
+
+        return sprintf('+591 %s %s %s', substr($local, 0, 3), substr($local, 3, 2), substr($local, 5));
+    }
+
     public function equals(self $otro): bool
     {
         return $otro->e164 === $this->e164;

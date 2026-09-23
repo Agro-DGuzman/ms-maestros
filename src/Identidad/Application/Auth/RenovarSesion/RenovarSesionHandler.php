@@ -6,13 +6,13 @@ namespace Identidad\Application\Auth\RenovarSesion;
 
 use Core\Contracts\Request;
 use Core\Contracts\RequestHandler;
-use Core\Results\Error;
 use Core\Results\Result;
 use Core\Results\ResultWithValue;
 use Identidad\Application\Contracts\EmisorDeToken;
 use Identidad\Application\Contracts\RelojDelSistema;
 use Identidad\Application\Contracts\TokenEmitido;
 use Identidad\Domain\Sesiones\SesionDeAplicacion;
+use Identidad\Domain\Sesiones\SesionErrors;
 use Identidad\Domain\Sesiones\SesionRepository;
 
 final readonly class RenovarSesionHandler implements RequestHandler
@@ -30,9 +30,7 @@ final readonly class RenovarSesionHandler implements RequestHandler
         $sesion = $this->sesiones->porRefreshHash(hash('sha256', $peticion->refreshToken));
 
         if (! $sesion instanceof SesionDeAplicacion || ! $sesion->estaAbierta($this->reloj->ahora())) {
-            return ResultWithValue::failure(
-                Error::failure('NO_AUTENTICADO', 'La sesión no está vigente'),
-            );
+            return ResultWithValue::failure(SesionErrors::refreshInvalido());
         }
 
         $token = $this->emisor->renovar($peticion->refreshToken);
