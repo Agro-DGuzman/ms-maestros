@@ -30,12 +30,14 @@ use Identidad\Infrastructure\RelojReal;
 use Identidad\Infrastructure\Whatsapp\DespachadorEnCola;
 use Identidad\Infrastructure\Whatsapp\EnviadorCloudApi;
 use Identidad\Infrastructure\Whatsapp\EnviadorPorLog;
+use Identidad\Presentation\Http\EcoDeCodigoDePrueba;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Http\Client\Factory as Http;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 use Maestros\Application\Alcance\ResolutorDeAlcance;
 use Maestros\Application\Contactos\BuscadorDeContactos;
+use Maestros\Domain\Contactos\Celular;
 use Maestros\Domain\Contactos\ContactoRepository;
 use Maestros\Domain\Grupos\GrupoRepository;
 use Maestros\Domain\Socios\SocioRepository;
@@ -116,6 +118,20 @@ final class ModulosServiceProvider extends ServiceProvider
         $this->app->when(SolicitarDesafioHandler::class)
             ->needs('$maximoPorHora')
             ->give(fn (): int => Config::integer('identidad.desafios_por_hora'));
+
+        // TEMPORAL: ver EcoDeCodigoDePrueba. Los números se normalizan acá, así
+        // que uno mal escrito revienta al arrancar en vez de no coincidir nunca.
+        $this->app->singleton(EcoDeCodigoDePrueba::class, fn ($app): EcoDeCodigoDePrueba => new EcoDeCodigoDePrueba(
+            $app->make(DesafioRepository::class),
+            array_values(array_map(
+                static fn (string $numero): string => Celular::desdeLocalBoliviano(trim($numero))->e164(),
+                array_filter(
+                    explode(',', Config::string('identidad.numeros_con_codigo_en_respuesta')),
+                    static fn (string $numero): bool => trim($numero) !== '',
+                ),
+            )),
+            $app->environment(),
+        ));
 
         $this->app->when(IniciarSesionHandler::class)
             ->needs('$diasDeSesion')

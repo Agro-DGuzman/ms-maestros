@@ -21,7 +21,10 @@ use Maestros\Domain\Contactos\Celular;
 
 final readonly class AuthController
 {
-    public function __construct(private Mediator $mediator) {}
+    public function __construct(
+        private Mediator $mediator,
+        private EcoDeCodigoDePrueba $eco,
+    ) {}
 
     public function otp(Request $peticion): JsonResponse
     {
@@ -46,7 +49,11 @@ final readonly class AuthController
         // `otpId` es el nombre del contrato OpenAPI, contra el que se construye la
         // App. Adentro el concepto sigue siendo un desafío de ingreso: esto es
         // solo el nombre en el cable.
-        return Envelope::responder($resultado, ['otpId' => $id->value()]);
+        // TEMPORAL: solo para números de prueba. Ver EcoDeCodigoDePrueba.
+        $codigo = $this->eco->para($celular, $id);
+
+        return Envelope::responder($resultado, ['otpId' => $id->value()]
+            + ($codigo === null ? [] : ['codigoDePrueba' => $codigo]));
     }
 
     public function login(Request $peticion): JsonResponse

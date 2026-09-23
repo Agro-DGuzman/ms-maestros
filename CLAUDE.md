@@ -405,6 +405,15 @@ curl -s localhost:8082/realms/master/.well-known/openid-configuration
 
 ## Pendientes conocidos
 
+- **Quitar el eco del código del desafío** (`EcoDeCodigoDePrueba`). Es temporal:
+  existe para probar sin leer logs, devolviendo el código en `codigoDePrueba`.
+  Devolverlo a cualquiera sería saltearse el OTP —quien sepa un número entra
+  como esa persona—, así que responde **solo a los números de
+  `OTP_ECO_NUMEROS`**, vacía es apagado, y con `APP_ENV=production` y la lista
+  no vacía se niega a existir. Ese último resguardo **no aplica en `staging`**:
+  lo que protege de verdad es la lista. Está en un commit propio para poder
+  revertirlo solo, sin arrastrar el renombre a `otpId`.
+
 - Keycloak arranca con `start-dev` en `compose.yaml`, con base embebida que se
   pierde al recrear el contenedor. La imagen de `docker/keycloak/Dockerfile` es
   la que lo reemplaza en la nube; el `compose.yaml` local todavía no la usa.

@@ -7,6 +7,7 @@ use Identidad\Application\Contracts\EnviadorDeDesafio;
 use Identidad\Domain\Desafios\DesafioRepository;
 use Identidad\Domain\Desafios\IdDeDesafio;
 use Identidad\Infrastructure\Whatsapp\EnviarDesafioJob;
+use Identidad\Presentation\Http\EcoDeCodigoDePrueba;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Maestros\Application\Contactos\ObtenerContexto\ContextoDeContacto;
@@ -130,4 +131,42 @@ it('respeta el nombre del contrato: otpId, no idDeDesafio', function () {
 
     expect($datos)->toHaveKey('otpId')
         ->and($datos)->not->toHaveKey('idDeDesafio');
+});
+
+/**
+ * El eco del código existe para probar sin leer logs. Devolverlo a cualquiera
+ * es saltearse el OTP: quien sepa un número entra como esa persona. Por eso
+ * solo sale para los números de una lista explícita, y vacía es apagado.
+ */
+function conNumerosDePrueba(string $lista): void
+{
+    config(['identidad.numeros_con_codigo_en_respuesta' => $lista]);
+    app()->forgetInstance(EcoDeCodigoDePrueba::class);
+}
+
+it('sin numeros de prueba configurados no devuelve el codigo', function () {
+    $datos = $this->postJson('/v1/auth/otp', ['telefono' => '70741828'])->json('data');
+
+    expect($datos)->not->toHaveKey('codigoDePrueba');
+});
+
+it('devuelve el codigo al numero de prueba, y es el mismo que se envia', function () {
+    conNumerosDePrueba('70741828');
+
+    $datos = $this->postJson('/v1/auth/otp', ['telefono' => '70741828'])->json('data');
+    $enviado = $this->enviador->enviados[array_key_last($this->enviador->enviados)]['digitos'] ?? null;
+
+    // Que lo enviado sea un string va primero: si no se mandara nada y tampoco
+    // volviera código, null contra null pasaría en verde sin probar nada.
+    expect($enviado)->toBeString()
+        ->and($datos['codigoDePrueba'] ?? null)->toBe($enviado);
+});
+
+it('a un numero registrado que no esta en la lista no le devuelve el codigo', function () {
+    // Registrado y todo: la puerta es la lista, no estar en la réplica.
+    conNumerosDePrueba('70741828');
+
+    $datos = $this->postJson('/v1/auth/otp', ['telefono' => '70112233'])->json('data');
+
+    expect($datos)->not->toHaveKey('codigoDePrueba');
 });
