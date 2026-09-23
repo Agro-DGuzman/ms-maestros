@@ -189,6 +189,12 @@ la línea siguiente ya dice, sobra.
   `vendor/bin/pest tests/Feature/Identidad/RenovarYCerrarTest.php`.
 - Primero el test que falla, y verificarlo en rojo antes de escribir el código.
   Un test nuevo que pasa de entrada no está probando lo que se cree.
+- **El contrato manda.** `contrato/agropartners-api-v1.yaml` es una copia del
+  contrato OpenAPI contra el que se construye la App, y no se edita acá: se
+  regenera en el visor y se reemplaza el archivo. `tests/Feature/ContratoTest.php`
+  exige que toda operación que el contrato asigna a `maestros` exista o figure
+  en `PENDIENTES`, y que la app no exponga en `v1` nada que el contrato no
+  tenga. Al implementar una pendiente, el test falla hasta sacarla de la lista.
 
 ## Probar a mano
 

@@ -1,0 +1,4673 @@
+# Agropartners API v1 — contrato OpenAPI 3.1
+# Generado desde agropartners-api-docs.html. No editar a mano: regenerar desde el visor.
+
+openapi: 3.1.0
+info:
+  title: Agropartners · API del Portal del Socio
+  version: 1.0.0
+  summary: Contrato único que consumen la App del Socio, el portal de Administración y Appgronomy.
+  description: |
+    API pública del ecosistema Agropartners. Las rutas están organizadas por dominio de negocio; la
+    extensión `x-agropartners-servicio` que declara cada una es interna y los clientes la ignoran.
+
+    ## Autenticación
+    No hay usuario ni contraseña. El socio entra con el celular que registró en Agropartners y un
+    código de 4 dígitos que recibe por WhatsApp:
+
+    1. `POST /auth/otp` — recibe el celular y devuelve un `otpId`.
+    2. `POST /auth/login` — recibe `otpId` + `codigo`, y devuelve los tokens con el contexto del socio.
+
+    Esos dos, junto con `POST /auth/refresh` y `GET /version`, son los **únicos endpoints públicos**.
+    Todos los demás exigen `Authorization: Bearer <token>`.
+
+    **No hay roles ni ámbitos.** Todo usuario habilitado puede invocar todas las operaciones; lo único
+    que varía entre dos usuarios es sobre qué socios.
+
+    ## Control de versión de la App
+    `GET /version` es lo primero que la App invoca al arrancar, antes del login. Decide por
+    `permiteContinuar`, no por `estado`, y si la llamada falla la App continúa igual.
+
+    ## Alcance por socio
+    El token determina los socios visibles. Omitir `cardCode` equivale al filtro «Todos» y agrega los
+    socios autorizados. Un `cardCode` no autorizado responde `403`.
+
+    ## Envelope de respuesta
+    Toda respuesta viaja como `{ data, success, error }`. Con `success: true`, `error` es null; con
+    `success: false`, `data` es null y `error` trae el detalle. El código de estado HTTP conserva su
+    semántica real (401, 404, 409…).
+
+    ## Latencia de sincronización
+    Los datos vienen de SAP Business One y tardan hasta 60 segundos en verse aquí. Un documento recién
+    emitido puede responder `404`; conviene reintentar antes de tratarlo como inexistente.
+
+    ## Escrituras asincrónicas
+    Solicitar una visita técnica o un estado de cuenta responde `202 Accepted` con un identificador de
+    seguimiento. El avance del estado de cuenta se consulta con `GET /estados-de-cuenta`; la solicitud
+    de visita no tiene seguimiento.
+
+    ## Paginación
+    Paginan seis colecciones: `/productos`, `/campanas/{campanaId}/compras`, `/facturas`,
+    `/movimientos`, `/reportes-campo` y `/avisos`. Aceptan `pagina` y `tamanoPagina`, y devuelven el
+    bloque `paginacion` dentro de `data`. Las demás devuelven la lista completa.
+
+    ## Moneda y formato
+    **Toda la API opera en dólares (USD).** No hay parámetro de moneda ni tipo de cambio.
+
+    Importes, cantidades y porcentajes viajan **ya formateados**, como string: `Importe` trae
+    `$us 2.065,80`, `cantidadFormateada` trae `50.000 Kg/L` y `Porcentaje` trae `58%`. Los conteos
+    viajan como enteros. Las fechas usan `date` (`2025-10-07`) y los instantes `date-time` en UTC.
+
+    ## Aviso legal obligatorio
+    Toda vista de saldos debe reproducir sin modificación el texto devuelto en `avisoLegal`.
+  contact:
+    name: Equipo de Integración Agropartners
+    email: sistemas@agropartners.com.bo
+  license:
+    name: Propietario · Uso interno Agropartners S.R.L.
+servers:
+- url: https://api.agropartners.com.bo/v1
+  description: Producción (Azure API Management)
+- url: https://api-uat.agropartners.com.bo/v1
+  description: UAT / Pruebas de aceptación
+- url: http://localhost:8080/v1
+  description: Desarrollo local (gateway simulado)
+tags:
+- name: Operación de la App
+  description: Control de versión de la App instalada. No requiere autenticación.
+- name: Autenticación
+  description: Ingreso con código por WhatsApp y ciclo de vida de la sesión sobre Microsoft Entra External
+    ID.
+- name: Inicio
+  description: Vista compuesta de la pantalla principal.
+- name: Mi cuenta
+  description: Identidad y perfil del usuario autenticado.
+- name: Socios y propiedades
+  description: Los socios visibles y los lotes que se ofrecen al pedir una visita.
+- name: Catálogo
+  description: Productos vigentes, categorías y documentación técnica.
+- name: Campañas y compras
+  description: Campañas agrícolas y lo comprado en cada una.
+- name: Facturas
+  description: Facturas de venta emitidas al socio.
+- name: Cuentas por pagar
+  description: Saldos, movimientos, bancos y estados de cuenta.
+- name: Reportes de campo
+  description: Informes de visita técnica por lote.
+- name: Visitas técnicas
+  description: Solicitud de visita técnica al lote.
+- name: Avisos
+  description: Bandeja de avisos del usuario del portal.
+- name: Contacto
+  description: El canal de WhatsApp de Control de Calidad.
+security:
+- tokenPortador: []
+paths:
+  /version:
+    x-agropartners-servicio: maestros
+    get:
+      tags:
+      - Operación de la App
+      summary: Consultar el estado de la versión instalada
+      description: |-
+        La App lo invoca **al arrancar, antes del login**, y el servidor responde qué hacer con la
+        versión instalada: dejarla pasar, sugerir actualización o exigirla.
+
+        Existe porque publicar una corrección no obliga a nadie a instalarla. Sin este endpoint, una
+        versión con un cálculo de saldos equivocado sigue en circulación durante semanas.
+
+        ### Por qué es público
+        Si una versión antigua quedó incompatible con el ingreso, exigirle autenticarse para enterarse de
+        que debe actualizar la dejaría atrapada. No recibe identidad y responde lo mismo a cualquiera que
+        pregunte por la misma versión y plataforma.
+
+        ### Cómo debe reaccionar la App
+        - Decide por `permiteContinuar`, no por `estado`: el enumerado puede crecer, el booleano no.
+        - `permiteContinuar: true` sin `titulo` → continúa en silencio.
+        - `permiteContinuar: true` con `titulo` → aviso descartable, y deja entrar.
+        - `permiteContinuar: false` → pantalla bloqueante con botón a `urlTienda`, sin opción de omitir.
+        - **Si la llamada falla o no hay red, la App continúa.** Un control de versión que bloquea cuando
+          el backend no responde convierte una caída del servidor en una App inutilizable.
+
+        `titulo` y `mensaje` llegan del servidor para poder explicar el motivo sin publicar una versión
+        nueva. Los mínimos se fijan por plataforma.
+      operationId: consultarVersion
+      security: []
+      parameters:
+      - name: plataforma
+        in: query
+        required: true
+        description: Plataforma del dispositivo. Los mínimos se fijan por separado en cada una.
+        schema:
+          type: string
+          enum:
+          - android
+          - ios
+      - name: version
+        in: query
+        required: true
+        description: Versión instalada, en formato semántico `MAYOR.MENOR.PARCHE`.
+        schema:
+          type: string
+          pattern: ^[0-9]+\.[0-9]+\.[0-9]+$
+          examples:
+          - 2.0.0
+      responses:
+        '200':
+          description: Estado de la versión consultada.
+          headers:
+            Cache-Control:
+              description: Caché breve, para que retirar una versión surta efecto en minutos.
+              schema:
+                type: string
+                examples:
+                - public, max-age=300
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/EstadoVersion'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                vigente:
+                  summary: Versión al día · deja pasar
+                  value:
+                    data:
+                      estado: vigente
+                      versionConsultada: 2.1.0
+                      versionMinimaSoportada: 1.8.0
+                      versionRecomendada: 2.1.0
+                      permiteContinuar: true
+                      titulo: null
+                      mensaje: null
+                      urlTienda: https://play.google.com/store/apps/details?id=bo.com.agropartners.socio
+                      consultadoEn: '2026-08-19T11:38:00Z'
+                    success: true
+                    error: null
+                actualizacionSugerida:
+                  summary: Hay una versión nueva · aviso descartable
+                  value:
+                    data:
+                      estado: actualizacion_sugerida
+                      versionConsultada: 2.0.0
+                      versionMinimaSoportada: 1.8.0
+                      versionRecomendada: 2.1.0
+                      permiteContinuar: true
+                      titulo: Hay una versión nueva
+                      mensaje: La versión 2.1.0 mejora la descarga de facturas. Puedes actualizar cuando
+                        quieras.
+                      urlTienda: https://play.google.com/store/apps/details?id=bo.com.agropartners.socio
+                      consultadoEn: '2026-08-19T11:38:00Z'
+                    success: true
+                    error: null
+                actualizacionObligatoria:
+                  summary: Versión retirada · pantalla bloqueante
+                  value:
+                    data:
+                      estado: actualizacion_obligatoria
+                      versionConsultada: 1.7.2
+                      versionMinimaSoportada: 1.8.0
+                      versionRecomendada: 2.1.0
+                      permiteContinuar: false
+                      titulo: Actualización necesaria
+                      mensaje: Esta versión dejó de estar disponible por una corrección en el cálculo de
+                        saldos. Actualiza para seguir usando la App.
+                      urlTienda: https://play.google.com/store/apps/details?id=bo.com.agropartners.socio
+                      consultadoEn: '2026-08-19T11:38:00Z'
+                    success: true
+                    error: null
+        '400':
+          description: Parámetros mal formados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                parametroInvalido:
+                  summary: Versión sin formato semántico
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - PARAMETRO_INVALIDO
+                      description: La versión debe tener el formato MAYOR.MENOR.PARCHE.
+                      structuredMessage:
+                      - campo: version
+                        codigo: PARAMETRO_INVALIDO
+                        mensaje: Se espera un valor como 2.1.0.
+                      type: VALIDATION
+  /auth/otp:
+    x-agropartners-servicio: maestros
+    post:
+      tags:
+      - Autenticación
+      summary: Solicitar el código de acceso por WhatsApp
+      description: |-
+        Primer paso del ingreso. Recibe el celular del socio, envía un código de 4 dígitos por WhatsApp y
+        devuelve el `otpId` que identifica el desafío. Es público.
+
+        El número llega sin prefijo: el servicio antepone `+591` y lo compara contra el celular registrado
+        en SAP, ya normalizado. Debe ser el de un **usuario habilitado** — persona de contacto del socio,
+        con acceso concedido por Agropartners.
+
+        Un número registrado y uno que no lo está devuelven **la misma respuesta `200`, con el mismo texto
+        y el mismo tiempo**. Solo en el primero sale un mensaje de WhatsApp; el error aparece recién en
+        `POST /auth/login` como `CODIGO_INVALIDO`.
+
+        ### Reglas de seguridad
+        - 3 envíos por hora y por número, 10 por IP y por hora. Al superarlo, `429` con `LIMITE_TASA_SUPERADO`.
+        - Antes del plazo mínimo de reenvío, `429` con `REENVIO_DEMASIADO_PRONTO`. Un envío nuevo invalida el desafío previo.
+        - El código no se registra en logs, trazas ni cuerpos capturados por APIM. Se almacena su hash con la sal de la sesión.
+        - Vigencia de 5 minutos y un solo uso.
+        - TLS obligatorio; credenciales del proveedor de WhatsApp en Azure Key Vault.
+      operationId: solicitarCodigo
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudCodigo'
+            examples:
+              solicitar:
+                summary: Celular registrado como contacto del socio
+                value:
+                  telefono: '70741828'
+      responses:
+        '200':
+          description: Desafío abierto. Si el número está registrado, el código va en camino por WhatsApp.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/DesafioOtp'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                enviado:
+                  value:
+                    data:
+                      otpId: e2b5a4d1-0c67-4f3a-9b18-5d2c7e91f306
+                    success: true
+                    error: null
+        '400':
+          description: Parámetros mal formados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                parametroInvalido:
+                  summary: El cuerpo no trae un celular
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - PARAMETRO_INVALIDO
+                      description: Falta indicar el celular.
+                      structuredMessage:
+                      - campo: telefono
+                        codigo: PARAMETRO_INVALIDO
+                        mensaje: Requerido.
+                      type: VALIDATION
+        '429':
+          description: Demasiadas solicitudes de código.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                reenvioPronto:
+                  summary: «Reenviar código» antes del plazo
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - REENVIO_DEMASIADO_PRONTO
+                      description: Espera unos segundos antes de pedir otro código.
+                      structuredMessage: []
+                      type: FAILURE
+                limite:
+                  summary: Tope de envíos por número o por IP
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - LIMITE_TASA_SUPERADO
+                      description: Demasiados intentos. Vuelve a intentarlo más tarde.
+                      structuredMessage: []
+                      type: FAILURE
+        '503':
+          description: El canal de WhatsApp no está disponible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                canalCaido:
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - CANAL_NO_DISPONIBLE
+                      description: No pudimos enviar el código en este momento. Intenta de nuevo en unos
+                        minutos.
+                      structuredMessage: []
+                      type: FAILURE
+  /auth/login:
+    x-agropartners-servicio: maestros
+    post:
+      tags:
+      - Autenticación
+      summary: Iniciar sesión con el código recibido por WhatsApp
+      description: |-
+        Segundo paso del ingreso. Verifica el código contra el desafío abierto en `POST /auth/otp` y abre
+        la sesión de aplicación. Es público.
+
+        El backend canjea la identidad contra Microsoft Entra External ID mediante una *custom
+        authentication extension*, actuando como cliente confidencial. Devuelve los tokens con el contexto
+        de negocio, de modo que la App pinta la pantalla de Inicio sin llamadas adicionales.
+
+        Registra el dispositivo para notificaciones push si se envía el bloque `dispositivo`. **Es el único
+        punto de registro del token push**: si la plataforma lo rota, hay que volver a iniciar sesión.
+
+        Código incorrecto, código de otro desafío y número no habilitado devuelven `CODIGO_INVALIDO`, con el
+        mismo texto y el mismo tiempo de respuesta. `DESAFIO_EXPIRADO` e `INTENTOS_AGOTADOS` sí se
+        distinguen: la App debe volver a la pantalla del teléfono.
+
+        ### Reglas de seguridad
+        - El código no se registra, y debe excluirse de los cuerpos que APIM diagnostica.
+        - Un solo uso: reenviar el mismo `otpId` con el mismo código responde `CODIGO_INVALIDO`.
+        - 5 códigos incorrectos invalidan el desafío (`INTENTOS_AGOTADOS`).
+        - 10 verificaciones por minuto y por IP; `429` al superarlo.
+        - TLS obligatorio; `client_secret` en Azure Key Vault.
+      operationId: iniciarSesion
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodigoDeAcceso'
+            examples:
+              conDispositivo:
+                summary: Ingreso desde Android con notificaciones
+                value:
+                  otpId: e2b5a4d1-0c67-4f3a-9b18-5d2c7e91f306
+                  codigo: '0421'
+                  dispositivo:
+                    instalacionId: 3f1c9a20-8d44-4b6e-9d21-6a7f0c4b18ee
+                    plataforma: android
+              sinDispositivo:
+                summary: Ingreso sin habilitar notificaciones
+                value:
+                  otpId: e2b5a4d1-0c67-4f3a-9b18-5d2c7e91f306
+                  codigo: '0421'
+      responses:
+        '200':
+          description: Código correcto. Sesión abierta.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/SesionAplicacion'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                ingresoCorrecto:
+                  value:
+                    data:
+                      sesionId: b41d7e02-9c33-4f18-8a6d-70c2f5e91a44
+                      tokens:
+                        accessToken: eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJvaWQiOiI4ZjJiMWM0MC01YTdlIn0.REDACTADO
+                        tokenType: Bearer
+                        expiraEnSegundos: 3600
+                        refreshToken: 0.AXoAj7IcQH5aEUqdPiyKaw8dVQ...REDACTADO
+                      contexto:
+                        nombre: Mónica Salvatierra
+                        iniciales: MS
+                        celular: +591 707 41 828
+                        grupoEconomico:
+                          id: GRP-014
+                          nombre: Grupo Monasterio
+                          socios:
+                          - cardCode: C-004871
+                            razonSocial: Sebastian Monasterio
+                            iniciales: SM
+                            cantidadPropiedades: 2
+                          - cardCode: C-004872
+                            razonSocial: Fernando Monasterio
+                            iniciales: FM
+                            cantidadPropiedades: 3
+                          - cardCode: C-004873
+                            razonSocial: Osvaldo Monasterio
+                            iniciales: OM
+                            cantidadPropiedades: 1
+                      iniciadaEn: '2026-08-19T11:40:00Z'
+                      expiraEn: '2026-08-19T12:40:00Z'
+                      dispositivoRegistrado: true
+                    success: true
+                    error: null
+        '400':
+          description: Parámetros mal formados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                parametroInvalido:
+                  summary: Código con longitud incorrecta
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - PARAMETRO_INVALIDO
+                      description: El código debe tener exactamente 4 dígitos.
+                      structuredMessage:
+                      - campo: codigo
+                        codigo: PARAMETRO_INVALIDO
+                        mensaje: Se esperan 4 dígitos, sin espacios ni separadores.
+                      type: VALIDATION
+        '401':
+          description: Código inválido, desafío vencido o intentos agotados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                codigoInvalido:
+                  summary: Código incorrecto o número no registrado
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - CODIGO_INVALIDO
+                      description: El código no es correcto. Revisa el mensaje de WhatsApp.
+                      structuredMessage: []
+                      type: FAILURE
+                desafioExpirado:
+                  summary: Pasaron más de 5 minutos
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - DESAFIO_EXPIRADO
+                      description: El código venció. Pide uno nuevo.
+                      structuredMessage: []
+                      type: FAILURE
+                intentosAgotados:
+                  summary: Cinco códigos incorrectos seguidos
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - INTENTOS_AGOTADOS
+                      description: Demasiados intentos con este código. Pide uno nuevo.
+                      structuredMessage: []
+                      type: FAILURE
+        '429':
+          description: Demasiados intentos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                limite:
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - LIMITE_TASA_SUPERADO
+                      description: Demasiados intentos de verificación. Espera un minuto.
+                      structuredMessage: []
+                      type: FAILURE
+  /auth/refresh:
+    x-agropartners-servicio: maestros
+    post:
+      tags:
+      - Autenticación
+      summary: Renovar el token de acceso
+      description: |-
+        Canjea el `refreshToken` por un token de acceso nuevo, sin volver a pedir el código por WhatsApp.
+        Es público: el propio refresh token es la credencial.
+
+        Sostiene la pantalla de desbloqueo biométrico: la biometría abre el almacenamiento seguro del
+        dispositivo, y el servidor solo ve esta renovación.
+
+        Cada renovación **rota el refresh token**. Si uno ya usado se presenta otra vez, se revoca toda la
+        cadena y la sesión se cierra.
+      operationId: renovarSesion
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenovacionSesion'
+            examples:
+              renovar:
+                value:
+                  refreshToken: 0.AXoAj7IcQH5aEUqdPiyKaw8dVQ...REDACTADO
+      responses:
+        '200':
+          description: Token renovado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TokensAcceso'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                renovado:
+                  value:
+                    data:
+                      accessToken: eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJvaWQiOiI4ZjJiMWM0MC01YTdlIn0.REDACTADO
+                      tokenType: Bearer
+                      expiraEnSegundos: 3600
+                      refreshToken: 0.AXoAj7IcQH5aEUqdPiyKaw8dVQ...REDACTADO
+                    success: true
+                    error: null
+        '401':
+          description: Refresh token inválido, expirado o ya utilizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                invalido:
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - REFRESH_TOKEN_INVALIDO
+                      description: La sesión expiró. Vuelve a iniciar sesión con tu celular.
+                      structuredMessage: []
+                      type: FAILURE
+  /auth/logout:
+    x-agropartners-servicio: maestros
+    post:
+      tags:
+      - Autenticación
+      summary: Cerrar la sesión de aplicación
+      description: |-
+        Cierra la sesión **de este dispositivo**: revoca el refresh token, desregistra el dispositivo de
+        notificaciones y cierra la traza de auditoría. Otras sesiones del mismo socio no se ven afectadas.
+
+        La App debe además descartar sus tokens del almacenamiento seguro: este endpoint no invalida un
+        access token ya emitido, que es un JWT válido hasta expirar. Descartar el refresh token apaga
+        también el desbloqueo biométrico.
+
+        Es idempotente: cerrar una sesión ya cerrada devuelve `200`.
+      operationId: cerrarSesion
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CierreSesion'
+            examples:
+              cerrarSesion:
+                value:
+                  refreshToken: 0.AXoAj7IcQH5aEUqdPiyKaw8dVQ...REDACTADO
+                  instalacionId: 3f1c9a20-8d44-4b6e-9d21-6a7f0c4b18ee
+      responses:
+        '200':
+          description: Sesión cerrada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CierreSesionResultado'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                cerrada:
+                  value:
+                    data:
+                      sesionCerrada: true
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+  /resumen:
+    x-agropartners-servicio: comercial
+    get:
+      tags:
+      - Inicio
+      summary: Vista compuesta de la pantalla de Inicio
+      description: |-
+        **Vista compuesta.** Devuelve en una sola llamada lo que renderiza la pantalla *Inicio*: línea de
+        crédito, deuda, los tres movimientos más recientes y el contador de avisos sin leer.
+
+        Los accesos directos de esa pantalla están fijos en la App.
+      operationId: obtenerResumen
+      parameters:
+      - $ref: '#/components/parameters/CardCodeQuery'
+      responses:
+        '200':
+          description: Resumen calculado.
+          headers:
+            Cache-Control:
+              description: Tolera un minuto de desfase.
+              schema:
+                type: string
+                examples:
+                - private, max-age=60
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Resumen'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                socioConCredito:
+                  summary: Socio con línea de crédito utilizada al 58%
+                  value:
+                    data:
+                      lineaCredito:
+                        disponible: $us 499.933,64
+                        porcentajeUtilizado: 58,3%
+                        aprobada: $us 1.200.000,00
+                      deuda:
+                        total: $us 700.066,36
+                      movimientosRecientes:
+                      - id: MOV-000001877
+                        tipo: compra_credito
+                        fecha: '2025-10-07'
+                        monto: $us 2.065,80
+                        capital: $us 1.860,00
+                        interes: $us 205,80
+                        signo: cargo
+                        concepto: Compra a crédito
+                      - id: MOV-000004512
+                        tipo: pago_recibido
+                        fecha: '2025-09-28'
+                        monto: $us 15.000,00
+                        capital: null
+                        interes: null
+                        signo: abono
+                        concepto: Pago recibido
+                      avisosSinLeer: 2
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /mi-cuenta:
+    x-agropartners-servicio: maestros
+    get:
+      tags:
+      - Mi cuenta
+      summary: Contexto de la sesión
+      description: |-
+        Quién entró y qué alcanza a ver. Refresca el mismo contexto que devuelve el login, sin volver a
+        iniciar sesión.
+
+        De aquí sale *Mi perfil*: nombre e iniciales de la cabecera, y las dos filas de «Datos del perfil»
+        — el grupo económico y el celular.
+      operationId: obtenerMiCuenta
+      responses:
+        '200':
+          description: Contexto resuelto.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PersonaDeContacto'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                contactoDeTresSocios:
+                  summary: Contadora que lleva las tres empresas del grupo
+                  value:
+                    data:
+                      nombre: Mónica Salvatierra
+                      iniciales: MS
+                      celular: +591 707 41 828
+                      grupoEconomico:
+                        id: GRP-014
+                        nombre: Grupo Monasterio
+                        socios:
+                        - cardCode: C-004871
+                          razonSocial: Sebastian Monasterio
+                          iniciales: SM
+                          cantidadPropiedades: 2
+                        - cardCode: C-004872
+                          razonSocial: Fernando Monasterio
+                          iniciales: FM
+                          cantidadPropiedades: 3
+                        - cardCode: C-004873
+                          razonSocial: Osvaldo Monasterio
+                          iniciales: OM
+                          cantidadPropiedades: 1
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+  /socios:
+    x-agropartners-servicio: maestros
+    get:
+      tags:
+      - Socios y propiedades
+      summary: Listar socios de negocio visibles
+      description: |-
+        Alimenta el selector «Socio de negocio». El valor «Todos» **no es un socio**: es el grupo económico,
+        y la App lo representa omitiendo `cardCode` en el resto de llamadas. Sin paginación.
+      operationId: listarSocios
+      parameters: []
+      responses:
+        '200':
+          description: Colección de socios.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    type: object
+                    required:
+                    - items
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Socio'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                grupoMonasterio:
+                  value:
+                    data:
+                      items:
+                      - cardCode: C-004871
+                        razonSocial: Sebastian Monasterio
+                        iniciales: SM
+                        cantidadPropiedades: 2
+                      - cardCode: C-004872
+                        razonSocial: Fernando Monasterio
+                        iniciales: FM
+                        cantidadPropiedades: 3
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+  /socios/{cardCode}/propiedades:
+    x-agropartners-servicio: maestros
+    parameters:
+    - $ref: '#/components/parameters/CardCodePath'
+    get:
+      tags:
+      - Socios y propiedades
+      summary: Listar propiedades del socio
+      description: Las propiedades del socio, para el paso 2 de *Solicitar visita técnica*. Sin filtros
+        ni paginación.
+      operationId: listarPropiedadesSocio
+      parameters: []
+      responses:
+        '200':
+          description: Colección de propiedades.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    type: object
+                    required:
+                    - items
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Propiedad'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                dosLotes:
+                  value:
+                    data:
+                      items:
+                      - id: PROP-014
+                        nombre: Lote 14 · San Julián
+                      - id: PROP-007
+                        nombre: Lote 07 · Cuatro Cañadas
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /productos:
+    x-agropartners-servicio: maestros
+    get:
+      tags:
+      - Catálogo
+      summary: Listar el catálogo vigente
+      description: |-
+        Catálogo vigente: artículos activos, de venta y con lista de precios asignada al socio. El filtro
+        `categoria` corresponde a los chips de la pantalla *Productos*.
+      operationId: listarProductos
+      parameters:
+      - name: categoria
+        in: query
+        description: Omitir equivale a «Todos».
+        schema:
+          $ref: '#/components/schemas/CodigoCategoria'
+      - $ref: '#/components/parameters/Pagina'
+      - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Colección de productos.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ProductoResumen'
+                      paginacion:
+                        $ref: '#/components/schemas/Paginacion'
+                    required:
+                    - items
+                    - paginacion
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                filtradoHerbicidas:
+                  summary: Chip «Herbicidas» seleccionado
+                  value:
+                    data:
+                      items:
+                      - itemCode: A-0142
+                        nombre: Gliforte 68 SG
+                        categoria:
+                          codigo: herbicidas
+                          nombre: Herbicidas
+                        presentacion: Bolsa 10 Kg
+                        imagenUrl: https://cdn.agropartners.com.bo/productos/A-0142.webp
+                      - itemCode: A-0219
+                        nombre: Atrazina 90 WG
+                        categoria:
+                          codigo: herbicidas
+                          nombre: Herbicidas
+                        presentacion: Bolsa 5 Kg
+                        imagenUrl: https://cdn.agropartners.com.bo/productos/A-0219.webp
+                      paginacion:
+                        pagina: 1
+                        tamanoPagina: 20
+                        total: 2
+                        totalPaginas: 1
+                    success: true
+                    error: null
+        '400':
+          description: Parámetros mal formados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                parametroInvalido:
+                  summary: Paginación fuera de rango
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - PARAMETRO_INVALIDO
+                      description: El parámetro «tamanoPagina» está fuera del rango admitido.
+                      structuredMessage:
+                      - campo: tamanoPagina
+                        codigo: PARAMETRO_INVALIDO
+                        mensaje: Debe estar entre 1 y 100.
+                      type: VALIDATION
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+  /productos/{itemCode}:
+    x-agropartners-servicio: maestros
+    parameters:
+    - $ref: '#/components/parameters/ItemCode'
+    get:
+      tags:
+      - Catálogo
+      summary: Obtener la ficha de un producto
+      description: |-
+        Ficha completa de la pantalla *Ficha de producto*: descripción, ingrediente activo, formulación,
+        dosis, cultivos y las filas de «Datos de registro». La clase toxicológica y el tiempo de reingreso
+        están en la hoja de seguridad, que se descarga desde `/productos/{itemCode}/documentos`.
+      operationId: obtenerProducto
+      responses:
+        '200':
+          description: Producto encontrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ProductoDetalle'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                agroquimico:
+                  summary: Herbicida · lleva ficha regulatoria
+                  value:
+                    data:
+                      itemCode: A-0142
+                      nombre: Gliforte 68 SG
+                      categoria:
+                        codigo: herbicidas
+                        nombre: Herbicidas
+                      presentacion: Bolsa 10 Kg
+                      descripcion: Herbicida sistémico no selectivo de amplio espectro, formulado como
+                        gránulo soluble.
+                      imagenUrl: https://cdn.agropartners.com.bo/productos/A-0142.webp
+                      ingredienteActivo: Glifosato sal de amonio 68%
+                      formulacion: Gránulos solubles (SG)
+                      dosisReferencial: 1,5 – 3,0 Kg/ha
+                      cultivos:
+                      - Barbecho químico
+                      registro:
+                        entidad: SENASAG
+                        numero: 1842-H
+                    success: true
+                    error: null
+                semilla:
+                  summary: Semilla · sin clase toxicológica, pero con registro INIAF
+                  value:
+                    data:
+                      itemCode: S-0101
+                      nombre: Sorgo Jisunú 101
+                      categoria:
+                        codigo: semillas
+                        nombre: Semillas
+                      presentacion: Bolsa 20 Kg
+                      descripcion: Híbrido de sorgo granífero de ciclo intermedio para la zona este de
+                        Santa Cruz.
+                      imagenUrl: https://cdn.agropartners.com.bo/productos/S-0101.webp
+                      ingredienteActivo: Sorghum bicolor · híbrido
+                      formulacion: Semilla tratada
+                      dosisReferencial: 8 – 10 Kg/ha
+                      cultivos:
+                      - Siembra directa
+                      registro:
+                        entidad: INIAF
+                        numero: SG-101
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          description: El recurso no existe o aún no fue sincronizado desde SAP.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                noEncontrado:
+                  summary: Artículo inexistente o fuera del catálogo del socio
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - RECURSO_NO_ENCONTRADO
+                      description: El artículo A-9999 no existe en el catálogo o no está habilitado para
+                        este socio.
+                      structuredMessage: []
+                      type: NOT_FOUND
+  /productos/{itemCode}/documentos:
+    x-agropartners-servicio: maestros
+    parameters:
+    - $ref: '#/components/parameters/ItemCode'
+    get:
+      tags:
+      - Catálogo
+      summary: Listar documentos técnicos del producto
+      description: |-
+        Ficha técnica y hoja de seguridad que descargan los botones de la *Ficha de producto*. Los archivos
+        residen en Azure Blob Storage y se entregan como URLs firmadas de corta duración.
+      operationId: listarDocumentosProducto
+      responses:
+        '200':
+          description: Documentos disponibles.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DocumentoDescargable'
+                    required:
+                    - items
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                tdsYMsds:
+                  value:
+                    data:
+                      items:
+                      - tipo: ficha_tecnica
+                        nombre: Ficha técnica · Gliforte 68 SG
+                        url: https://stagropartners.blob.core.windows.net/fichas/A-0142-tds.pdf?sv=2024-11-04&sig=REDACTADO
+                      - tipo: hoja_seguridad
+                        nombre: Hoja de seguridad · Gliforte 68 SG
+                        url: https://stagropartners.blob.core.windows.net/fichas/A-0142-msds.pdf?sv=2024-11-04&sig=REDACTADO
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          description: El recurso no existe o aún no fue sincronizado desde SAP.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                noEncontrado:
+                  summary: El artículo no tiene ficha ni hoja de seguridad
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - RECURSO_NO_ENCONTRADO
+                      description: El artículo A-9999 no existe, o no tiene documentación técnica cargada.
+                      structuredMessage: []
+                      type: NOT_FOUND
+  /categorias:
+    x-agropartners-servicio: maestros
+    get:
+      tags:
+      - Catálogo
+      summary: Listar categorías de producto
+      description: Alimenta los chips de filtro de la pantalla *Productos*. Cachéable con `ETag`.
+      operationId: listarCategorias
+      responses:
+        '200':
+          description: Colección de categorías.
+          headers:
+            ETag:
+              description: Validador para caché condicional.
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+                examples:
+                - public, max-age=3600
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Categoria'
+                    required:
+                    - items
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                catalogoCompleto:
+                  value:
+                    data:
+                      items:
+                      - codigo: herbicidas
+                        nombre: Herbicidas
+                      - codigo: semillas
+                        nombre: Semillas
+                      - codigo: fertilizantes
+                        nombre: Fertilizantes
+                      - codigo: insecticidas
+                        nombre: Insecticidas
+                    success: true
+                    error: null
+        '304':
+          description: El contenido no cambió respecto del `ETag` enviado. Sin cuerpo.
+          headers:
+            ETag:
+              description: El mismo validador vigente.
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+      parameters:
+      - $ref: '#/components/parameters/IfNoneMatch'
+  /campanas:
+    x-agropartners-servicio: comercial
+    get:
+      tags:
+      - Campañas y compras
+      summary: Listar campañas con total comprado
+      description: |-
+        Resuelve la pantalla *Compras*. Cada campaña incluye el monto comprado, el rango de fechas y la
+        cantidad de facturas; `totales` trae el total de todas. Sin paginación ni filtros.
+      operationId: listarCampanas
+      parameters:
+      - $ref: '#/components/parameters/CardCodeQuery'
+      responses:
+        '200':
+          description: Campañas ordenadas de la más reciente a la más antigua.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Campana'
+                      totales:
+                        type: object
+                        properties:
+                          montoTotal:
+                            $ref: '#/components/schemas/Importe'
+                    required:
+                    - items
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                tresCampanas:
+                  value:
+                    data:
+                      items:
+                      - id: v2526
+                        nombre: Verano 2526
+                        desde: '2025-10-01'
+                        hasta: '2026-03-31'
+                        montoComprado: $us 500.000,56
+                        cantidadFacturas: 14
+                      - id: i25
+                        nombre: Invierno 25
+                        desde: '2025-04-01'
+                        hasta: '2025-09-30'
+                        montoComprado: $us 200.065,80
+                        cantidadFacturas: 9
+                      - id: v2425
+                        nombre: Verano 2425
+                        desde: '2024-10-01'
+                        hasta: '2025-03-31'
+                        montoComprado: $us 50.025,52
+                        cantidadFacturas: 4
+                      totales:
+                        montoTotal: $us 750.091,88
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /campanas/{campanaId}/compras:
+    x-agropartners-servicio: comercial
+    parameters:
+    - $ref: '#/components/parameters/CampanaId'
+    get:
+      tags:
+      - Campañas y compras
+      summary: Listar lo comprado en la campaña, consolidado por producto
+      description: |-
+        Vista «Por producto» de la pantalla *Compras*: consolida las líneas de todas las facturas de la
+        campaña por artículo, sumando cantidades e importes.
+
+        La vista «Por factura» de la misma pantalla se resuelve con `/facturas?campanaId=`.
+      operationId: listarComprasDeCampana
+      parameters:
+      - $ref: '#/components/parameters/CardCodeQuery'
+      - $ref: '#/components/parameters/Buscar'
+      - $ref: '#/components/parameters/Pagina'
+      - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Compras consolidadas por producto.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CompraPorProducto'
+                      paginacion:
+                        $ref: '#/components/schemas/Paginacion'
+                      totales:
+                        type: object
+                        properties:
+                          montoTotal:
+                            $ref: '#/components/schemas/Importe'
+                          cantidadProductos:
+                            type: integer
+                    required:
+                    - items
+                    - paginacion
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                dosProductos:
+                  value:
+                    data:
+                      items:
+                      - itemCode: A-0142
+                        nombre: Gliforte 68 SG
+                        cantidadFormateada: 50.000 Kg/L
+                        monto: $us 755.000,00
+                        participacion: 91%
+                        icono: science
+                      - itemCode: S-0101
+                        nombre: Sorgo Jisunú 101
+                        cantidadFormateada: 50 bolsas
+                        monto: $us 44.544,00
+                        participacion: 5%
+                        icono: grass
+                      paginacion:
+                        pagina: 1
+                        tamanoPagina: 20
+                        total: 4
+                        totalPaginas: 1
+                      totales:
+                        montoTotal: $us 829.924,40
+                        cantidadProductos: 4
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          description: El recurso no existe o aún no fue sincronizado desde SAP.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                noEncontrado:
+                  summary: Campaña inexistente
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - RECURSO_NO_ENCONTRADO
+                      description: La campaña v9999 no existe o no corresponde a este socio.
+                      structuredMessage: []
+                      type: NOT_FOUND
+  /campanas/{campanaId}/compras/{itemCode}:
+    x-agropartners-servicio: comercial
+    parameters:
+    - $ref: '#/components/parameters/CampanaId'
+    - $ref: '#/components/parameters/ItemCode'
+    get:
+      tags:
+      - Campañas y compras
+      summary: Detalle de lo comprado de un producto en la campaña
+      description: |-
+        Pantalla *Detalle de producto*: el monto acumulado en la cabecera, la cantidad comprada, cuántas
+        facturas lo contienen y el listado de esas facturas.
+      operationId: obtenerCompraDeCampana
+      parameters:
+      - $ref: '#/components/parameters/CardCodeQuery'
+      responses:
+        '200':
+          description: Detalle encontrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CompraPorProductoDetalle'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                gliforteEnVerano2526:
+                  summary: Un herbicida comprado en tres facturas de la campaña
+                  value:
+                    data:
+                      itemCode: A-0142
+                      nombre: Gliforte 68 SG
+                      cantidadFormateada: 50.000 Kg/L
+                      monto: $us 755.000,00
+                      participacion: 91%
+                      icono: science
+                      campanaId: v2526
+                      campanaNombre: Verano 2526
+                      facturas:
+                      - docEntry: 1877
+                        numero: '1877'
+                        fecha: '2025-10-07'
+                        cantidadLineas: 3
+                        campanaId: v2526
+                        total: $us 2.065,80
+                      - docEntry: 1867
+                        numero: '1867'
+                        fecha: '2025-10-06'
+                        cantidadLineas: 5
+                        campanaId: v2526
+                        total: $us 5.066,30
+                      - docEntry: 1802
+                        numero: '1802'
+                        fecha: '2025-10-02'
+                        cantidadLineas: 2
+                        campanaId: v2526
+                        total: $us 747.867,90
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          description: El recurso no existe o aún no fue sincronizado desde SAP.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                noEncontrado:
+                  summary: El artículo no aparece en esa campaña
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - RECURSO_NO_ENCONTRADO
+                      description: El artículo A-9999 no fue comprado en la campaña v2526.
+                      structuredMessage: []
+                      type: NOT_FOUND
+  /campanas/{campanaId}/deuda:
+    x-agropartners-servicio: comercial
+    parameters:
+    - $ref: '#/components/parameters/CampanaId'
+    get:
+      tags:
+      - Campañas y compras
+      summary: Detalle de deuda de la campaña
+      description: |-
+        Pantalla *Deuda por campaña*: saldo pendiente de la campaña, cuántas facturas la componen y su
+        período. La lista de movimientos se pide aparte con `GET /movimientos?campanaId=`.
+      operationId: obtenerDeudaCampana
+      parameters:
+      - $ref: '#/components/parameters/CardCodeQuery'
+      responses:
+        '200':
+          description: Detalle de la campaña.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/DeudaCampana'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                verano2526:
+                  value:
+                    data:
+                      campanaId: v2526
+                      nombre: Verano 2526
+                      deuda: $us 300.066,30
+                      cantidadFacturas: 14
+                      desde: '2025-10-01'
+                      hasta: '2026-03-31'
+                      cantidadMovimientos: 3
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          description: El recurso no existe o aún no fue sincronizado desde SAP.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                noEncontrado:
+                  summary: Campaña inexistente
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - RECURSO_NO_ENCONTRADO
+                      description: La campaña v9999 no existe o no corresponde a este socio.
+                      structuredMessage: []
+                      type: NOT_FOUND
+  /facturas:
+    x-agropartners-servicio: comercial
+    get:
+      tags:
+      - Facturas
+      summary: Listar facturas
+      description: |-
+        Vista «Por factura» de la pantalla *Compras* y acceso rápido «Facturas» del Inicio.
+        Origen SAP: `OINV`, excluyendo documentos cancelados.
+      operationId: listarFacturas
+      parameters:
+      - $ref: '#/components/parameters/CardCodeQuery'
+      - name: campanaId
+        in: query
+        description: Campaña cuyas facturas se listan. Omitirlo devuelve las facturas de todos los períodos.
+        schema:
+          type: string
+          examples:
+          - v2526
+      - $ref: '#/components/parameters/Pagina'
+      - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Colección de facturas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FacturaResumen'
+                      paginacion:
+                        $ref: '#/components/schemas/Paginacion'
+                    required:
+                    - items
+                    - paginacion
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                dosFacturas:
+                  value:
+                    data:
+                      items:
+                      - docEntry: 1877
+                        numero: '1877'
+                        fecha: '2025-10-07'
+                        cantidadLineas: 3
+                        campanaId: v2526
+                        total: $us 2.065,80
+                      - docEntry: 1867
+                        numero: '1867'
+                        fecha: '2025-10-06'
+                        cantidadLineas: 5
+                        campanaId: v2526
+                        total: $us 5.066,30
+                      paginacion:
+                        pagina: 1
+                        tamanoPagina: 20
+                        total: 14
+                        totalPaginas: 1
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /facturas/{docEntry}:
+    x-agropartners-servicio: comercial
+    parameters:
+    - $ref: '#/components/parameters/DocEntry'
+    get:
+      tags:
+      - Facturas
+      summary: Obtener el detalle de una factura
+      description: |-
+        Cabecera fiscal boliviana y líneas del documento. Origen SAP: `OINV` + `INV1` + campos de
+        facturación electrónica. El total del documento es `total`; `descuento` completa el bloque de
+        importes.
+      operationId: obtenerFactura
+      responses:
+        '200':
+          description: Factura encontrada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/FacturaDetalle'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                factura1877:
+                  value:
+                    data:
+                      docEntry: 1877
+                      numero: '1877'
+                      fecha: '2025-10-07'
+                      emisor:
+                        razonSocial: Agropartners S.R.L.
+                        nit: '1013879029'
+                      receptor:
+                        cardCode: C-004871
+                        razonSocial: Monica S.A
+                        nit: '4872156019'
+                      campanaId: v2526
+                      campanaNombre: Verano 2526
+                      codigoAutorizacion: 455F56CE…1F74
+                      lineas:
+                      - itemCode: S-0101
+                        descripcion: Sorgo Jisunú 101
+                        cantidadFormateada: 50 bolsas
+                        importe: $us 2.065,80
+                      descuento: $us 0,00
+                      cantidadLineas: 1
+                      total: $us 2.065,80
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          description: El recurso no existe o aún no fue sincronizado desde SAP.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                noEncontrado:
+                  summary: Documento recién emitido en SAP
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - RECURSO_NO_ENCONTRADO
+                      description: La factura 1901 no existe o aún no fue sincronizada. Reintenta en unos
+                        segundos.
+                      structuredMessage: []
+                      type: NOT_FOUND
+  /facturas/{docEntry}/pdf:
+    x-agropartners-servicio: comercial
+    parameters:
+    - $ref: '#/components/parameters/DocEntry'
+    get:
+      tags:
+      - Facturas
+      summary: Descargar la factura en PDF
+      description: |-
+        Devuelve en `data` una URL con firma SAS de Azure Blob Storage válida 60 minutos. El PDF ya existe
+        en el almacén: se genera al emitirse la factura. Si no está, responde `404`.
+      operationId: descargarFacturaPdf
+      responses:
+        '200':
+          description: Enlace de descarga temporal.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/EnlaceDescarga'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                enlaceListo:
+                  value:
+                    data:
+                      url: https://stagropartners.blob.core.windows.net/docs/1877.pdf?sv=2024-11-04&sig=REDACTADO
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          description: El recurso no existe o aún no fue sincronizado desde SAP.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                noEncontrado:
+                  summary: Documento recién emitido en SAP
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - RECURSO_NO_ENCONTRADO
+                      description: La factura 1901 no existe o aún no fue sincronizada. Reintenta en unos
+                        segundos.
+                      structuredMessage: []
+                      type: NOT_FOUND
+  /cuentas-por-pagar:
+    x-agropartners-servicio: comercial
+    get:
+      tags:
+      - Cuentas por pagar
+      summary: Saldo consolidado y desglose por campaña
+      description: |-
+        **Vista compuesta.** Saldo general separado en capital e interés, más el desglose campaña por
+        campaña con su saldo, número de facturas y período. Origen SAP: `OJDT`/`JDT1` sobre la cuenta de
+        control del socio.
+      operationId: obtenerCuentasPorPagar
+      parameters:
+      - $ref: '#/components/parameters/CardCodeQuery'
+      responses:
+        '200':
+          description: Saldo consolidado.
+          headers:
+            Cache-Control:
+              description: Información financiera; no se almacena en caché.
+              schema:
+                type: string
+                examples:
+                - no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CuentasPorPagar'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                saldoConsolidado:
+                  value:
+                    data:
+                      saldoTotal: $us 700.066,36
+                      capital: $us 500.000,56
+                      interes: $us 200.065,80
+                      campanas:
+                      - campanaId: v2526
+                        nombre: Verano 2526
+                        deuda: $us 300.066,30
+                        cantidadFacturas: 14
+                        desde: '2025-10-01'
+                        hasta: '2026-03-31'
+                      - campanaId: i25
+                        nombre: Invierno 25
+                        deuda: $us 300.000,06
+                        cantidadFacturas: 9
+                        desde: '2025-04-01'
+                        hasta: '2025-09-30'
+                      - campanaId: v2425
+                        nombre: Verano 2425
+                        deuda: $us 100.000,00
+                        cantidadFacturas: 4
+                        desde: '2024-10-01'
+                        hasta: '2025-03-31'
+                      avisoLegal: Esta información es referencial y está sujeta a verificación de Agropartners,
+                        por lo que carece de valor legal.
+                      calculadoEn: '2026-08-19T11:45:00Z'
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /movimientos:
+    x-agropartners-servicio: comercial
+    get:
+      tags:
+      - Cuentas por pagar
+      summary: Listar movimientos de cuenta
+      description: |-
+        Movimientos de *Cuentas por pagar* y, en sus tres primeros elementos, la «Actividad reciente» del
+        Inicio. Origen SAP: `OJDT`/`JDT1` y `ORCT`.
+      operationId: listarMovimientos
+      parameters:
+      - $ref: '#/components/parameters/CardCodeQuery'
+      - name: campanaId
+        in: query
+        schema:
+          type: string
+        description: Campaña cuyos movimientos se listan. Omitirlo devuelve la actividad completa.
+      - $ref: '#/components/parameters/Pagina'
+      - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Movimientos del más reciente al más antiguo.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Movimiento'
+                      paginacion:
+                        $ref: '#/components/schemas/Paginacion'
+                    required:
+                    - items
+                    - paginacion
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                tresMovimientos:
+                  value:
+                    data:
+                      items:
+                      - id: MOV-000001877
+                        tipo: compra_credito
+                        fecha: '2025-10-07'
+                        monto: $us 2.065,80
+                        capital: $us 1.860,00
+                        interes: $us 205,80
+                        signo: cargo
+                        concepto: Compra a crédito
+                      - id: MOV-000004512
+                        tipo: pago_recibido
+                        fecha: '2025-09-28'
+                        monto: $us 15.000,00
+                        capital: null
+                        interes: null
+                        signo: abono
+                        concepto: Pago recibido
+                      paginacion:
+                        pagina: 1
+                        tamanoPagina: 20
+                        total: 2
+                        totalPaginas: 1
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /movimientos/{movimientoId}:
+    x-agropartners-servicio: comercial
+    parameters:
+    - $ref: '#/components/parameters/MovimientoId'
+    get:
+      tags:
+      - Cuentas por pagar
+      summary: Obtener el comprobante de un movimiento
+      description: |-
+        El comprobante que se abre al tocar un movimiento. `medio` y `documentoDeOrigen` varían según el
+        tipo: un pago referencia el banco y el número de recibo; una compra a crédito, el plazo y la
+        factura. El rótulo del encabezado es `concepto`. No se descarga.
+      operationId: obtenerMovimiento
+      responses:
+        '200':
+          description: Movimiento encontrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MovimientoDetalle'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                pagoRecibido:
+                  summary: Pago por transferencia
+                  value:
+                    data:
+                      id: MOV-000004512
+                      tipo: pago_recibido
+                      fecha: '2025-09-28'
+                      hora: 09:05
+                      monto: $us 15.000,00
+                      capital: null
+                      interes: null
+                      signo: abono
+                      medio: Transferencia · Banco Nacional de Bolivia 1000...6033
+                      campanaId: v2526
+                      campanaNombre: Verano 2526
+                      socio:
+                        cardCode: C-004871
+                        razonSocial: Mónica Salvatierra
+                      concepto: Pago recibido
+                      documentoDeOrigen: Recibo N° 4512
+                    success: true
+                    error: null
+                compraACredito:
+                  summary: Comprobante de una compra a crédito
+                  value:
+                    data:
+                      id: MOV-000001877
+                      tipo: compra_credito
+                      fecha: '2025-10-07'
+                      hora: '11:24'
+                      monto: $us 2.065,80
+                      capital: $us 1.860,00
+                      interes: $us 205,80
+                      signo: cargo
+                      medio: Crédito 60 días
+                      campanaId: v2526
+                      campanaNombre: Verano 2526
+                      socio:
+                        cardCode: C-004871
+                        razonSocial: Mónica Salvatierra
+                      concepto: Compra a crédito
+                      documentoDeOrigen: Factura N° 1877
+                      facturaDeOrigen: 1877
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          description: El recurso no existe o aún no fue sincronizado desde SAP.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                noEncontrado:
+                  summary: Movimiento inexistente
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - RECURSO_NO_ENCONTRADO
+                      description: El movimiento MOV-000009999 no existe o aún no fue sincronizado.
+                      structuredMessage: []
+                      type: NOT_FOUND
+  /bancos:
+    x-agropartners-servicio: maestros
+    get:
+      tags:
+      - Cuentas por pagar
+      summary: Listar bancos autorizados para pago
+      description: |-
+        Cuentas de Agropartners S.R.L. mostradas en *Cuentas por pagar*. Las mismas para todo usuario
+        autenticado, sin filtro. Cachéables con `ETag`.
+      operationId: listarBancos
+      responses:
+        '200':
+          description: Colección de bancos.
+          headers:
+            ETag:
+              description: Validador para caché condicional.
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+                examples:
+                - public, max-age=3600
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CuentaBancaria'
+                      titular:
+                        $ref: '#/components/schemas/TitularCuentas'
+                    required:
+                    - items
+                    - titular
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                cuatroBancos:
+                  value:
+                    data:
+                      items:
+                      - banco: Banco Nacional de Bolivia
+                        numeroCuenta: '10000006816033'
+                      - banco: Banco Mercantil Santa Cruz
+                        numeroCuenta: '1310102200'
+                      - banco: Banco BISA
+                        numeroCuenta: 701-5032719-3-81
+                      - banco: Banco Unión
+                        numeroCuenta: 089489-001-1
+                      titular:
+                        razonSocial: Agropartners S.R.L.
+                        nit: '1013879029'
+                    success: true
+                    error: null
+        '304':
+          description: El contenido no cambió respecto del `ETag` enviado. Sin cuerpo.
+          headers:
+            ETag:
+              description: El mismo validador vigente.
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+      parameters:
+      - $ref: '#/components/parameters/IfNoneMatch'
+  /estados-de-cuenta:
+    x-agropartners-servicio: comercial
+    get:
+      tags:
+      - Cuentas por pagar
+      summary: Listar el estado de cuenta vigente de cada socio
+      description: |-
+        Resuelve la pantalla *Descargar estado de cuenta*: **una fila por socio de negocio** que la persona
+        alcanza, con la fecha de emisión del documento vigente, su peso y el enlace para bajarlo.
+
+        No acepta `cardCode` ni pagina. Cada emisión reemplaza a la anterior.
+
+        Sirve además para seguir la generación: tras `POST /estados-de-cuenta` la fila de ese socio pasa por
+        `pendiente` y `generando` antes de quedar `disponible`.
+      operationId: obtenerEstadoDeCuenta
+      parameters: []
+      responses:
+        '200':
+          description: Un estado de cuenta por cada socio alcanzado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    type: object
+                    required:
+                    - items
+                    properties:
+                      items:
+                        type: array
+                        description: Una entrada por socio alcanzado, en el orden en que los trae el contexto
+                          de sesión.
+                        items:
+                          $ref: '#/components/schemas/EstadoDeCuenta'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                tresSocios:
+                  summary: Los tres socios del grupo, con su último documento emitido
+                  value:
+                    data:
+                      items:
+                      - socio:
+                          cardCode: C-004871
+                          razonSocial: Sebastian Monasterio
+                          iniciales: SM
+                          cantidadPropiedades: 2
+                        estado: disponible
+                        url: https://stagropartners.blob.core.windows.net/estados/EC-C004871.pdf?sv=REDACTADO
+                        expiraEn: '2026-08-12T15:20:00Z'
+                        emitidoEl: '2026-08-12T14:20:00Z'
+                        tamanoFormateado: 240 KB
+                        solicitudId: 9c1e7f30-4a52-4c88-b7d1-2e6f0a3b5c19
+                      - socio:
+                          cardCode: C-004872
+                          razonSocial: Fernando Monasterio
+                          iniciales: FM
+                          cantidadPropiedades: 3
+                        estado: disponible
+                        url: https://stagropartners.blob.core.windows.net/estados/EC-C004872.pdf?sv=REDACTADO
+                        expiraEn: '2026-08-04T12:05:00Z'
+                        emitidoEl: '2026-08-04T11:05:00Z'
+                        tamanoFormateado: 186 KB
+                        solicitudId: 1b73c9a4-58e2-4d61-9f0c-3a5e7b2d4c88
+                      - socio:
+                          cardCode: C-004873
+                          razonSocial: Osvaldo Monasterio
+                          iniciales: OM
+                          cantidadPropiedades: 1
+                        estado: disponible
+                        url: https://stagropartners.blob.core.windows.net/estados/EC-C004873.pdf?sv=REDACTADO
+                        expiraEn: '2026-07-28T10:40:00Z'
+                        emitidoEl: '2026-07-28T09:40:00Z'
+                        tamanoFormateado: 152 KB
+                        solicitudId: 5e91d0f7-2c46-4a83-b1d5-6f8a0e3c7b12
+                    success: true
+                    error: null
+                unaEmisionEnCurso:
+                  summary: Uno disponible, uno regenerándose y uno que nunca se emitió
+                  value:
+                    data:
+                      items:
+                      - socio:
+                          cardCode: C-004871
+                          razonSocial: Sebastian Monasterio
+                          iniciales: SM
+                          cantidadPropiedades: 2
+                        estado: disponible
+                        url: https://stagropartners.blob.core.windows.net/estados/EC-C004871.pdf?sv=REDACTADO
+                        expiraEn: '2026-08-12T15:20:00Z'
+                        emitidoEl: '2026-08-12T14:20:00Z'
+                        tamanoFormateado: 240 KB
+                        solicitudId: 9c1e7f30-4a52-4c88-b7d1-2e6f0a3b5c19
+                      - socio:
+                          cardCode: C-004872
+                          razonSocial: Fernando Monasterio
+                          iniciales: FM
+                          cantidadPropiedades: 3
+                        estado: generando
+                        url: null
+                        expiraEn: null
+                        emitidoEl: '2026-08-04T11:05:00Z'
+                        tamanoFormateado: 186 KB
+                        solicitudId: 1b73c9a4-58e2-4d61-9f0c-3a5e7b2d4c88
+                      - socio:
+                          cardCode: C-004873
+                          razonSocial: Osvaldo Monasterio
+                          iniciales: OM
+                          cantidadPropiedades: 1
+                        estado: sin_emitir
+                        url: null
+                        expiraEn: null
+                        emitidoEl: null
+                        tamanoFormateado: null
+                        solicitudId: null
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+    post:
+      tags:
+      - Cuentas por pagar
+      summary: Solicitar un estado de cuenta
+      description: |-
+        Pide una emisión nueva para un socio. La generación es asincrónica: la App recibe una notificación
+        push cuando el PDF está disponible. Cada emisión reemplaza a la anterior. El avance se sigue con
+        `GET /estados-de-cuenta`.
+      operationId: solicitarEstadoDeCuenta
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudEstadoDeCuenta'
+            examples:
+              porCampana:
+                value:
+                  cardCode: C-004871
+      responses:
+        '202':
+          description: Solicitud encolada.
+          headers:
+            Location:
+              description: URL de seguimiento de la solicitud.
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AcuseEmisionEstadoDeCuenta'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                encolada:
+                  summary: La emisión queda en cola; el PDF llega por push
+                  value:
+                    data:
+                      solicitudId: 9c1e7f30-4a52-4c88-b7d1-2e6f0a3b5c19
+                      estado: pendiente
+                      mensaje: Estamos generando tu estado de cuenta. Te avisamos apenas esté listo.
+                      reintentarEnSegundos: 5
+                      creadoEn: '2026-08-19T11:40:00Z'
+                    success: true
+                    error: null
+        '400':
+          description: Parámetros mal formados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                faltaElSocio:
+                  summary: El cuerpo no indica de qué socio se emite
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - PARAMETRO_INVALIDO
+                      description: Falta indicar el socio.
+                      structuredMessage:
+                      - campo: cardCode
+                        codigo: PARAMETRO_INVALIDO
+                        mensaje: Requerido.
+                      type: VALIDATION
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '409':
+          description: Ya existe una solicitud equivalente en curso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                emisionEnCurso:
+                  summary: Ya hay una emisión generándose para ese socio
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - SOLICITUD_DUPLICADA
+                      description: Ya hay un estado de cuenta generándose para ese socio.
+                      structuredMessage: []
+                      type: CONFLICT
+  /reportes-campo:
+    x-agropartners-servicio: comercial
+    get:
+      tags:
+      - Reportes de campo
+      summary: Listar informes de visita técnica
+      description: |-
+        Pantalla *Reportes de campo*. Cada fila es una visita realizada: propiedad, fecha, técnico y la
+        observación breve que dejó. Se ordenan de la más reciente a la más antigua.
+      operationId: listarReportesCampo
+      parameters:
+      - $ref: '#/components/parameters/CardCodeQuery'
+      - $ref: '#/components/parameters/Pagina'
+      - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Colección de informes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ReporteCampoResumen'
+                      paginacion:
+                        $ref: '#/components/schemas/Paginacion'
+                    required:
+                    - items
+                    - paginacion
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                dosInformes:
+                  value:
+                    data:
+                      items:
+                      - id: RV-2025-0146
+                        propiedadId: PROP-014
+                        propiedad: Lote 14 · San Julián
+                        fecha: '2025-10-06'
+                        tecnico: Ing. Agr. M. Áñez
+                        observacion: Soya en R3, cobertura uniforme. Sin presencia de roya.
+                      - id: RV-2025-0139
+                        propiedadId: PROP-007
+                        propiedad: Lote 07 · Cuatro Cañadas
+                        fecha: '2025-10-03'
+                        tecnico: Ing. Agr. J. Paz
+                        observacion: Focos de chinche marrón en el borde norte del lote.
+                      paginacion:
+                        pagina: 1
+                        tamanoPagina: 20
+                        total: 4
+                        totalPaginas: 1
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /reportes-campo/{reporteId}:
+    x-agropartners-servicio: comercial
+    parameters:
+    - $ref: '#/components/parameters/ReporteId'
+    get:
+      tags:
+      - Reportes de campo
+      summary: Obtener un informe de visita
+      description: |-
+        La pantalla *Informe de visita* completa: encabezado, datos de la propiedad, problema, sugerencia y
+        fotografías.
+
+        Tres orígenes: el recorrido —problema, sugerencia, fotografías— lo captura **Appgronomy** y llega
+        por el bus; `socio`, `contacto` y `cultivo` salen del modelo de lectura alimentado desde **SAP**;
+        `zona` es un dato propio del servicio.
+      operationId: obtenerReporteCampo
+      responses:
+        '200':
+          description: Informe encontrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ReporteCampoDetalle'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                informe0146:
+                  value:
+                    data:
+                      id: RV-2025-0146
+                      propiedadId: PROP-014
+                      propiedad: Lote 14 · San Julián
+                      fecha: '2025-10-06'
+                      hora: '10:15'
+                      tecnico: Ing. Agr. M. Áñez
+                      socio: Sebastian Monasterio
+                      zona: norte
+                      cultivo: Soya · Munasqa RR
+                      contacto: Mónica Salvatierra
+                      problema: El lote presenta un desarrollo homogéneo en toda su extensión. No se observa
+                        presencia de roya asiática ni de mancha anillada.
+                      sugerencia: Mantener el monitoreo semanal de enfermedades foliares y aplicar fungicida
+                        preventivo si la humedad relativa supera el 80%.
+                      fotografias:
+                      - id: RV-2025-0146-F01
+                        url: https://stagropartners.blob.core.windows.net/reportes/RV-2025-0146-F01.webp?sv=REDACTADO
+                        miniaturaUrl: https://stagropartners.blob.core.windows.net/reportes/RV-2025-0146-F01-thumb.webp?sv=REDACTADO
+                        pie: Vista general del lote · R3
+                        tomadaEn: '2025-10-06T10:22:00Z'
+                        expiraEn: '2026-08-19T12:45:00Z'
+                      - id: RV-2025-0146-F02
+                        url: https://stagropartners.blob.core.windows.net/reportes/RV-2025-0146-F02.webp?sv=REDACTADO
+                        miniaturaUrl: https://stagropartners.blob.core.windows.net/reportes/RV-2025-0146-F02-thumb.webp?sv=REDACTADO
+                        pie: Borde norte · formación de vainas
+                        tomadaEn: '2025-10-06T10:31:00Z'
+                        expiraEn: '2026-08-19T12:45:00Z'
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          description: El recurso no existe o aún no fue sincronizado desde SAP.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                noEncontrado:
+                  summary: Informe inexistente
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - RECURSO_NO_ENCONTRADO
+                      description: El informe RV-2025-9999 no existe o no corresponde a este socio.
+                      structuredMessage: []
+                      type: NOT_FOUND
+  /reportes-campo/{reporteId}/pdf:
+    x-agropartners-servicio: comercial
+    parameters:
+    - $ref: '#/components/parameters/ReporteId'
+    get:
+      tags:
+      - Reportes de campo
+      summary: Descargar el informe en PDF
+      operationId: descargarReportePdf
+      responses:
+        '200':
+          description: Enlace de descarga temporal.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/EnlaceInformeDeCampo'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                enlaceListo:
+                  value:
+                    data:
+                      url: https://stagropartners.blob.core.windows.net/reportes/RV-2025-0146.pdf?sv=2024-11-04&sig=REDACTADO
+                      formato: application/pdf
+                      tamanoBytes: 148322
+                      expiraEn: '2026-08-19T13:12:00Z'
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          description: El recurso no existe o aún no fue sincronizado desde SAP.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                noEncontrado:
+                  summary: Informe inexistente
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - RECURSO_NO_ENCONTRADO
+                      description: El informe RV-2025-9999 no existe o no corresponde a este socio.
+                      structuredMessage: []
+                      type: NOT_FOUND
+      description: |-
+        Devuelve en `data` una URL con firma SAS de Azure Blob Storage, con el tipo y el peso del archivo.
+        El PDF ya existe en el almacén: lo arma Appgronomy al cerrar la visita. Si no está, responde `404`.
+  /solicitudes-visita:
+    x-agropartners-servicio: comercial
+    post:
+      tags:
+      - Visitas técnicas
+      summary: Solicitar una visita técnica
+      description: |-
+        Cierra el flujo de dos pasos de la App: elegir el socio y luego una o más propiedades. Se publica en
+        Service Bus y el área técnica la agenda.
+
+        **Es la única operación sobre visitas**: no hay bandeja de solicitudes, y lo que el socio ve después
+        es el informe.
+
+        **Una solicitud por socio cada 24 horas.** Dentro de esa ventana responde `409` con
+        `SOLICITUD_DUPLICADA`.
+      operationId: crearSolicitudVisita
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NuevaSolicitudVisita'
+            examples:
+              dosPropiedades:
+                value:
+                  cardCode: C-004871
+                  propiedades:
+                  - PROP-014
+                  - PROP-007
+      responses:
+        '202':
+          description: Solicitud encolada. Un técnico coordinará la visita.
+          headers:
+            Location:
+              description: URL de seguimiento de la solicitud.
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AcuseSolicitudDeVisita'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                encolada:
+                  summary: Solicitud recibida
+                  value:
+                    data:
+                      solicitudId: 7d3c9e11-52a8-4f60-9c4b-8a1e2f7d6301
+                      mensaje: Recibimos tu solicitud. Un técnico se comunicará para coordinar la visita.
+                      creadoEn: '2026-08-19T11:50:00Z'
+                    success: true
+                    error: null
+        '400':
+          description: Parámetros mal formados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                parametroInvalido:
+                  summary: Sin propiedades seleccionadas
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - PARAMETRO_INVALIDO
+                      description: Debe seleccionarse al menos una propiedad.
+                      structuredMessage:
+                      - campo: propiedades
+                        codigo: PARAMETRO_INVALIDO
+                        mensaje: Se espera entre 1 y 20 identificadores de propiedad.
+                      type: VALIDATION
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '409':
+          description: Ya existe una solicitud equivalente en curso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                dentroDeLasVeinticuatroHoras:
+                  summary: Ya se pidió una visita para este socio hoy
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - SOLICITUD_DUPLICADA
+                      description: Ya registramos una solicitud de visita para este socio. Podés pedir
+                        otra pasadas 24 horas.
+                      structuredMessage: []
+                      type: CONFLICT
+        '422':
+          $ref: '#/components/responses/EntidadNoProcesable'
+  /avisos:
+    x-agropartners-servicio: comercial
+    get:
+      tags:
+      - Avisos
+      summary: Listar avisos
+      description: |-
+        Bandeja del usuario. La App agrupa por `grupo` (`hoy`, `esta_semana`, `anteriores`), calculado en
+        zona horaria `America/La_Paz`.
+
+        Los avisos son del **usuario del portal**, no del socio: dos personas de contacto del mismo socio
+        tienen bandejas distintas.
+      operationId: listarAvisos
+      parameters:
+      - $ref: '#/components/parameters/Pagina'
+      - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Colección de notificaciones.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    type: object
+                    required:
+                    - items
+                    - paginacion
+                    - sinLeer
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Aviso'
+                      paginacion:
+                        $ref: '#/components/schemas/Paginacion'
+                      sinLeer:
+                        type: integer
+                        minimum: 0
+                        examples:
+                        - 2
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                bandeja:
+                  value:
+                    data:
+                      items:
+                      - id: NOT-0001
+                        grupo: hoy
+                        categoria: factura
+                        titulo: Factura N° 1877 disponible
+                        cuerpo: Ya puedes ver y descargar la factura de tu última compra a crédito.
+                        creadoEn: '2026-08-19T09:45:00Z'
+                        leida: false
+                      - id: NOT-0002
+                        grupo: hoy
+                        categoria: reporte_campo
+                        titulo: Informe de visita · Lote 07
+                        cuerpo: Se detectaron focos de chinche marrón en el borde norte del lote.
+                        creadoEn: '2026-08-19T06:30:00Z'
+                        leida: false
+                      paginacion:
+                        pagina: 1
+                        tamanoPagina: 20
+                        total: 6
+                        totalPaginas: 1
+                      sinLeer: 2
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+  /avisos/lecturas:
+    x-agropartners-servicio: comercial
+    post:
+      tags:
+      - Avisos
+      summary: Marcar la bandeja como leída
+      description: |-
+        Marca **todos** los avisos del usuario como leídos, que es lo que hace el botón «Marcar todas como
+        leídas». No lleva cuerpo. Es idempotente: con la bandeja ya leída devuelve `200` y `marcados: 0`.
+      operationId: marcarAvisosLeidos
+      responses:
+        '200':
+          description: Bandeja marcada como leída.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    type: object
+                    required:
+                    - marcados
+                    - leidoEn
+                    properties:
+                      marcados:
+                        type: integer
+                        description: Cuántos avisos pasaron de no leídos a leídos. Cero si no había ninguno
+                          pendiente.
+                      leidoEn:
+                        type: string
+                        format: date-time
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                marcadas:
+                  value:
+                    data:
+                      marcados: 2
+                      leidoEn: '2026-08-19T11:52:00Z'
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+  /contactos/atencion-al-cliente:
+    x-agropartners-servicio: maestros
+    get:
+      tags:
+      - Contacto
+      summary: Obtener el teléfono de Control de Calidad
+      description: |-
+        El canal por el que el socio escribe a Agropartners. Una fila del menú *Más* **lanza el chat de
+        WhatsApp** contra el número que devuelve este endpoint, el de **Control de Calidad**. El número
+        llega del servidor, no compilado en la App.
+      operationId: obtenerContactoAtencionAlCliente
+      responses:
+        '200':
+          description: Canal de contacto.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                examples:
+                - public, max-age=3600
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ContactoDeAtencion'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                atencionAlCliente:
+                  value:
+                    data:
+                      area: Atención al Cliente
+                      telefono: +591 67701468
+                      whatsappUrl: https://wa.me/59167701468
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+  /avisos/preferencias:
+    x-agropartners-servicio: comercial
+    get:
+      tags:
+      - Avisos
+      summary: Consultar las preferencias de avisos
+      description: Alimenta la pantalla *Preferencias de avisos*.
+      operationId: obtenerPreferenciasDeAvisos
+      responses:
+        '200':
+          description: Preferencias del usuario.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PreferenciasDeAvisos'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                preferencias:
+                  value:
+                    data:
+                      categorias:
+                        facturas: true
+                        pagos: true
+                        reportes: true
+                        catalogo: false
+                    success: true
+                    error: null
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+    put:
+      tags:
+      - Avisos
+      summary: Actualizar las preferencias de avisos
+      description: |-
+        Actualización parcial e idempotente: se envían solo las claves que cambian. Apagar una categoría no
+        borra los avisos ya recibidos.
+      operationId: actualizarPreferenciasDeAvisos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActualizarPreferenciasDeAvisos'
+            examples:
+              apagarCatalogo:
+                summary: El socio deja de recibir avisos de catálogo
+                value:
+                  categorias:
+                    catalogo: false
+      responses:
+        '200':
+          description: Preferencias actualizadas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PreferenciasDeAvisos'
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                actualizadas:
+                  value:
+                    data:
+                      categorias:
+                        facturas: true
+                        pagos: true
+                        reportes: true
+                        catalogo: false
+                    success: true
+                    error: null
+        '400':
+          description: Parámetros mal formados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                parametroInvalido:
+                  summary: Categoría desconocida
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - PARAMETRO_INVALIDO
+                      description: El cuerpo no contiene ninguna categoría reconocida.
+                      structuredMessage:
+                      - campo: categorias
+                        codigo: PARAMETRO_INVALIDO
+                        mensaje: 'Claves admitidas: facturas, pagos, reportes, catalogo.'
+                      type: VALIDATION
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+components:
+  securitySchemes:
+    tokenPortador:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |-
+        JWT obtenido en `POST /auth/login`. Se envía en `Authorization: Bearer <token>`.
+
+        **No hay roles ni ámbitos.** La autorización se resuelve con un solo control: qué socios ve el
+        token. Todo usuario habilitado puede invocar todas las operaciones; lo que cambia entre dos
+        usuarios es el conjunto de socios sobre el que puede hacerlo.
+
+        Un `cardCode` fuera del alcance del token responde `403` con `code: [ACCESO_DENEGADO]`.
+  parameters:
+    CardCodePath:
+      name: cardCode
+      in: path
+      required: true
+      description: Código de interlocutor comercial en SAP (`OCRD.CardCode`).
+      schema:
+        $ref: '#/components/schemas/CardCode'
+    CardCodeQuery:
+      name: cardCode
+      in: query
+      description: |
+        Socio a consultar. Omitir equivale al filtro «Todos» y agrega los socios autorizados
+        por el token.
+      schema:
+        $ref: '#/components/schemas/CardCode'
+    CampanaId:
+      name: campanaId
+      in: path
+      required: true
+      description: Identificador de campaña agrícola.
+      schema:
+        type: string
+        examples:
+        - v2526
+    ItemCode:
+      name: itemCode
+      in: path
+      required: true
+      description: Código de artículo SAP (`OITM.ItemCode`).
+      schema:
+        type: string
+        examples:
+        - A-0142
+    DocEntry:
+      name: docEntry
+      in: path
+      required: true
+      description: Clave interna del documento en SAP (`OINV.DocEntry`).
+      schema:
+        type: integer
+        examples:
+        - 1877
+    MovimientoId:
+      name: movimientoId
+      in: path
+      required: true
+      schema:
+        type: string
+        examples:
+        - MOV-000000318
+      description: Identificador del movimiento.
+    ReporteId:
+      name: reporteId
+      in: path
+      required: true
+      description: Referencia del informe de visita.
+      schema:
+        type: string
+        examples:
+        - RV-2025-0146
+    Buscar:
+      name: buscar
+      in: query
+      description: |-
+        Búsqueda por texto. **Solo la acepta `GET /campanas/{campanaId}/compras`**, que alimenta el
+        buscador de la pantalla *Productos de campaña*.
+      schema:
+        type: string
+        maxLength: 80
+        examples:
+        - gliforte
+    Pagina:
+      name: pagina
+      in: query
+      description: Número de página, base 1. Solo en las seis colecciones que paginan; ver `Paginacion`.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    TamanoPagina:
+      name: tamanoPagina
+      in: query
+      description: Elementos por página.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: |-
+        UUID v4 generado por el cliente. Obligatorio. Repetir la clave dentro de 24 h devuelve la respuesta
+        original sin volver a ejecutar la operación.
+      schema:
+        type: string
+        format: uuid
+    IfNoneMatch:
+      name: If-None-Match
+      in: header
+      required: false
+      description: |-
+        Validador recibido en el `ETag` de una respuesta anterior. Si el contenido no cambió, la
+        operación responde `304` sin cuerpo y el cliente reutiliza lo que tiene guardado.
+      schema:
+        type: string
+      examples:
+        validador:
+          value: '"a3f9c1e07b"'
+  responses:
+    NoAutenticado:
+      description: Token ausente, expirado o inválido.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          examples:
+            tokenExpirado:
+              value:
+                data: null
+                success: false
+                error:
+                  code:
+                  - TOKEN_INVALIDO
+                  description: El token de acceso expiró. Solicita uno nuevo con el refresh token.
+                  structuredMessage: []
+                  type: FAILURE
+    Prohibido:
+      description: Autenticado, pero sin visibilidad sobre el socio consultado.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          examples:
+            fueraDeAlcance:
+              summary: El token no alcanza al socio consultado
+              value:
+                data: null
+                success: false
+                error:
+                  code:
+                  - ACCESO_DENEGADO
+                  description: No tenés visibilidad sobre el socio consultado.
+                  structuredMessage: []
+                  type: FAILURE
+    EntidadNoProcesable:
+      description: La solicitud es válida pero viola una regla de negocio.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+          examples:
+            propiedadAjena:
+              value:
+                data: null
+                success: false
+                error:
+                  code:
+                  - REGLA_NEGOCIO_VIOLADA
+                  description: La propiedad PROP-031 no pertenece al socio C-004871.
+                  structuredMessage: []
+                  type: VALIDATION
+  schemas:
+    CardCode:
+      type: string
+      pattern: ^C-[0-9]{6}$
+      description: Código de interlocutor comercial en SAP Business One.
+      examples:
+      - C-004871
+    CodigoCategoria:
+      type: string
+      enum:
+      - herbicidas
+      - semillas
+      - fertilizantes
+      - insecticidas
+      description: Categoría comercial derivada del grupo de artículos SAP (`OITB`).
+    Importe:
+      type: string
+      description: 'Importe ya formateado: separador de miles `.`, dos decimales tras `,` y el marcador
+        de moneda al frente. Siempre positivo; la dirección la expresa `signo`. Toda la API opera en dólares
+        (USD).'
+      examples:
+      - $us 2.065,80
+    AvisoLegal:
+      type: string
+      description: Texto que la interfaz muestra sin modificación junto a los saldos.
+      examples:
+      - Esta información es referencial y está sujeta a verificación de Agropartners, por lo que carece
+        de valor legal.
+    TipoMovimiento:
+      type: string
+      enum:
+      - compra_credito
+      - pago_recibido
+      description: |-
+        Los dos hechos que mueven el saldo:
+
+        - `compra_credito` — insumos facturados sin pago inmediato. Aumenta la deuda. (`OINV`)
+        - `pago_recibido` — depósito del socio en una cuenta de recaudación. La baja. (`ORCT`)
+
+        El interés devengado, las notas de crédito y los ajustes no se publican como movimientos.
+    SocioReferencia:
+      type: object
+      required:
+      - cardCode
+      - razonSocial
+      description: Referencia liviana a un socio, sin datos fiscales.
+      properties:
+        cardCode:
+          $ref: '#/components/schemas/CardCode'
+        razonSocial:
+          type: string
+          examples:
+          - Monasterio Hermanos S.R.L.
+        grupo:
+          allOf:
+          - $ref: '#/components/schemas/GrupoReferencia'
+    DatosFiscales:
+      type: object
+      description: Identificación fiscal completa, para cabeceras de documentos tributarios.
+      required:
+      - razonSocial
+      - nit
+      properties:
+        cardCode:
+          $ref: '#/components/schemas/CardCode'
+        razonSocial:
+          type: string
+        nit:
+          type: string
+    RegistroDispositivo:
+      type: object
+      required:
+      - instalacionId
+      - plataforma
+      properties:
+        instalacionId:
+          type: string
+          format: uuid
+        plataforma:
+          type: string
+          enum:
+          - android
+          - ios
+      description: La instalación desde la que se inició sesión. Se envía solo en `POST /auth/login`.
+    Socio:
+      type: object
+      required:
+      - cardCode
+      - razonSocial
+      description: 'El productor agropecuario que compra insumos: iniciales, razón social y cantidad de
+        propiedades.'
+      properties:
+        cardCode:
+          $ref: '#/components/schemas/CardCode'
+        razonSocial:
+          type: string
+          examples:
+          - Sebastian Monasterio
+        iniciales:
+          type: string
+          maxLength: 2
+        cantidadPropiedades:
+          type: integer
+          minimum: 0
+          description: Conteo de elementos.
+    Propiedad:
+      type: object
+      required:
+      - id
+      - nombre
+      description: Una propiedad del socio. Se listan en el paso 2 de *Solicitar visita técnica* y se
+        envían por `id` en `POST /solicitudes-visita`.
+      properties:
+        id:
+          type: string
+          description: Identificador de la propiedad. Es lo que viaja en `propiedades[]` al solicitar
+            una visita.
+          examples:
+          - PROP-014
+        nombre:
+          type: string
+          description: Nombre de la propiedad tal como se muestra en la lista de selección.
+          examples:
+          - Lote 14 · San Julián
+    Categoria:
+      type: object
+      required:
+      - codigo
+      - nombre
+      properties:
+        codigo:
+          $ref: '#/components/schemas/CodigoCategoria'
+        nombre:
+          type: string
+          examples:
+          - Herbicidas
+      description: Categoría del catálogo. Es lo que muestra el chip y con lo que se filtra `GET /productos`.
+    ProductoResumen:
+      type: object
+      required:
+      - itemCode
+      - nombre
+      - categoria
+      properties:
+        itemCode:
+          type: string
+          examples:
+          - A-0142
+        nombre:
+          type: string
+          examples:
+          - Gliforte 68 SG
+        categoria:
+          $ref: '#/components/schemas/Categoria'
+        presentacion:
+          type: string
+          examples:
+          - Bolsa 10 Kg
+        imagenUrl:
+          type:
+          - string
+          - 'null'
+          format: uri
+          description: Foto en Azure Blob Storage, servida por CDN. Null cuando el artículo no tiene imagen;
+            la App dibuja el ícono de la categoría.
+          examples:
+          - https://cdn.agropartners.com.bo/productos/A-0142.webp
+      description: 'El artículo tal como lo pinta la tarjeta del catálogo: foto, categoría, nombre y presentación.'
+    ProductoDetalle:
+      allOf:
+      - $ref: '#/components/schemas/ProductoResumen'
+      - type: object
+        properties:
+          descripcion:
+            type: string
+          ingredienteActivo:
+            type:
+            - string
+            - 'null'
+            description: Ingrediente activo en un agroquímico, especie e híbrido en una semilla, composición
+              de nutrientes en un fertilizante. La pantalla lo etiqueta «Ingrediente activo».
+            examples:
+            - Glifosato sal de amonio 68%
+          formulacion:
+            type:
+            - string
+            - 'null'
+            examples:
+            - Gránulos solubles (SG)
+          dosisReferencial:
+            type:
+            - string
+            - 'null'
+            examples:
+            - 1,5 – 3,0 Kg/ha
+          cultivos:
+            type: array
+            items:
+              type: string
+            description: Cultivos en los que se emplea.
+            examples:
+            - - Barbecho químico
+          registro:
+            oneOf:
+            - $ref: '#/components/schemas/RegistroDelProducto'
+            - type: 'null'
+        required: []
+      description: 'El producto completo: lo de la tarjeta más descripción, ingrediente activo, formulación,
+        dosis, cultivos y datos de registro.'
+    DocumentoDescargable:
+      type: object
+      required:
+      - tipo
+      - nombre
+      - url
+      properties:
+        tipo:
+          type: string
+          enum:
+          - ficha_tecnica
+          - hoja_seguridad
+          - registro_sanitario
+        nombre:
+          type: string
+        url:
+          type: string
+          format: uri
+          description: URL con firma SAS de Azure Blob Storage, válida 60 minutos.
+      description: Ficha técnica u hoja de seguridad del producto, con su enlace de descarga.
+    Campana:
+      type: object
+      description: Campaña agrícola.
+      required:
+      - id
+      - nombre
+      - montoComprado
+      properties:
+        id:
+          type: string
+          examples:
+          - v2526
+        nombre:
+          type: string
+          examples:
+          - Verano 2526
+        desde:
+          type: string
+          format: date
+        hasta:
+          type: string
+          format: date
+        montoComprado:
+          $ref: '#/components/schemas/Importe'
+        cantidadFacturas:
+          type: integer
+          minimum: 0
+          description: Conteo de elementos.
+    CompraPorProducto:
+      type: object
+      description: 'Lo comprado de un artículo dentro de una campaña. Origen: `INV1` agrupado por `ItemCode`.'
+      required:
+      - itemCode
+      - nombre
+      - monto
+      properties:
+        itemCode:
+          type: string
+          examples:
+          - A-0142
+        nombre:
+          type: string
+          examples:
+          - Gliforte 68 SG
+        cantidadFormateada:
+          type: string
+          description: Cantidad y unidad en un solo string, en formato es-BO.
+          examples:
+          - 50.000 Kg/L
+        monto:
+          $ref: '#/components/schemas/Importe'
+        participacion:
+          allOf:
+          - $ref: '#/components/schemas/Porcentaje'
+          description: Cuánto pesa este producto sobre el total comprado en la campaña. La pantalla lo
+            imprime seguido de «del total».
+        icono:
+          type: string
+          examples:
+          - science
+    CompraPorProductoDetalle:
+      allOf:
+      - $ref: '#/components/schemas/CompraPorProducto'
+      - type: object
+        properties:
+          campanaId:
+            type: string
+          campanaNombre:
+            type: string
+          facturas:
+            type: array
+            items:
+              $ref: '#/components/schemas/FacturaResumen'
+            description: Facturas en las que aparece el artículo dentro de la campaña, de la más reciente
+              a la más antigua. La cabecera muestra su cantidad.
+    FacturaResumen:
+      type: object
+      description: 'Factura de venta emitida al socio. Origen SAP: `OINV`. Las facturas anuladas no se
+        devuelven.'
+      required:
+      - docEntry
+      - numero
+      - fecha
+      - total
+      properties:
+        docEntry:
+          type: integer
+          examples:
+          - 1877
+        numero:
+          type: string
+          examples:
+          - '1877'
+        fecha:
+          type: string
+          format: date
+          examples:
+          - '2025-10-07'
+        cantidadLineas:
+          type: integer
+          minimum: 0
+          description: Conteo de elementos.
+        campanaId:
+          type: string
+        total:
+          $ref: '#/components/schemas/Importe'
+    FacturaDetalle:
+      allOf:
+      - $ref: '#/components/schemas/FacturaResumen'
+      - type: object
+        description: El total del documento es `total`, heredado de `FacturaResumen`. `descuento` es la
+          única fila que lo acompaña en el bloque de importes.
+        required:
+        - emisor
+        - receptor
+        - lineas
+        properties:
+          emisor:
+            $ref: '#/components/schemas/DatosFiscales'
+          receptor:
+            $ref: '#/components/schemas/DatosFiscales'
+          campanaNombre:
+            type: string
+          codigoAutorizacion:
+            type: string
+            description: Código de autorización de facturación electrónica.
+            examples:
+            - 455F56CE…1F74
+          lineas:
+            type: array
+            description: 'Origen SAP: `INV1`.'
+            items:
+              $ref: '#/components/schemas/LineaFactura'
+          descuento:
+            $ref: '#/components/schemas/Importe'
+    LineaFactura:
+      type: object
+      required:
+      - itemCode
+      - descripcion
+      - importe
+      properties:
+        itemCode:
+          type: string
+        descripcion:
+          type: string
+          examples:
+          - Sorgo Jisunú 101
+        cantidadFormateada:
+          type: string
+          description: 'Cantidad y unidad en un solo texto: «Sorgo Jisunú 101 · 50 bolsas».'
+          examples:
+          - 50 bolsas
+        importe:
+          $ref: '#/components/schemas/Importe'
+    Resumen:
+      type: object
+      description: 'Vista compuesta de *Inicio*: línea de crédito, deuda, últimos movimientos y avisos
+        sin leer.'
+      required:
+      - lineaCredito
+      - deuda
+      properties:
+        lineaCredito:
+          type: object
+          required:
+          - aprobada
+          - disponible
+          - porcentajeUtilizado
+          properties:
+            disponible:
+              $ref: '#/components/schemas/Importe'
+            porcentajeUtilizado:
+              $ref: '#/components/schemas/Porcentaje'
+            aprobada:
+              $ref: '#/components/schemas/Importe'
+          description: '`disponible = aprobada − utilizada`.'
+        deuda:
+          type: object
+          required:
+          - total
+          properties:
+            total:
+              $ref: '#/components/schemas/Importe'
+          description: Lo que la tarjeta de Inicio rotula «Por pagar». El desglose en capital e interés
+            lo devuelve `GET /cuentas-por-pagar`.
+        movimientosRecientes:
+          type: array
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/Movimiento'
+        avisosSinLeer:
+          type: integer
+          minimum: 0
+          description: Avisos sin leer, para el punto sobre la campana del encabezado.
+    CuentasPorPagar:
+      type: object
+      description: Vista compuesta de la pantalla *Cuentas por pagar*.
+      required:
+      - saldoTotal
+      - capital
+      - interes
+      - campanas
+      - avisoLegal
+      properties:
+        saldoTotal:
+          $ref: '#/components/schemas/Importe'
+        capital:
+          $ref: '#/components/schemas/Importe'
+        interes:
+          $ref: '#/components/schemas/Importe'
+        campanas:
+          type: array
+          items:
+            type: object
+            required:
+            - campanaId
+            - nombre
+            - deuda
+            properties:
+              campanaId:
+                type: string
+              nombre:
+                type: string
+              deuda:
+                $ref: '#/components/schemas/Importe'
+              cantidadFacturas:
+                type: integer
+                minimum: 0
+              desde:
+                type: string
+                format: date
+              hasta:
+                type: string
+                format: date
+        avisoLegal:
+          $ref: '#/components/schemas/AvisoLegal'
+        calculadoEn:
+          type: string
+          format: date-time
+    DeudaCampana:
+      type: object
+      required:
+      - campanaId
+      - nombre
+      - deuda
+      properties:
+        campanaId:
+          type: string
+        nombre:
+          type: string
+        deuda:
+          $ref: '#/components/schemas/Importe'
+        cantidadFacturas:
+          type: integer
+          minimum: 0
+          description: Conteo de elementos.
+        desde:
+          type: string
+          format: date
+        hasta:
+          type: string
+          format: date
+        cantidadMovimientos:
+          type: integer
+          minimum: 0
+          description: Conteo de elementos.
+    SolicitudEstadoDeCuenta:
+      type: object
+      properties:
+        cardCode:
+          $ref: '#/components/schemas/CardCode'
+      description: De qué socio se emite el estado de cuenta.
+      required:
+      - cardCode
+    EstadoDeCuenta:
+      type: object
+      required:
+      - socio
+      - estado
+      description: 'El último estado de cuenta emitido para un socio; cada emisión reemplaza a la anterior.
+        Se emite por socio de negocio: la lista trae una entrada por cada socio que la persona alcanza.'
+      properties:
+        socio:
+          allOf:
+          - $ref: '#/components/schemas/SocioDelContacto'
+          description: De quién es el documento. La fila muestra sus iniciales y su razón social.
+        estado:
+          type: string
+          enum:
+          - sin_emitir
+          - pendiente
+          - generando
+          - disponible
+          - fallida
+          description: |-
+            En qué punto está el documento de este socio:
+
+            - `sin_emitir` — nunca se generó uno; el botón queda deshabilitado.
+            - `pendiente` / `generando` — hay una emisión en curso.
+            - `disponible` — `url` sirve para bajarlo.
+            - `fallida` — puede volver a pedirse.
+        url:
+          type:
+          - string
+          - 'null'
+          format: uri
+          description: URL firmada, presente solo cuando el estado es `disponible`. Firma SAS de 60 minutos.
+        expiraEn:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: Caducidad de la firma SAS de `url`; null mientras el estado no sea `disponible`.
+        emitidoEl:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: Cuándo se emitió el documento vigente; null si nunca se emitió uno.
+        tamanoFormateado:
+          type:
+          - string
+          - 'null'
+          description: Peso del PDF ya redondeado, tal como se muestra. Null mientras no haya documento.
+          examples:
+          - 240 KB
+        solicitudId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: Emisión que produjo —o está produciendo— este documento. Null si nunca se pidió
+            una.
+    Movimiento:
+      type: object
+      required:
+      - id
+      - tipo
+      - concepto
+      - fecha
+      - monto
+      - capital
+      - interes
+      - signo
+      properties:
+        id:
+          type: string
+          examples:
+          - MOV-000001877
+        tipo:
+          $ref: '#/components/schemas/TipoMovimiento'
+        fecha:
+          type: string
+          format: date
+        monto:
+          $ref: '#/components/schemas/Importe'
+        capital:
+          oneOf:
+          - $ref: '#/components/schemas/Importe'
+          - type: 'null'
+          description: Principal de la compra. Null en un `pago_recibido`.
+        interes:
+          oneOf:
+          - $ref: '#/components/schemas/Importe'
+          - type: 'null'
+          description: Interés del crédito, devengado al facturar. Null en un `pago_recibido`; `0,00`
+            en una compra sin interés.
+        signo:
+          type: string
+          enum:
+          - cargo
+          - abono
+          description: '`cargo` incrementa la deuda; `abono` la reduce. El importe siempre viaja en valor
+            absoluto.'
+        concepto:
+          type: string
+          examples:
+          - Compra a crédito
+          description: Rótulo del movimiento en pantalla. Lo usan la fila de la lista y el encabezado
+            del comprobante.
+      description: |-
+        Una compra o un pago. La compra viene desglosada y vale `monto = capital + interes`; el pago no se desglosa y ambos campos llegan en null.
+
+        Solo se publican movimientos confirmados en SAP.
+    MovimientoDetalle:
+      allOf:
+      - $ref: '#/components/schemas/Movimiento'
+      - type: object
+        properties:
+          hora:
+            type: string
+            pattern: ^[0-9]{2}:[0-9]{2}$
+            examples:
+            - 09:05
+            description: Hora del asiento en SAP, en zona horaria de Bolivia. El comprobante la imprime
+              junto a la fecha; las filas de la lista muestran el día.
+          medio:
+            type: string
+            examples:
+            - Transferencia · Banco Nacional de Bolivia 1000...6033
+          campanaId:
+            type: string
+          campanaNombre:
+            type: string
+          socio:
+            $ref: '#/components/schemas/SocioReferencia'
+          documentoDeOrigen:
+            type: string
+            examples:
+            - Recibo N° 4512
+          facturaDeOrigen:
+            type:
+            - integer
+            - 'null'
+            description: Factura de la que nace el movimiento. Solo la compra a crédito la tiene.
+        description: |-
+          El comprobante de un movimiento: lo mismo que la fila de la lista, más la hora y de dónde salió.
+          El rótulo del encabezado es `concepto`, el mismo que muestra la fila.
+        required:
+        - hora
+      description: 'El comprobante de un movimiento: lo de la fila más la hora y de dónde salió.'
+    ReporteCampoResumen:
+      type: object
+      required:
+      - id
+      - propiedadId
+      - propiedad
+      - fecha
+      properties:
+        id:
+          type: string
+          examples:
+          - RV-2025-0146
+        propiedadId:
+          type: string
+          examples:
+          - PROP-014
+        propiedad:
+          type: string
+          description: Nombre de la propiedad visitada. Es el mismo texto que `Propiedad.nombre`.
+          examples:
+          - Lote 14 · San Julián
+        fecha:
+          type: string
+          format: date
+        tecnico:
+          type: string
+          examples:
+          - Ing. Agr. M. Áñez
+        observacion:
+          type: string
+          description: Observación breve mostrada en la lista.
+      description: 'Una visita realizada: propiedad, fecha, técnico y la observación breve del técnico.'
+    ReporteCampoDetalle:
+      allOf:
+      - $ref: '#/components/schemas/ReporteCampoResumen'
+      - type: object
+        properties:
+          hora:
+            type: string
+            pattern: ^[0-9]{2}:[0-9]{2}$
+            examples:
+            - '10:15'
+            description: Hora de la visita. El encabezado del informe la imprime junto a la fecha; las
+              filas de la lista muestran el día.
+          socio:
+            type: string
+            description: Razón social del socio dueño de la propiedad.
+            examples:
+            - Sebastian Monasterio
+          zona:
+            oneOf:
+            - $ref: '#/components/schemas/ZonaComercial'
+            - type: 'null'
+            description: Zona comercial de la propiedad. Null si todavía no tiene zona asignada; la App
+              omite la fila.
+          cultivo:
+            type:
+            - string
+            - 'null'
+            description: Especie y variedad sembradas, tal como se muestran. Null si estaba en barbecho.
+            examples:
+            - Soya · Munasqa RR
+          contacto:
+            type:
+            - string
+            - 'null'
+            description: La persona de contacto registrada en el socio.
+            examples:
+            - Mónica Salvatierra
+          problema:
+            type:
+            - string
+            - 'null'
+            description: Lo que el técnico encontró. La pantalla lo titula «Problema». Null cuando no
+              hay nada que reportar; la App omite la sección.
+            examples:
+            - Focos de chinche marrón en el borde norte del lote, por debajo del umbral de daño económico.
+          sugerencia:
+            type:
+            - string
+            - 'null'
+            description: Qué recomienda hacer el técnico. La pantalla lo titula «Sugerencia». Null si
+              no hay ninguna.
+            examples:
+            - Mantener el monitoreo semanal y aplicar fungicida preventivo si la humedad relativa supera
+              el 80%.
+          fotografias:
+            type: array
+            description: Fotos de la visita, en el orden en que deben mostrarse.
+            items:
+              $ref: '#/components/schemas/FotografiaDelLote'
+        description: |-
+          Todo lo que la pantalla *Informe de visita* muestra.
+
+          **«Datos de la propiedad» son cuatro campos con nombre** —`socio`, `zona`, `cultivo`,
+          `contacto`—. Tres llegan como texto listo para imprimir; `zona` viaja como código.
+        required:
+        - hora
+      description: 'El informe de visita completo: encabezado, datos de la propiedad, problema, sugerencia
+        y fotografías.'
+    NuevaSolicitudVisita:
+      type: object
+      required:
+      - cardCode
+      - propiedades
+      properties:
+        cardCode:
+          $ref: '#/components/schemas/CardCode'
+        propiedades:
+          type: array
+          minItems: 1
+          maxItems: 20
+          description: Identificadores de propiedades del socio indicado.
+          items:
+            type: string
+            examples:
+            - PROP-014
+      description: El socio y las propiedades que se quieren visitar.
+    TitularCuentas:
+      type: object
+      required:
+      - razonSocial
+      - nit
+      properties:
+        razonSocial:
+          type: string
+          examples:
+          - Agropartners S.R.L.
+        nit:
+          type: string
+          examples:
+          - '1013879029'
+    CuentaBancaria:
+      type: object
+      required:
+      - banco
+      - numeroCuenta
+      properties:
+        banco:
+          type: string
+          examples:
+          - Banco Nacional de Bolivia
+        numeroCuenta:
+          type: string
+          examples:
+          - '10000006816033'
+    Paginacion:
+      type: object
+      required:
+      - pagina
+      - tamanoPagina
+      - total
+      - totalPaginas
+      properties:
+        pagina:
+          type: integer
+          minimum: 1
+          examples:
+          - 1
+        tamanoPagina:
+          type: integer
+          examples:
+          - 20
+        total:
+          type: integer
+          description: Total de elementos que satisfacen el filtro.
+        totalPaginas:
+          type: integer
+      description: 'Metadatos de paginación, dentro de `data`. Paginan seis colecciones: `/productos`,
+        `/campanas/{campanaId}/compras`, `/facturas`, `/movimientos`, `/reportes-campo` y `/avisos`. Las
+        demás devuelven la lista completa.'
+    RespuestaError:
+      type: object
+      description: Envelope de error. `success` es siempre false y `data` siempre null. El código de estado
+        HTTP conserva su semántica real.
+      required:
+      - data
+      - success
+      - error
+      properties:
+        data:
+          type: 'null'
+          description: Siempre null cuando `success` es false.
+        success:
+          type: boolean
+          const: false
+        error:
+          $ref: '#/components/schemas/ErrorApi'
+    ErrorApi:
+      type: object
+      required:
+      - code
+      - type
+      properties:
+        code:
+          type: array
+          description: 'Códigos de error en `SCREAMING_SNAKE_CASE`. Es una lista: una respuesta de validación
+            puede reportar varios a la vez.'
+          items:
+            type: string
+          examples:
+          - - CAMPO_REQUERIDO
+            - RANGO_INVALIDO
+        description:
+          type: string
+          description: Mensaje en español, apto para mostrar al usuario cuando no hay detalle por campo.
+        structuredMessage:
+          type: array
+          description: Desglose campo por campo. Vacío en errores que no son de validación.
+          items:
+            $ref: '#/components/schemas/DetalleCampo'
+        type:
+          type: string
+          enum:
+          - FAILURE
+          - VALIDATION
+          - PROBLEM
+          - NOT_FOUND
+          - CONFLICT
+          description: |-
+            Familia del error. Determina el tratamiento del cliente:
+
+            - `VALIDATION` (400, 422): corregible por el usuario. Resaltar campos.
+            - `NOT_FOUND` (404): reintentable.
+            - `CONFLICT` (409): no reintentar.
+            - `FAILURE` (401, 403, 429): autenticación, permisos o límite de tasa.
+            - `PROBLEM` (500, 503): reintentar con retroceso exponencial.
+    DetalleCampo:
+      type: object
+      required:
+      - campo
+      - mensaje
+      properties:
+        campo:
+          type: string
+          description: Ruta del campo, con puntos para anidamiento.
+          examples:
+          - propiedades[0]
+        codigo:
+          type: string
+          examples:
+          - CAMPO_REQUERIDO
+        mensaje:
+          type: string
+          examples:
+          - Debe ser posterior o igual a «desde».
+    EnlaceDescarga:
+      type: object
+      required:
+      - url
+      description: Enlace a un documento en Azure Blob Storage. La `url` lleva firma SAS de 60 minutos;
+        vencida, la descarga responde `403`.
+      properties:
+        url:
+          type: string
+          format: uri
+    SesionAplicacion:
+      type: object
+      required:
+      - sesionId
+      - tokens
+      - contexto
+      - iniciadaEn
+      - expiraEn
+      properties:
+        sesionId:
+          type: string
+          format: uuid
+          description: Identificador de la sesión, para correlacionar la actividad en Azure Monitor y
+            en la traza de auditoría.
+        tokens:
+          allOf:
+          - $ref: '#/components/schemas/TokensAcceso'
+        contexto:
+          $ref: '#/components/schemas/PersonaDeContacto'
+        iniciadaEn:
+          type: string
+          format: date-time
+        expiraEn:
+          type: string
+          format: date-time
+          description: Caducidad de la sesión de aplicación, distinta de la del token de Entra.
+        dispositivoRegistrado:
+          type: boolean
+          description: False si no se envió el bloque `dispositivo` o si el registro push fue rechazado.
+    CierreSesion:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          description: Token a revocar.
+        instalacionId:
+          type: string
+          format: uuid
+          description: Instalación cuyo registro push se dará de baja. Omitir si nunca se registró.
+    CierreSesionResultado:
+      type: object
+      required:
+      - sesionCerrada
+      properties:
+        sesionCerrada:
+          type: boolean
+          description: False cuando no había sesión abierta. La operación se considera exitosa igualmente.
+      description: Resultado del cierre.
+    TokensAcceso:
+      type: object
+      required:
+      - accessToken
+      - tokenType
+      - expiraEnSegundos
+      - refreshToken
+      description: Tokens emitidos por Entra External ID y retransmitidos por el backend.
+      properties:
+        accessToken:
+          type: string
+          description: 'JWT que la App envía en `Authorization: Bearer`.'
+        tokenType:
+          type: string
+          const: Bearer
+        expiraEnSegundos:
+          type: integer
+          description: Vigencia del access token.
+          examples:
+          - 3600
+        refreshToken:
+          type: string
+          description: Se guarda en el almacenamiento seguro del dispositivo (Keychain / Keystore). Rota
+            en cada renovación. Mientras siga vivo, la App pide huella o rostro en lugar del código.
+    RenovacionSesion:
+      type: object
+      required:
+      - refreshToken
+      properties:
+        refreshToken:
+          type: string
+    EstadoVersion:
+      type: object
+      required:
+      - estado
+      - versionConsultada
+      - permiteContinuar
+      description: |-
+        Qué hacer con la versión que el socio tiene instalada.
+
+        **Es un interruptor de emergencia**, y por eso el texto viaja desde el servidor en vez de estar en
+        el binario: permite retirar una versión con un fallo, explicar por qué y mandar a la tienda, sin
+        publicar un build nuevo.
+      properties:
+        estado:
+          type: string
+          enum:
+          - vigente
+          - actualizacion_sugerida
+          - actualizacion_obligatoria
+          description: Informativo, para telemetría y para el texto de la interfaz. **La decisión de
+            bloquear la toma `permiteContinuar`**, que es estable aunque este enumerado crezca.
+        versionConsultada:
+          type: string
+          description: Eco de la versión recibida.
+          examples:
+          - 2.0.0
+        versionMinimaSoportada:
+          type: string
+          description: Por debajo de esta versión, `permiteContinuar` es false.
+          examples:
+          - 1.8.0
+        versionRecomendada:
+          type: string
+          description: Última publicada en la tienda para esta plataforma.
+          examples:
+          - 2.1.0
+        permiteContinuar:
+          type: boolean
+          description: False bloquea la App hasta que el socio actualice.
+        titulo:
+          type:
+          - string
+          - 'null'
+          description: Encabezado del aviso. Null cuando no hay nada que avisar.
+        mensaje:
+          type:
+          - string
+          - 'null'
+          description: Por qué se pide actualizar, en palabras del socio.
+        urlTienda:
+          type:
+          - string
+          - 'null'
+          format: uri
+          description: 'A dónde manda el botón: Play Store o App Store según la plataforma consultada.'
+        consultadoEn:
+          type: string
+          format: date-time
+    GrupoReferencia:
+      type: object
+      required:
+      - id
+      - nombre
+      properties:
+        id:
+          type: string
+          examples:
+          - GRP-014
+        nombre:
+          type: string
+          examples:
+          - Grupo Monasterio
+    PersonaDeContacto:
+      type: object
+      required:
+      - nombre
+      - grupoEconomico
+      description: 'La persona física registrada dentro de un socio. Es el contexto de la sesión: sus
+        datos y el grupo económico con los socios que alcanza.'
+      properties:
+        nombre:
+          type: string
+          examples:
+          - Mónica Salvatierra
+        iniciales:
+          type: string
+          maxLength: 2
+          examples:
+          - MS
+        celular:
+          type:
+          - string
+          - 'null'
+          description: El celular con el que la persona entra al portal. Se muestra en *Mi perfil*.
+          examples:
+          - +591 707 41 828
+        grupoEconomico:
+          $ref: '#/components/schemas/GrupoEconomico'
+    Aviso:
+      type: object
+      required:
+      - id
+      - grupo
+      - categoria
+      - titulo
+      - cuerpo
+      - creadoEn
+      - leida
+      properties:
+        id:
+          type: string
+          examples:
+          - NOT-0001
+        grupo:
+          type: string
+          enum:
+          - hoy
+          - esta_semana
+          - anteriores
+          description: Agrupación calculada en zona horaria America/La_Paz.
+        categoria:
+          type: string
+          enum:
+          - factura
+          - vencimiento
+          - pago
+          - reporte_campo
+          - catalogo
+          description: De qué habla el aviso. Cada valor cae bajo un interruptor de *Preferencias de avisos*.
+        titulo:
+          type: string
+        cuerpo:
+          type: string
+        creadoEn:
+          type: string
+          format: date-time
+        leida:
+          type: boolean
+      description: El mensaje que el portal muestra o empuja al celular del usuario.
+    ContactoDeAtencion:
+      type: object
+      required:
+      - area
+      - telefono
+      - whatsappUrl
+      description: 'El canal de atención al que la App manda al socio: Control de Calidad, por WhatsApp.'
+      properties:
+        area:
+          type: string
+          examples:
+          - Atención al Cliente
+          description: Cómo se rotula la fila en el menú.
+        telefono:
+          type: string
+          examples:
+          - +591 67701468
+        whatsappUrl:
+          type: string
+          format: uri
+          description: Enlace `wa.me` ya armado que la App abre al tocar la fila.
+    PreferenciasDeAvisos:
+      type: object
+      required:
+      - categorias
+      description: Las categorías de aviso que el socio quiere recibir. Los cuatro interruptores cubren
+        las cinco categorías de `Aviso`.
+      properties:
+        categorias:
+          type: object
+          description: Cada clave gobierna las categorías de `Aviso` que se indican.
+          required:
+          - facturas
+          - pagos
+          - reportes
+          - catalogo
+          properties:
+            facturas:
+              type: boolean
+              description: Cubre `factura` y `vencimiento`.
+            pagos:
+              type: boolean
+              description: Cubre `pago`.
+            reportes:
+              type: boolean
+              description: Cubre `reporte_campo`.
+            catalogo:
+              type: boolean
+              description: Cubre `catalogo`.
+    ActualizarPreferenciasDeAvisos:
+      type: object
+      minProperties: 1
+      description: 'Actualización parcial: se envían solo las claves que cambian.'
+      properties:
+        categorias:
+          type: object
+          properties:
+            facturas:
+              type: boolean
+            pagos:
+              type: boolean
+            reportes:
+              type: boolean
+            catalogo:
+              type: boolean
+    RegistroDelProducto:
+      type: object
+      required:
+      - entidad
+      - numero
+      description: Registro ante SENASAG o INIAF. Son las filas de «Datos de registro» de la ficha.
+      properties:
+        entidad:
+          type: string
+          enum:
+          - SENASAG
+          - INIAF
+          - otro
+          examples:
+          - SENASAG
+        numero:
+          type: string
+          examples:
+          - 1842-H
+    SolicitudCodigo:
+      type: object
+      required:
+      - telefono
+      description: Petición del código de acceso.
+      properties:
+        telefono:
+          type: string
+          description: Número local, sin prefijo de país. El servicio antepone `+591` y normaliza el celular
+            registrado en SAP antes de comparar. Debe ser el de un usuario habilitado.
+          examples:
+          - '70741828'
+        canal:
+          type: string
+          enum:
+          - whatsapp
+          default: whatsapp
+          description: Canal de entrega. Hoy solo WhatsApp.
+    DesafioOtp:
+      type: object
+      required:
+      - otpId
+      description: 'El desafío abierto. No es una credencial: sin el código que llegó al WhatsApp del
+        socio, el `otpId` no abre nada.'
+      properties:
+        otpId:
+          type: string
+          format: uuid
+          description: Identifica este desafío en `POST /auth/login`. Se consume al primer código correcto.
+          examples:
+          - e2b5a4d1-0c67-4f3a-9b18-5d2c7e91f306
+    CodigoDeAcceso:
+      type: object
+      required:
+      - otpId
+      - codigo
+      description: El código recibido por WhatsApp y el desafío al que responde. Viaja solo sobre TLS
+        y nunca se registra en logs ni trazas.
+      properties:
+        otpId:
+          type: string
+          format: uuid
+          description: El devuelto por `POST /auth/otp`.
+          examples:
+          - e2b5a4d1-0c67-4f3a-9b18-5d2c7e91f306
+        codigo:
+          type: string
+          pattern: ^\d{4}$
+          minLength: 4
+          maxLength: 4
+          description: 'Los 4 dígitos recibidos. Se envía como cadena: `0421` es un código válido.'
+          examples:
+          - '0421'
+        dispositivo:
+          allOf:
+          - $ref: '#/components/schemas/RegistroDispositivo'
+          description: Omitir si el usuario no concedió permiso de notificaciones.
+    FotografiaDelLote:
+      type: object
+      required:
+      - id
+      - url
+      - expiraEn
+      description: Una foto tomada durante la visita, servida desde Azure Blob Storage con firma SAS.
+      properties:
+        id:
+          type: string
+          examples:
+          - RV-2025-0146-F02
+        url:
+          type: string
+          format: uri
+          description: Imagen a resolución completa, con firma SAS válida 60 minutos.
+          examples:
+          - https://stagropartners.blob.core.windows.net/reportes/RV-2025-0146-F02.webp?sv=...
+        miniaturaUrl:
+          type:
+          - string
+          - 'null'
+          format: uri
+          description: Versión reducida para la grilla. Null si aún no se generó; la App cae a `url`.
+        pie:
+          type:
+          - string
+          - 'null'
+          description: Texto que el visor muestra como encabezado de la foto.
+          examples:
+          - Borde norte · presencia de chinche marrón
+        tomadaEn:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: Instante de captura según el dispositivo del técnico. Puede diferir de `fecha`.
+        expiraEn:
+          type: string
+          format: date-time
+          description: Caducidad de la firma SAS de `url` y `miniaturaUrl`. Vencida, la App vuelve a pedir
+            el informe.
+    ZonaComercial:
+      type: string
+      enum:
+      - norte
+      - chiquitania
+      - sur
+      description: |-
+        Delimitación comercial de Agropartners. Son tres:
+
+        | Código | Se muestra |
+        |---|---|
+        | `norte` | Zona Norte |
+        | `chiquitania` | Chiquitania |
+        | `sur` | Zona Sur |
+
+        No viene de SAP. Ninguna operación de este contrato lo asigna ni lo modifica.
+    Porcentaje:
+      type: string
+      description: Porcentaje ya formateado, con el signo `%` incluido. Las palabras que lo acompañan
+        en pantalla son texto de la interfaz.
+      examples:
+      - 58%
+    SocioDelContacto:
+      type: object
+      required:
+      - cardCode
+      - razonSocial
+      description: 'Un socio del grupo: inicial, razón social y cantidad de propiedades.'
+      properties:
+        cardCode:
+          $ref: '#/components/schemas/CardCode'
+        razonSocial:
+          type: string
+          examples:
+          - Sebastian Monasterio
+        iniciales:
+          type: string
+          maxLength: 2
+          examples:
+          - SM
+        cantidadPropiedades:
+          type: integer
+          minimum: 0
+          description: Conteo de elementos.
+    GrupoEconomico:
+      type: object
+      required:
+      - id
+      - nombre
+      - socios
+      description: El conjunto de socios que Agropartners atiende como una sola relación comercial. Es
+        el «Todos» del selector; omitir `cardCode` equivale a consultarlos todos.
+      properties:
+        id:
+          type: string
+          examples:
+          - GRP-014
+        nombre:
+          type: string
+          examples:
+          - Grupo Monasterio
+        socios:
+          type: array
+          description: Los socios que la persona alcanza, y la lista «Socios de negocio del grupo» de
+            *Mi perfil*.
+          items:
+            $ref: '#/components/schemas/SocioDelContacto'
+    EnlaceInformeDeCampo:
+      type: object
+      required:
+      - url
+      - formato
+      - tamanoBytes
+      - expiraEn
+      description: Enlace al PDF del informe de visita, con su tipo, su peso y la caducidad de la firma.
+      properties:
+        url:
+          type: string
+          format: uri
+        formato:
+          type: string
+          examples:
+          - application/pdf
+          description: Tipo MIME del archivo.
+        tamanoBytes:
+          type: integer
+          description: Peso del archivo en bytes.
+        expiraEn:
+          type: string
+          format: date-time
+          description: Caducidad de la firma SAS.
+    AcuseSolicitudDeVisita:
+      type: object
+      required:
+      - solicitudId
+      - mensaje
+      - creadoEn
+      description: Confirma que la solicitud quedó registrada. No hay estados posteriores que consultar.
+      properties:
+        solicitudId:
+          type: string
+          format: uuid
+          description: Identifica esta solicitud en la traza del servicio.
+        mensaje:
+          type: string
+          description: Qué mostrarle al socio. La App lo pinta en el toast tal cual.
+        creadoEn:
+          type: string
+          format: date-time
+    AcuseEmisionEstadoDeCuenta:
+      type: object
+      required:
+      - solicitudId
+      - estado
+      - creadoEn
+      description: Acuse de una emisión de estado de cuenta. El avance se sigue con `GET /estados-de-cuenta`.
+      properties:
+        solicitudId:
+          type: string
+          format: uuid
+        estado:
+          type: string
+          enum:
+          - pendiente
+          - generando
+          - disponible
+          - fallida
+          description: Avance de la emisión. `pendiente` al recibirse.
+        mensaje:
+          type: string
+          description: Qué mostrarle al socio. La App lo pinta en el toast tal cual.
+        reintentarEnSegundos:
+          type: integer
+          examples:
+          - 5
+          description: Cuánto esperar antes de volver a consultar `GET /estados-de-cuenta`.
+        creadoEn:
+          type: string
+          format: date-time

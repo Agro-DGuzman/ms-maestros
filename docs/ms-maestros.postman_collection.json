@@ -130,6 +130,34 @@
       ]
     },
     {
+      "name": "3b. Socios de negocio",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": { "raw": "{{baseUrl}}/v1/socios", "host": ["{{baseUrl}}"], "path": ["v1", "socios"] },
+        "description": "Los socios del selector de la App. Son los mismos que mi-cuenta lista en grupoEconomico.socios; el valor Todos no es un socio, la App lo representa omitiendo cardCode."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test('lista los socios', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(b.data.items.length).to.be.above(0);",
+              "  pm.expect(b.data.items[0].cardCode).to.be.a('string');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "4. Mi cuenta SIN token (espera 401)",
       "request": {
         "method": "GET",
