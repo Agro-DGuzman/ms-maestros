@@ -143,6 +143,8 @@ Los cuatro que ya nos costaron tiempo, con lo que el síntoma no dice:
 | `IDENTIDAD_NO_DISPONIBLE` al habilitar | El secreto del cliente difiere entre Keycloak y la aplicación, o Keycloak está frío y el pedido superó el timeout |
 | `NO_AUTENTICADO` con un token recién emitido | `KEYCLOAK_ISSUER` no coincide con el `KC_HOSTNAME` de Keycloak |
 | `/admin/` responde error al primer pedido | `BACKOFFICE_RANGOS_IP` vacío con `APP_ENV=production`. Es el resguardo funcionando |
+| La secuencia de consola no muestra nada de la aplicación | Falta `LOG_CHANNEL=stderr`. Sin eso Laravel escribe en un archivo adentro del contenedor: no se ve, no llega a Log Analytics, y se pierde en cada reinicio |
+| El worker existe y no procesa nada | Sin ingress no hay disparador de escala: con el mínimo en 0 nunca arranca. Mínimo 1 |
 
 Keycloak en Container Apps queda con ingress interno: **su consola web no es
 alcanzable**, por diseño. Se administra con `kcadm.sh`, y está explicado en

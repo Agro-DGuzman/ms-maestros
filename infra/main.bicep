@@ -333,6 +333,14 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'APP_DEBUG'
               value: 'false'
             }
+            // Sin esto el canal por defecto escribe en un archivo adentro del
+            // contenedor: la secuencia de registro no lo ve, no llega a Log
+            // Analytics, y se pierde en cada reinicio. Los errores de produccion
+            // quedarian invisibles sin que nada lo avise.
+            {
+              name: 'LOG_CHANNEL'
+              value: 'stderr'
+            }
             {
               name: 'APP_KEY'
               secretRef: 'app-key'
@@ -526,6 +534,14 @@ resource worker 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'APP_DEBUG'
               value: 'false'
+            }
+            // Sin esto el canal por defecto escribe en un archivo adentro del
+            // contenedor: la secuencia de registro no lo ve, no llega a Log
+            // Analytics, y se pierde en cada reinicio. Los errores de produccion
+            // quedarian invisibles sin que nada lo avise.
+            {
+              name: 'LOG_CHANNEL'
+              value: 'stderr'
             }
             {
               name: 'APP_KEY'
