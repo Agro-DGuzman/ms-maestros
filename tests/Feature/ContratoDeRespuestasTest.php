@@ -130,3 +130,25 @@ it('el validador detecta una respuesta que no cumple', function () {
 
     expect(Contrato::diferencias($respuesta, 'POST', '/auth/otp'))->not->toBe([]);
 });
+
+it('la configuracion de la App', function (string $ruta, array $cabeceras, int $status) {
+    config([
+        'app_movil.versiones.android' => ['minima' => '1.8.0', 'recomendada' => '2.1.0', 'tienda' => 'https://play.google.com/store/apps/details?id=bo.com.agropartners.socio'],
+        'app_movil.bancos.cuentas' => 'Banco Nacional de Bolivia|10000006816033',
+        'app_movil.bancos.titular_nit' => '1013879029',
+        'app_movil.atencion.telefono' => '67701468',
+    ]);
+
+    $respuesta = $this->getJson('/v1'.$ruta, $cabeceras)->assertStatus($status);
+
+    expect(Contrato::diferencias($respuesta, 'GET', (string) parse_url($ruta, PHP_URL_PATH)))->toBe([]);
+})->with([
+    'version obligatoria' => ['/version?plataforma=android&version=1.7.2', [], 200],
+    'version sugerida' => ['/version?plataforma=android&version=2.0.0', [], 200],
+    'version vigente sin nada configurado' => ['/version?plataforma=ios&version=2.0.0', [], 200],
+    'version mal formada' => ['/version?plataforma=android&version=2.1', [], 400],
+    'bancos' => ['/bancos', CON_TOKEN, 200],
+    'bancos sin token' => ['/bancos', [], 401],
+    'atencion al cliente' => ['/contactos/atencion-al-cliente', CON_TOKEN, 200],
+    'atencion al cliente sin token' => ['/contactos/atencion-al-cliente', [], 401],
+]);

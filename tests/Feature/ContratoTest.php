@@ -17,14 +17,11 @@ use Symfony\Component\Yaml\Yaml;
  * implementar una hace fallar el test hasta sacarla de acá.
  */
 const PENDIENTES = [
-    'GET v1/version',
     'GET v1/socios/{cardCode}/propiedades',
     'GET v1/productos',
     'GET v1/productos/{itemCode}',
     'GET v1/productos/{itemCode}/documentos',
     'GET v1/categorias',
-    'GET v1/bancos',
-    'GET v1/contactos/atencion-al-cliente',
 ];
 
 /** @return list<string> las operaciones del contrato que son de maestros */

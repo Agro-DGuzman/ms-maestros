@@ -298,6 +298,93 @@
           }
         }
       ]
+    },
+    {
+      "name": "9. Version de la App (publica)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/v1/version?plataforma=android&version=1.0.0",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "version"],
+          "query": [
+            { "key": "plataforma", "value": "android" },
+            { "key": "version", "value": "1.0.0" }
+          ]
+        },
+        "description": "Lo primero que llama la App, antes del login. Decide por permiteContinuar. Cambia la version para ver los tres estados segun MOVIL_ANDROID_MINIMA y MOVIL_ANDROID_RECOMENDADA."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test('dice si deja continuar', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(b.data.permiteContinuar).to.be.a('boolean');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Bancos",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": { "raw": "{{baseUrl}}/v1/bancos", "host": ["{{baseUrl}}"], "path": ["v1", "bancos"] },
+        "description": "Las cuentas de BANCOS. Sin configurar responde 500 CONFIGURACION_INCOMPLETA. Con If-None-Match igual al ETag responde 304 sin cuerpo."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test('lista las cuentas', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(b.data.items.length).to.be.above(0);",
+              "  pm.expect(b.data.titular.nit).to.be.a('string');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Atencion al cliente",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": { "raw": "{{baseUrl}}/v1/contactos/atencion-al-cliente", "host": ["{{baseUrl}}"], "path": ["v1", "contactos", "atencion-al-cliente"] },
+        "description": "El WhatsApp de Control de Calidad, de ATENCION_TELEFONO."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test('trae el enlace de WhatsApp', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(b.data.whatsappUrl).to.match(/^https:\\/\\/wa\\.me\\//);",
+              "});"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

@@ -77,6 +77,14 @@ la línea siguiente ya dice, sobra.
   no la plantilla del mensaje: solo lo llenan los `FieldError`, y un error que
   no es de un campo lo deja vacío. Una petición mal formada es **400**; el
   contrato reserva 422 para una regla de negocio violada.
+- **La configuración de la App falla distinto según lo que protege.**
+  `/version`, `/bancos` y `/contactos/atencion-al-cliente` leen variables de
+  entorno (`config/app_movil.php`). Sin versiones configuradas, `/version`
+  **deja pasar a todos**: fallar cerrado por una variable que falta bloquearía
+  a todos los socios a la vez. Sin bancos o sin teléfono, en cambio, responde
+  500 `CONFIGURACION_INCOMPLETA`, nunca una lista vacía, que le diría al socio
+  que no hay dónde pagar. Se interpretan al usarse, no al arrancar, para que
+  una variable mal escrita rompa solo su endpoint.
 - **Un solo control de autorización: el alcance.** Fuera de alcance → 403
   `ACCESO_DENEGADO`, nunca 404 ni lista vacía, y **el alcance se verifica antes
   que la existencia**. Toda petición que recibe un `CodigoDeSocio` declara

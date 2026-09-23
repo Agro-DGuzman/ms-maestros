@@ -36,12 +36,15 @@ use Illuminate\Http\Client\Factory as Http;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 use Maestros\Application\Alcance\ResolutorDeAlcance;
+use Maestros\Application\Configuracion\ConfiguracionDeLaApp;
 use Maestros\Application\Contactos\BuscadorDeContactos;
+use Maestros\Domain\Aplicacion\AvisoDeVersion;
 use Maestros\Domain\Contactos\Celular;
 use Maestros\Domain\Contactos\ContactoRepository;
 use Maestros\Domain\Grupos\GrupoRepository;
 use Maestros\Domain\Socios\SocioRepository;
 use Maestros\Infrastructure\Alcance\ResolutorPorGrupo;
+use Maestros\Infrastructure\Configuracion\ConfiguracionDesdeEntorno;
 use Maestros\Infrastructure\Importacion\ImportarMaestrosCommand;
 use Maestros\Infrastructure\Persistence\EloquentBuscadorDeContactos;
 use Maestros\Infrastructure\Persistence\EloquentContactoRepository;
@@ -58,6 +61,23 @@ final class ModulosServiceProvider extends ServiceProvider
         $this->app->bind(BuscadorDeContactos::class, EloquentBuscadorDeContactos::class);
         $this->app->bind(ContactoRepository::class, EloquentContactoRepository::class);
         $this->app->bind(GrupoRepository::class, EloquentGrupoRepository::class);
+
+        // Se interpreta al usarse y no al arrancar: una variable mal escrita
+        // rompe solo su endpoint, no la API entera.
+        $this->app->bind(ConfiguracionDeLaApp::class, fn ($app): ConfiguracionDeLaApp => new ConfiguracionDesdeEntorno(
+            [
+                'android' => self::versionesDe('android'),
+                'ios' => self::versionesDe('ios'),
+            ],
+            new AvisoDeVersion(Config::string('app_movil.avisos.obligatoria.titulo'), Config::string('app_movil.avisos.obligatoria.mensaje')),
+            new AvisoDeVersion(Config::string('app_movil.avisos.sugerida.titulo'), Config::string('app_movil.avisos.sugerida.mensaje')),
+            Config::string('app_movil.bancos.cuentas'),
+            Config::string('app_movil.bancos.titular_razon_social'),
+            Config::string('app_movil.bancos.titular_nit'),
+            Config::string('app_movil.atencion.area'),
+            Config::string('app_movil.atencion.telefono'),
+            $app->make(LoggerInterface::class),
+        ));
 
         $this->app->bind(RelojDelSistema::class, RelojReal::class);
         $this->app->bind(EnviadorDeDesafio::class, function ($app): EnviadorDeDesafio {
@@ -136,6 +156,16 @@ final class ModulosServiceProvider extends ServiceProvider
         $this->app->when(IniciarSesionHandler::class)
             ->needs('$diasDeSesion')
             ->give(fn (): int => Config::integer('identidad.dias_de_sesion'));
+    }
+
+    /** @return array{minima: string, recomendada: string, tienda: string} */
+    private static function versionesDe(string $plataforma): array
+    {
+        return [
+            'minima' => Config::string("app_movil.versiones.{$plataforma}.minima"),
+            'recomendada' => Config::string("app_movil.versiones.{$plataforma}.recomendada"),
+            'tienda' => Config::string("app_movil.versiones.{$plataforma}.tienda"),
+        ];
     }
 
     public function boot(): void
