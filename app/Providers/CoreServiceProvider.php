@@ -39,12 +39,15 @@ use Maestros\Application\Contactos\ListarHabilitadas\ListarHabilitadas;
 use Maestros\Application\Contactos\ListarHabilitadas\ListarHabilitadasHandler;
 use Maestros\Application\Contactos\ObtenerContexto\ObtenerContexto;
 use Maestros\Application\Contactos\ObtenerContexto\ObtenerContextoHandler;
+use Maestros\Application\Productos\CambiarEnlaces\CambiarEnlacesDeProducto;
+use Maestros\Application\Productos\CambiarEnlaces\CambiarEnlacesDeProductoHandler;
 
 final class CoreServiceProvider extends ServiceProvider
 {
     /** @var array<class-string, class-string> */
     public const HANDLERS = [
         BuscarPorCelular::class => BuscarPorCelularHandler::class,
+        CambiarEnlacesDeProducto::class => CambiarEnlacesDeProductoHandler::class,
         ConcederAcceso::class => ConcederAccesoHandler::class,
         HistorialDePersona::class => HistorialDePersonaHandler::class,
         ListarAccesos::class => ListarAccesosHandler::class,
