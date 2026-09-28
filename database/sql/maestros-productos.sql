@@ -19,6 +19,9 @@
    - Cada URL es una columna simple. Los documentos son tres tipos fijos en
      el contrato, así que no hace falta una tabla aparte.
    - Idempotente: crea solo lo que no existe y no borra datos.
+   - Con sqlcmd, correrlo con -I (QUOTED_IDENTIFIER ON), igual que cualquier
+     script que inserte acá: los índices filtrados lo exigen, y sin él todo
+     INSERT falla. SSMS, Azure Data Studio y la app ya lo traen prendido.
    - La API muestra solo productos activos, con código de artículo y con
      categoría. El resto puede cargarse y conciliarse de a poco sin
      aparecer en la App.
