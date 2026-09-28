@@ -24,9 +24,11 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'backoffice.ip'])->gr
     Route::middleware('backoffice.sesion')->group(function (): void {
         Route::post('/salir', [SesionController::class, 'salir'])->name('salir');
 
-        Route::get('/contactos', [AccesosController::class, 'index'])->name('contactos');
-        Route::post('/contactos/{id}/habilitar', [AccesosController::class, 'habilitar'])->name('habilitar');
-        Route::post('/contactos/{id}/deshabilitar', [AccesosController::class, 'deshabilitar'])->name('deshabilitar');
-        Route::get('/contactos/{id}/historial', [AccesosController::class, 'historial'])->name('historial');
+        Route::middleware('backoffice.permiso:accesos')->group(function (): void {
+            Route::get('/contactos', [AccesosController::class, 'index'])->name('contactos');
+            Route::post('/contactos/{id}/habilitar', [AccesosController::class, 'habilitar'])->name('habilitar');
+            Route::post('/contactos/{id}/deshabilitar', [AccesosController::class, 'deshabilitar'])->name('deshabilitar');
+            Route::get('/contactos/{id}/historial', [AccesosController::class, 'historial'])->name('historial');
+        });
     });
 });

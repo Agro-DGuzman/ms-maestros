@@ -11,6 +11,7 @@ use BackOffice\Infrastructure\Contrasena\HashDeContrasenaCommand;
 use BackOffice\Infrastructure\Contrasena\OperadorConContrasena;
 use BackOffice\Infrastructure\Entra\AutenticadorDeDesarrollo;
 use BackOffice\Infrastructure\Persistence\EloquentBitacoraRepository;
+use BackOffice\Presentation\Http\Middleware\ExigirPermiso;
 use BackOffice\Presentation\Http\Middleware\ExigirSesionDeOperador;
 use BackOffice\Presentation\Http\Middleware\RestringirPorIp;
 use Illuminate\Contracts\Cache\Repository as Cache;
@@ -74,6 +75,7 @@ final class BackOfficeServiceProvider extends ServiceProvider
     {
         $router->aliasMiddleware('backoffice.ip', RestringirPorIp::class);
         $router->aliasMiddleware('backoffice.sesion', ExigirSesionDeOperador::class);
+        $router->aliasMiddleware('backoffice.permiso', ExigirPermiso::class);
 
         $this->loadMigrationsFrom([database_path('migrations/backoffice')]);
         $this->loadRoutesFrom(__DIR__.'/Presentation/Http/routes.php');

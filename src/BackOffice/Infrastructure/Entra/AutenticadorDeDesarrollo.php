@@ -8,6 +8,7 @@ use BackOffice\Application\Contracts\AutenticadorDeOperador;
 use BackOffice\Application\Contracts\IngresoRechazado;
 use BackOffice\Domain\Operadores\IdDeOperador;
 use BackOffice\Domain\Operadores\Operador;
+use BackOffice\Domain\Operadores\Permiso;
 use RuntimeException;
 
 /**
@@ -51,6 +52,7 @@ final readonly class AutenticadorDeDesarrollo implements AutenticadorDeOperador
             id: IdDeOperador::desdeOid($this->oid),
             nombre: $this->nombre,
             correo: $this->correo,
+            permisos: Permiso::todos(),
         );
     }
 }

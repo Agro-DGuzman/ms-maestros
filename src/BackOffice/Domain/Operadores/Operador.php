@@ -14,5 +14,12 @@ final readonly class Operador
         public IdDeOperador $id,
         public string $nombre,
         public string $correo,
+        /** @var list<Permiso> */
+        public array $permisos,
     ) {}
+
+    public function puede(Permiso $permiso): bool
+    {
+        return in_array($permiso, $this->permisos, true);
+    }
 }
