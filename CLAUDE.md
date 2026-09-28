@@ -18,7 +18,8 @@ Los tres primeros tienen que estar en verde antes de cualquier commit.
 
 ```
 src/Core/          andamiaje portado del core Java: Result, Mediator, behaviors
-src/Maestros/      socios, grupos, personas de contacto (réplica de SAP)
+src/Maestros/      socios, grupos, personas de contacto (réplica de SAP) y el
+                   catálogo de productos (propio, no réplica)
 src/Identidad/     desafío de ingreso, sesiones, credenciales
 app/               el host: Laravel, providers, envelope HTTP, adaptadores
 ```
@@ -85,6 +86,16 @@ la línea siguiente ya dice, sobra.
   500 `CONFIGURACION_INCOMPLETA`, nunca una lista vacía, que le diría al socio
   que no hay dónde pagar. Se interpretan al usarse, no al arrancar, para que
   una variable mal escrita rompa solo su endpoint.
+- **El catálogo de productos no es réplica de SAP.** Lo mantiene Agropartners
+  —primero con un script, después desde una web de administración—, así que
+  no pasa por `vigenteDesde` ni por el importador. Su estructura en SQL Server
+  es `database/sql/maestros-productos.sql`, el mismo script con el que se
+  cargan los datos; la migración lo ejecuta, y en SQLite arma una copia con
+  Blueprint **sin los CHECK**: si se cambia uno, se cambia el otro. Para la App
+  un producto existe solo si está activo, tiene `codigo_articulo` (el
+  `itemCode` del contrato) y tiene categoría; lo demás puede cargarse de a poco
+  sin aparecer. Cada documento es una columna de URL, porque el contrato
+  admite tres tipos fijos.
 - **Un solo control de autorización: el alcance.** Fuera de alcance → 403
   `ACCESO_DENEGADO`, nunca 404 ni lista vacía, y **el alcance se verifica antes
   que la existencia**. Toda petición que recibe un `CodigoDeSocio` declara

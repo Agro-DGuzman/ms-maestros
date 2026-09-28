@@ -38,6 +38,7 @@ use Illuminate\Support\ServiceProvider;
 use Maestros\Application\Alcance\ResolutorDeAlcance;
 use Maestros\Application\Configuracion\ConfiguracionDeLaApp;
 use Maestros\Application\Contactos\BuscadorDeContactos;
+use Maestros\Application\Productos\CatalogoDeProductos;
 use Maestros\Domain\Aplicacion\AvisoDeVersion;
 use Maestros\Domain\Contactos\Celular;
 use Maestros\Domain\Contactos\ContactoRepository;
@@ -47,6 +48,7 @@ use Maestros\Infrastructure\Alcance\ResolutorPorGrupo;
 use Maestros\Infrastructure\Configuracion\ConfiguracionDesdeEntorno;
 use Maestros\Infrastructure\Importacion\ImportarMaestrosCommand;
 use Maestros\Infrastructure\Persistence\EloquentBuscadorDeContactos;
+use Maestros\Infrastructure\Persistence\EloquentCatalogoDeProductos;
 use Maestros\Infrastructure\Persistence\EloquentContactoRepository;
 use Maestros\Infrastructure\Persistence\EloquentGrupoRepository;
 use Maestros\Infrastructure\Persistence\EloquentSocioRepository;
@@ -61,6 +63,7 @@ final class ModulosServiceProvider extends ServiceProvider
         $this->app->bind(BuscadorDeContactos::class, EloquentBuscadorDeContactos::class);
         $this->app->bind(ContactoRepository::class, EloquentContactoRepository::class);
         $this->app->bind(GrupoRepository::class, EloquentGrupoRepository::class);
+        $this->app->bind(CatalogoDeProductos::class, EloquentCatalogoDeProductos::class);
 
         // Se interpreta al usarse y no al arrancar: una variable mal escrita
         // rompe solo su endpoint, no la API entera.

@@ -18,10 +18,6 @@ use Symfony\Component\Yaml\Yaml;
  */
 const PENDIENTES = [
     'GET v1/socios/{cardCode}/propiedades',
-    'GET v1/productos',
-    'GET v1/productos/{itemCode}',
-    'GET v1/productos/{itemCode}/documentos',
-    'GET v1/categorias',
 ];
 
 /** @return list<string> las operaciones del contrato que son de maestros */

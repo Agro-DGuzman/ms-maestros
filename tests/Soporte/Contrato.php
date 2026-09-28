@@ -76,9 +76,14 @@ final class Contrato
         return $base.'/content/application~1json/schema';
     }
 
+    /**
+     * Primero el escape de JSON Pointer; después el de URI, porque el puntero
+     * viaja como fragmento y las llaves de `/productos/{itemCode}` no son
+     * válidas ahí.
+     */
     private static function escapar(string $segmento): string
     {
-        return str_replace(['~', '/'], ['~0', '~1'], $segmento);
+        return rawurlencode(str_replace(['~', '/'], ['~0', '~1'], $segmento));
     }
 
     private static function documento(): stdClass

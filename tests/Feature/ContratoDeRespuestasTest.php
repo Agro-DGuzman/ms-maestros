@@ -13,6 +13,7 @@ use Maestros\Domain\Contactos\IdDePersona;
 use Tests\Dobles\EmisorFalso;
 use Tests\Dobles\EnviadorQueRecuerda;
 use Tests\Dobles\VerificadorFalso;
+use Tests\Soporte\CatalogoDeEjemplo;
 use Tests\Soporte\Contrato;
 
 /*
@@ -151,4 +152,24 @@ it('la configuracion de la App', function (string $ruta, array $cabeceras, int $
     'bancos sin token' => ['/bancos', [], 401],
     'atencion al cliente' => ['/contactos/atencion-al-cliente', CON_TOKEN, 200],
     'atencion al cliente sin token' => ['/contactos/atencion-al-cliente', [], 401],
+]);
+
+it('el catalogo de productos', function (string $url, string $ruta, array $cabeceras, int $status) {
+    CatalogoDeEjemplo::sembrar();
+
+    $respuesta = $this->getJson('/v1'.$url, $cabeceras)->assertStatus($status);
+
+    expect(Contrato::diferencias($respuesta, 'GET', $ruta))->toBe([]);
+})->with([
+    'listado' => ['/productos', '/productos', CON_TOKEN, 200],
+    'listado filtrado y paginado' => ['/productos?categoria=herbicidas&tamanoPagina=1', '/productos', CON_TOKEN, 200],
+    'listado con pagina fuera de rango' => ['/productos?tamanoPagina=500', '/productos', CON_TOKEN, 400],
+    'listado sin token' => ['/productos', '/productos', [], 401],
+    'ficha completa' => ['/productos/A-0142', '/productos/{itemCode}', CON_TOKEN, 200],
+    'ficha minima' => ['/productos/A-0219', '/productos/{itemCode}', CON_TOKEN, 200],
+    'ficha inexistente' => ['/productos/A-9999', '/productos/{itemCode}', CON_TOKEN, 404],
+    'documentos' => ['/productos/A-0142/documentos', '/productos/{itemCode}/documentos', CON_TOKEN, 200],
+    'sin documentos' => ['/productos/A-0219/documentos', '/productos/{itemCode}/documentos', CON_TOKEN, 404],
+    'categorias' => ['/categorias', '/categorias', CON_TOKEN, 200],
+    'categorias sin token' => ['/categorias', '/categorias', [], 401],
 ]);

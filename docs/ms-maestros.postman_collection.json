@@ -10,7 +10,8 @@
     { "key": "codigo", "value": "" },
     { "key": "otpId", "value": "" },
     { "key": "token", "value": "" },
-    { "key": "refreshToken", "value": "" }
+    { "key": "refreshToken", "value": "" },
+    { "key": "itemCode", "value": "" }
   ],
   "item": [
     {
@@ -380,6 +381,193 @@
               "pm.test('trae el enlace de WhatsApp', () => {",
               "  pm.response.to.have.status(200);",
               "  pm.expect(b.data.whatsappUrl).to.match(/^https:\\/\\/wa\\.me\\//);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12. Productos",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/v1/productos?categoria=herbicidas&pagina=1&tamanoPagina=20",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "productos"
+          ],
+          "query": [
+            {
+              "key": "categoria",
+              "value": "herbicidas"
+            },
+            {
+              "key": "pagina",
+              "value": "1"
+            },
+            {
+              "key": "tamanoPagina",
+              "value": "20"
+            }
+          ]
+        },
+        "description": "Catalogo paginado. Solo productos activos, con codigo de articulo y con categoria. categoria es opcional: herbicidas, semillas, fertilizantes o insecticidas."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test('lista paginada', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(b.data.items).to.be.an('array');",
+              "  pm.expect(b.data.paginacion.total).to.be.a('number');",
+              "});",
+              "if (b.data && b.data.items.length > 0) {",
+              "  pm.collectionVariables.set('itemCode', b.data.items[0].itemCode);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13. Ficha de producto",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/v1/productos/{{itemCode}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "productos",
+            "{{itemCode}}"
+          ]
+        },
+        "description": "Toma el itemCode del primer producto del paso 12. Un producto dado de baja o inexistente responde 404 RECURSO_NO_ENCONTRADO."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test('trae la ficha', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(b.data.cultivos).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14. Documentos del producto",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/v1/productos/{{itemCode}}/documentos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "productos",
+            "{{itemCode}}",
+            "documentos"
+          ]
+        },
+        "description": "Ficha tecnica, hoja de seguridad y registro sanitario, segun que URL tenga cargada. Sin ninguna responde 404."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 con documentos, o 404 si no tiene', () => {",
+              "  pm.expect([200, 404]).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15. Categorias",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/v1/categorias",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "categorias"
+          ]
+        },
+        "description": "Los chips del catalogo. Con If-None-Match igual al ETag responde 304 sin cuerpo."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test('las cuatro categorias', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(b.data.items.length).to.equal(4);",
               "});"
             ]
           }
