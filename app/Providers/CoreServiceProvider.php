@@ -13,6 +13,8 @@ use BackOffice\Application\Accesos\RevocarAcceso\RevocarAcceso;
 use BackOffice\Application\Accesos\RevocarAcceso\RevocarAccesoHandler;
 use BackOffice\Application\Bitacora\HistorialDePersona\HistorialDePersona;
 use BackOffice\Application\Bitacora\HistorialDePersona\HistorialDePersonaHandler;
+use BackOffice\Application\Catalogo\ActualizarEnlaces\ActualizarEnlaces;
+use BackOffice\Application\Catalogo\ActualizarEnlaces\ActualizarEnlacesHandler;
 use Core\Contracts\Mediator;
 use Core\Contracts\Transactor;
 use Core\Mediator\Behaviors\AlcanceBehavior;
@@ -47,6 +49,7 @@ final class CoreServiceProvider extends ServiceProvider
     /** @var array<class-string, class-string> */
     public const HANDLERS = [
         BuscarPorCelular::class => BuscarPorCelularHandler::class,
+        ActualizarEnlaces::class => ActualizarEnlacesHandler::class,
         CambiarEnlacesDeProducto::class => CambiarEnlacesDeProductoHandler::class,
         ConcederAcceso::class => ConcederAccesoHandler::class,
         HistorialDePersona::class => HistorialDePersonaHandler::class,
