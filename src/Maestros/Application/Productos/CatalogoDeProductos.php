@@ -12,8 +12,16 @@ namespace Maestros\Application\Productos;
  */
 interface CatalogoDeProductos
 {
-    /** @return list<CategoriaDelCatalogo> */
+    /**
+     * Las que tienen al menos un producto visible: son chips, y uno que deja
+     * la pantalla vacía no le sirve a nadie.
+     *
+     * @return list<CategoriaDelCatalogo>
+     */
     public function categorias(): array;
+
+    /** Cualquier categoría cargada, tenga productos o no: filtrar por ella no es un error. */
+    public function existeCategoria(string $codigo): bool;
 
     public function pagina(?string $codigoDeCategoria, int $pagina, int $tamanoDePagina): PaginaDeProductos;
 

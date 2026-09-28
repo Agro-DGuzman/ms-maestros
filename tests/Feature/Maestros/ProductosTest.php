@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Identidad\Application\Contracts\VerificadorDeToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\Dobles\VerificadorFalso;
 use Tests\Soporte\CatalogoDeEjemplo;
 
@@ -110,12 +111,43 @@ it('sin documentos, o sin producto visible, los documentos responden 404', funct
         ->assertJsonPath('error.code', ['RECURSO_NO_ENCONTRADO']);
 })->with(['A-0219', 'A-0300', 'A-9999']);
 
-it('las categorias son las cuatro del contrato, por nombre', function () {
+it('las categorias son solo las que tienen algo que mostrar, por nombre', function () {
+    // Un chip que al tocarlo deja la pantalla vacía no le sirve a nadie:
+    // `insecticidas` existe pero no tiene productos.
     $respuesta = $this->getJson('/v1/categorias', CON_SESION)->assertStatus(200);
 
-    expect(array_column($respuesta->json('data.items'), 'codigo'))
-        ->toBe(['fertilizantes', 'herbicidas', 'insecticidas', 'semillas'])
+    expect(array_column($respuesta->json('data.items'), 'codigo'))->toBe(['herbicidas', 'semillas'])
         ->and($respuesta->headers->get('ETag'))->not->toBeNull();
+});
+
+it('una categoria sin productos visibles tampoco aparece', function () {
+    // Solo un producto dado de baja no alcanza para mostrar el chip.
+    DB::table(CatalogoDeEjemplo::tabla('categoria'))->insert(['codigo' => 'fungicidas', 'nombre' => 'Fungicidas']);
+    DB::table(CatalogoDeEjemplo::tabla('producto'))->insert([
+        'codigo_articulo' => 'F-0001', 'nombre' => 'Kuprex', 'codigo_categoria' => 'fungicidas', 'activo' => false,
+    ]);
+
+    expect(array_column($this->getJson('/v1/categorias', CON_SESION)->json('data.items'), 'codigo'))
+        ->toBe(['herbicidas', 'semillas']);
+});
+
+it('las categorias no son una lista fija: salen de los datos', function () {
+    // El contrato enumera cuatro, pero el catálogo real tiene más.
+    DB::table(CatalogoDeEjemplo::tabla('categoria'))->insert(['codigo' => 'fungicidas', 'nombre' => 'Fungicidas']);
+    DB::table(CatalogoDeEjemplo::tabla('producto'))->insert([
+        'codigo_articulo' => 'F-0002', 'nombre' => 'Mancoparts', 'codigo_categoria' => 'fungicidas',
+    ]);
+
+    expect(array_column($this->getJson('/v1/categorias', CON_SESION)->json('data.items'), 'codigo'))
+        ->toBe(['fungicidas', 'herbicidas', 'semillas'])
+        ->and(codigosListados('/v1/productos?categoria=fungicidas'))->toBe(['F-0002']);
+});
+
+it('filtrar por una categoria que existe pero no tiene productos es una lista vacia, no un error', function () {
+    $respuesta = $this->getJson('/v1/productos?categoria=insecticidas', CON_SESION)->assertStatus(200);
+
+    expect($respuesta->json('data.items'))->toBe([])
+        ->and($respuesta->json('data.paginacion.total'))->toBe(0);
 });
 
 it('las categorias responden 304 si la App ya las tiene', function () {

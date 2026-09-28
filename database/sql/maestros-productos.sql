@@ -12,7 +12,7 @@
      GET /productos/{itemCode}/documentos
                                         ficha_tecnica, hoja_seguridad,
                                         registro_sanitario
-     GET /categorias                    las cuatro del contrato
+     GET /categorias                    las que tienen productos visibles
 
    - Vive en el esquema "maestros": el contrato le asigna estos endpoints
      al servicio de maestros.
@@ -31,26 +31,18 @@ IF SCHEMA_ID('maestros') IS NULL EXEC('CREATE SCHEMA maestros');
 GO
 
 /* ---------- Categoría -------------------------------------------------- */
--- El contrato fija los cuatro códigos (CodigoCategoria). Uno distinto la App
--- no lo sabría filtrar ni dibujar.
+-- Las categorías son datos, no una lista fija: las del contrato son ejemplos
+-- y el catálogo real tiene más. Se cargan con maestros-productos-categorias.sql.
 IF OBJECT_ID('maestros.categoria') IS NULL
 CREATE TABLE maestros.categoria (
-    codigo  NVARCHAR(50)  NOT NULL CONSTRAINT PK_categoria PRIMARY KEY
-        CONSTRAINT CK_categoria_codigo
-            CHECK (codigo IN (N'herbicidas', N'semillas', N'fertilizantes', N'insecticidas')),
+    codigo  NVARCHAR(50)  NOT NULL CONSTRAINT PK_categoria PRIMARY KEY,
     nombre  NVARCHAR(255) NOT NULL
 );
 GO
 
-MERGE maestros.categoria AS destino
-USING (VALUES
-    (N'herbicidas',    N'Herbicidas'),
-    (N'semillas',      N'Semillas'),
-    (N'fertilizantes', N'Fertilizantes'),
-    (N'insecticidas',  N'Insecticidas')
-) AS origen (codigo, nombre)
-ON destino.codigo = origen.codigo
-WHEN NOT MATCHED THEN INSERT (codigo, nombre) VALUES (origen.codigo, origen.nombre);
+-- Una versión anterior de este script las limitaba a cuatro.
+IF OBJECT_ID('maestros.CK_categoria_codigo', 'C') IS NOT NULL
+    ALTER TABLE maestros.categoria DROP CONSTRAINT CK_categoria_codigo;
 GO
 
 /* ---------- Producto --------------------------------------------------- */

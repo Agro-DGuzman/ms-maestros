@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Maestros\Presentation\Http;
 
 use App\Http\Envelope;
+use Closure;
 use Core\Results\Error;
 use Core\Results\Result;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Maestros\Application\Productos\CatalogoDeProductos;
 use Maestros\Application\Productos\CategoriaDelCatalogo;
 use Maestros\Application\Productos\DocumentoTecnico;
@@ -26,10 +26,11 @@ final readonly class ProductosController
     public function index(Request $peticion): JsonResponse
     {
         $datos = $peticion->validate([
-            'categoria' => ['nullable', 'string', Rule::in(array_map(
-                static fn (CategoriaDelCatalogo $c): string => $c->codigo,
-                $this->catalogo->categorias(),
-            ))],
+            'categoria' => ['nullable', 'string', function (string $atributo, mixed $valor, Closure $fallar): void {
+                if (! is_string($valor) || ! $this->catalogo->existeCategoria($valor)) {
+                    $fallar('No es una categoría del catálogo.');
+                }
+            }],
             'pagina' => ['nullable', 'integer', 'min:1'],
             'tamanoPagina' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);

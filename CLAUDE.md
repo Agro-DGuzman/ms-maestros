@@ -95,7 +95,11 @@ la línea siguiente ya dice, sobra.
   un producto existe solo si está activo, tiene `codigo_articulo` (el
   `itemCode` del contrato) y tiene categoría; lo demás puede cargarse de a poco
   sin aparecer. Cada documento es una columna de URL, porque el contrato
-  admite tres tipos fijos.
+  admite tres tipos fijos. **Las categorías, en cambio, son datos**: el `enum`
+  de `CodigoCategoria` del contrato son ejemplos y el catálogo real tiene más
+  (fungicidas, biológicos, coadyuvantes), así que ni la tabla ni el código las
+  limitan. `/categorias` muestra solo las que tienen productos visibles, y
+  filtrar `/productos` por una que existe pero está vacía no es un error.
 - **Un solo control de autorización: el alcance.** Fuera de alcance → 403
   `ACCESO_DENEGADO`, nunca 404 ni lista vacía, y **el alcance se verifica antes
   que la existencia**. Toda petición que recibe un `CodigoDeSocio` declara

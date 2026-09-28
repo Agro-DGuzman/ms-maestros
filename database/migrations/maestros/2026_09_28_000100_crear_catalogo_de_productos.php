@@ -33,13 +33,6 @@ return new class extends Migration
             $tabla->string('nombre', 255);
         });
 
-        DB::table('maestros_categoria')->insert([
-            ['codigo' => 'herbicidas', 'nombre' => 'Herbicidas'],
-            ['codigo' => 'semillas', 'nombre' => 'Semillas'],
-            ['codigo' => 'fertilizantes', 'nombre' => 'Fertilizantes'],
-            ['codigo' => 'insecticidas', 'nombre' => 'Insecticidas'],
-        ]);
-
         Schema::create('maestros_producto', function (Blueprint $tabla): void {
             $tabla->increments('id_producto');
             $tabla->string('codigo_articulo', 50)->nullable()->unique();

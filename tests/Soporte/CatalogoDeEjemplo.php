@@ -14,6 +14,14 @@ final class CatalogoDeEjemplo
 {
     public static function sembrar(): void
     {
+        // Las categorías son datos: vienen del catálogo de la web, no de una
+        // lista fija. `insecticidas` queda sin productos a propósito.
+        DB::table(self::tabla('categoria'))->insert([
+            ['codigo' => 'herbicidas', 'nombre' => 'Herbicidas'],
+            ['codigo' => 'semillas', 'nombre' => 'Semillas'],
+            ['codigo' => 'insecticidas', 'nombre' => 'Insecticidas'],
+        ]);
+
         $gliforte = self::producto([
             'codigo_articulo' => 'A-0142',
             'nombre' => 'Gliforte 68 SG',

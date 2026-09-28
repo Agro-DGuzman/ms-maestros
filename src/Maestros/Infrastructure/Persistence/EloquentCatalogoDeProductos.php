@@ -30,13 +30,24 @@ final class EloquentCatalogoDeProductos implements CatalogoDeProductos
 
     public function categorias(): array
     {
+        $conProductos = $this->visibles()->select('p.codigo_categoria');
+
         return array_values(array_map(
             fn (object $fila): CategoriaDelCatalogo => new CategoriaDelCatalogo(
                 $this->texto((array) $fila, 'codigo'),
                 $this->texto((array) $fila, 'nombre'),
             ),
-            DB::table($this->tabla('categoria'))->orderBy('nombre')->get(['codigo', 'nombre'])->all(),
+            DB::table($this->tabla('categoria'))
+                ->whereIn('codigo', $conProductos)
+                ->orderBy('nombre')
+                ->get(['codigo', 'nombre'])
+                ->all(),
         ));
+    }
+
+    public function existeCategoria(string $codigo): bool
+    {
+        return DB::table($this->tabla('categoria'))->where('codigo', $codigo)->exists();
     }
 
     public function pagina(?string $codigoDeCategoria, int $pagina, int $tamanoDePagina): PaginaDeProductos
