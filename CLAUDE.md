@@ -100,6 +100,19 @@ la línea siguiente ya dice, sobra.
   (fungicidas, biológicos, coadyuvantes), así que ni la tabla ni el código las
   limitan. `/categorias` muestra solo las que tienen productos visibles, y
   filtrar `/productos` por una que existe pero está vacía no es un error.
+- **Los cuatro enlaces del catálogo los administra el back-office**, no SAP:
+  `imagen_url`, `ficha_tecnica_url`, `hoja_seguridad_url` y
+  `registro_sanitario_url`, desde `/admin/productos`. Una sincronización futura
+  con SAP **no puede escribir esas columnas**, o pisa lo que cargó el área.
+  Cada cambio queda en `backoffice.cambios_de_catalogo` (append-only), con el
+  valor anterior leído de la base y no del formulario. La regla de una URL
+  válida vive en `Maestros\Domain\Productos\Enlace` —https, ruta codificada,
+  extensión según sea imagen o documento— y el formulario la reusa.
+- **Cada sección del back-office exige su `Permiso`** (`accesos`, `catalogo`)
+  con `backoffice.permiso:<valor>`. Hoy los autenticadores de desarrollo y
+  contraseña dan todos; cuando entre Entra, cada permiso tiene que salir de un
+  rol. Una sesión sin la clave `permisos` se trata como vencida, nunca como
+  «todos».
 - **Un solo control de autorización: el alcance.** Fuera de alcance → 403
   `ACCESO_DENEGADO`, nunca 404 ni lista vacía, y **el alcance se verifica antes
   que la existencia**. Toda petición que recibe un `CodigoDeSocio` declara
