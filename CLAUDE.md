@@ -112,7 +112,11 @@ la línea siguiente ya dice, sobra.
   con `backoffice.permiso:<valor>`. Hoy los autenticadores de desarrollo y
   contraseña dan todos; cuando entre Entra, cada permiso tiene que salir de un
   rol. Una sesión sin la clave `permisos` se trata como vencida, nunca como
-  «todos».
+  «todos». **Consecuencia aceptada a propósito (29/09/2026):** el área
+  comercial/técnica que carga los enlaces entra con contraseña, así que también
+  puede habilitar y deshabilitar el acceso de socios desde Contactos. Se
+  aceptó porque son pocas personas y conocidas; si hay que separarlo antes de
+  Entra, se agrega el permiso a cada línea de `BACKOFFICE_OPERADORES`.
 - **Un solo control de autorización: el alcance.** Fuera de alcance → 403
   `ACCESO_DENEGADO`, nunca 404 ni lista vacía, y **el alcance se verifica antes
   que la existencia**. Toda petición que recibe un `CodigoDeSocio` declara
