@@ -108,6 +108,18 @@ la línea siguiente ya dice, sobra.
   valor anterior leído de la base y no del formulario. La regla de una URL
   válida vive en `Maestros\Domain\Productos\Enlace` —https, ruta codificada,
   extensión según sea imagen o documento— y el formulario la reusa.
+- **Las propiedades del socio tampoco son réplica de SAP.** Salen de una
+  conciliación que hace Agropartners contra otra base de Azure, y se cargan con
+  `INSERT` sobre `database/sql/maestros-propiedades.sql` (la estructura, que la
+  migración ejecuta; SQLite recibe una copia sin los CHECK). El `id` **nunca se
+  reusa ni se cambia**: viaja a ms-comercial en `POST /solicitudes-visita` y lo
+  guardan los reportes de campo. El `nombre` es **el mismo texto** que
+  `ReporteCampo.propiedad`, así que se toma de la fuente de esos reportes. Para
+  la App existe solo la activa, y `cantidadPropiedades` cuenta con esa misma
+  definición. ms-comercial valida `propiedadAjena` consultando
+  `GET /socios/{cardCode}/propiedades` con el token de la persona, no leyendo
+  esta tabla. Sin clave foránea a `socios`: después de cargar, la consulta del
+  final del script tiene que dar cero filas, o hay propiedades que no ve nadie.
 - **Cada sección del back-office exige su `Permiso`** (`accesos`, `catalogo`)
   con `backoffice.permiso:<valor>`. Hoy los autenticadores de desarrollo y
   contraseña dan todos; cuando entre Entra, cada permiso tiene que salir de un
