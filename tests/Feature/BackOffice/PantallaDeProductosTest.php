@@ -50,7 +50,7 @@ it('busca y filtra', function () {
 it('el formulario muestra la vista previa y el historial', function () {
     $this->get("/admin/productos/{$this->gliforte}")
         ->assertOk()
-        ->assertSee('<img src="https://cdn.agropartners.com.bo/productos/A-0142.webp"', false)
+        ->assertSee('src="https://cdn.agropartners.com.bo/productos/A-0142.webp"', false)
         ->assertSee('value="https://docs.agropartners.com.bo/A-0142-tds.pdf"', false)
         ->assertSee('value="https://docs.agropartners.com.bo/A-0142-msds.pdf"', false)
         ->assertSee('Historial de cambios');
@@ -90,6 +90,35 @@ it('un pdf como imagen vuelve con el error', function () {
         ->toBe('https://cdn.agropartners.com.bo/productos/A-0142.webp');
 });
 
+it('un POST sin los campos no borra nada', function () {
+    // Vaciar un campo quita el enlace; que el campo no venga, no. Un script o
+    // un formulario al que le falte un campo no puede despublicar nada.
+    $this->from("/admin/productos/{$this->gliforte}")
+        ->post("/admin/productos/{$this->gliforte}", [])
+        ->assertSessionHasErrors(['imagen_url', 'ficha_tecnica_url', 'hoja_seguridad_url', 'registro_sanitario_url']);
+
+    expect(asientos())->toBe(0)
+        ->and(DB::table(CatalogoDeEjemplo::tabla('producto'))->where('id_producto', $this->gliforte)->value('hoja_seguridad_url'))
+        ->toBe('https://docs.agropartners.com.bo/A-0142-msds.pdf');
+});
+
+it('los enlaces del encabezado se ven sobre el fondo verde', function () {
+    $this->get('/admin/productos')->assertSee('header a { color:#fff; }', false);
+});
+
+it('la vista previa existe aunque todavia no haya imagen', function () {
+    // Para ver si una URL carga antes de guardarla, que ya es publicarla.
+    $this->get('/admin/productos/'.CatalogoDeEjemplo::idDe('Atrazina 90 WG'))
+        ->assertSee('id="vista-previa"', false)
+        ->assertSee('data-vista-previa', false);
+});
+
+it('la vista previa no manda el back-office como origen', function () {
+    // La App pide la imagen sin Referer; si la vista previa lo mandara, un
+    // sitio que filtra por origen podria mostrarla aca y negarsela a la App.
+    $this->get("/admin/productos/{$this->gliforte}")->assertSee('referrerpolicy="no-referrer"', false);
+});
+
 it('sin cambios lo dice y no asienta', function () {
     $this->post("/admin/productos/{$this->gliforte}", formularioDeGliforte())
         ->assertSessionHas('aviso', 'No había cambios.');
@@ -100,8 +129,12 @@ it('sin cambios lo dice y no asienta', function () {
 it('se edita un producto sin codigo', function () {
     $sinCodigo = CatalogoDeEjemplo::idDe('Sin código SAP todavía');
 
-    $this->post("/admin/productos/{$sinCodigo}", ['imagen_url' => 'https://cdn.x.bo/nueva.jpg'])
-        ->assertSessionHas('aviso', 'Se guardó 1 cambio.');
+    $this->post("/admin/productos/{$sinCodigo}", [
+        'imagen_url' => 'https://cdn.x.bo/nueva.jpg',
+        'ficha_tecnica_url' => '',
+        'hoja_seguridad_url' => '',
+        'registro_sanitario_url' => '',
+    ])->assertSessionHas('aviso', 'Se guardó 1 cambio.');
 
     expect(DB::table('backoffice_cambios_de_catalogo')->value('item_code'))->toBeNull();
 });

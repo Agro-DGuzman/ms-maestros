@@ -64,8 +64,11 @@ final readonly class ProductosController
         // pegado al campo y con lo que la persona tecleó.
         $reglas = [];
 
+        // `present`: vaciar un campo quita el enlace, pero que el campo no
+        // venga no. Un script o un formulario al que le falte uno no puede
+        // despublicar lo que ya estaba.
         foreach (CampoDeEnlace::cases() as $campo) {
-            $reglas[$campo->value] = ['nullable', 'string', self::enlaceValido($campo)];
+            $reglas[$campo->value] = ['present', 'nullable', 'string', self::enlaceValido($campo)];
         }
 
         $datos = $pedido->validate($reglas);
@@ -122,8 +125,8 @@ final readonly class ProductosController
     }
 
     /**
-     * Un campo que no vino se toma como vacío, y vacío quita el enlace: el
-     * formulario siempre manda los cuatro.
+     * La validación ya exigió los cuatro campos; acá un null es un campo que
+     * vino vacío, y vacío quita el enlace.
      *
      * @param  array<string, mixed>  $datos
      */

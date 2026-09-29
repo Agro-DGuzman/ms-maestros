@@ -24,6 +24,7 @@
         .rojo { color: var(--rojo); }
         button { font:inherit; cursor:pointer; padding:6px 12px; }
         a { color: var(--verde); }
+        header a { color:#fff; }
     </style>
 </head>
 <body>

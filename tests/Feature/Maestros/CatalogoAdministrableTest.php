@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Maestros\Application\Productos\CatalogoAdministrable;
 use Maestros\Application\Productos\FiltroDeEnlaces;
 use Maestros\Application\Productos\ProductoAdministrable;
@@ -41,6 +42,17 @@ it('lista todos, tambien los que la App no ve', function () {
 it('busca por nombre o por codigo, sin distinguir mayusculas', function () {
     expect(nombresDe($this->catalogo->listar('GLIFORTE', FiltroDeEnlaces::Todos)))->toBe(['Gliforte 68 SG'])
         ->and(nombresDe($this->catalogo->listar('a-0142', FiltroDeEnlaces::Todos)))->toBe(['Gliforte 68 SG']);
+});
+
+it('un % o un _ en la busqueda se buscan tal cual', function () {
+    // «Agrogibe 4% EC» es un producto real: pegar su nombre tiene que
+    // encontrarlo, y un «_» no puede funcionar como comodín.
+    DB::table(CatalogoDeEjemplo::tabla('producto'))->insert([
+        'codigo_articulo' => '10014', 'nombre' => 'Agrogibe 4% EC', 'codigo_categoria' => 'herbicidas',
+    ]);
+
+    expect(nombresDe($this->catalogo->listar('agrogibe 4% ec', FiltroDeEnlaces::Todos)))->toBe(['Agrogibe 4% EC'])
+        ->and($this->catalogo->listar('_', FiltroDeEnlaces::Todos))->toBe([]);
 });
 
 it('filtra los que no tienen imagen', function () {

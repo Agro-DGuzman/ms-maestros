@@ -16,11 +16,16 @@
         @endif
     </p>
 
-    @if ($producto->enlaces->imagen !== null)
-        {{-- Si no carga acá, tampoco va a cargar en la App. --}}
-        <p><img src="{{ $producto->enlaces->imagen }}" alt="{{ $producto->nombre }}"
-                style="max-width:240px; max-height:240px; border:1px solid var(--borde);"></p>
-    @endif
+    {{-- Sigue a lo que se teclea, para ver si una URL carga antes de guardarla:
+         guardar ya es publicarla. Si no carga acá, tampoco va a cargar en la App.
+         Sin Referer, como la pide la App: un sitio que filtra por origen no
+         puede mostrarla acá y negársela a ella. --}}
+    <p>
+        <img id="vista-previa" alt="{{ $producto->nombre }}" referrerpolicy="no-referrer"
+             @if ($producto->enlaces->imagen !== null) src="{{ $producto->enlaces->imagen }}" @else hidden @endif
+             style="max-width:240px; max-height:240px; border:1px solid var(--borde);">
+        <span id="vista-previa-error" class="rojo" style="font-size:13px;" hidden>La imagen no carga desde esta dirección.</span>
+    </p>
 
     <form method="POST" action="{{ route('admin.producto.guardar', $producto->id) }}" style="margin:16px 0;">
         @csrf
@@ -35,7 +40,7 @@
                     @endif
                 </span><br>
                 <input type="url" id="{{ $campo->value }}" name="{{ $campo->value }}"
-                       value="{{ old($campo->value, $actual) }}"
+                       value="{{ old($campo->value, $actual) }}" @if ($campo->esImagen()) data-vista-previa @endif
                        placeholder="https://…" style="padding:8px; width:100%; max-width:720px;">
                 @error($campo->value)
                     <br><span class="rojo" style="font-size:13px;">{{ $message }}</span>
@@ -45,6 +50,39 @@
         <p class="tenue" style="font-size:13px;">Dejar un campo vacío quita ese enlace de la App.</p>
         <button type="submit">Guardar</button>
     </form>
+
+    <script>
+        (() => {
+            const campo = document.querySelector('[data-vista-previa]');
+            const imagen = document.getElementById('vista-previa');
+            const error = document.getElementById('vista-previa-error');
+
+            const mostrar = () => {
+                const url = campo.value.trim();
+                error.hidden = true;
+
+                // Solo https, que es lo único que Enlace acepta: cualquier otra
+                // cosa no se intenta cargar.
+                if (! /^https:\/\//i.test(url)) {
+                    imagen.hidden = true;
+                    imagen.removeAttribute('src');
+                    return;
+                }
+
+                imagen.hidden = false;
+                if (imagen.getAttribute('src') !== url) imagen.src = url;
+            };
+
+            imagen.addEventListener('error', () => {
+                if (! imagen.getAttribute('src')) return;
+                imagen.hidden = true;
+                error.hidden = false;
+            });
+            imagen.addEventListener('load', () => { error.hidden = true; });
+            campo.addEventListener('input', mostrar);
+            mostrar();
+        })();
+    </script>
 
     <h3 style="font-size:16px;">Historial de cambios</h3>
     <table>

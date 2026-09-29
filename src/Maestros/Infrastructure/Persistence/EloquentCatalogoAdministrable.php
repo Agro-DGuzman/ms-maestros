@@ -27,15 +27,17 @@ final class EloquentCatalogoAdministrable implements CatalogoAdministrable
         $texto = $texto === null ? '' : trim($texto);
 
         if ($texto !== '') {
-            // El patrón va en minúsculas y escapado, como en la búsqueda de
-            // contactos: sin escapar, un `%` tecleado lista todo.
-            $patron = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], mb_strtolower($texto)).'%';
+            // El patrón va en minúsculas y escapado, y el ESCAPE va explícito:
+            // ni SQL Server ni SQLite tienen un carácter de escape por defecto,
+            // y sin él «Agrogibe 4% EC» no se encuentra por su propio nombre.
+            // `[` también se escapa: en SQL Server abre un rango.
+            $patron = '%'.str_replace(['\\', '%', '_', '['], ['\\\\', '\%', '\_', '\['], mb_strtolower($texto)).'%';
             $nombre = $this->comoTextoInsensible('p.nombre');
             $codigo = $this->comoTextoInsensible('p.codigo_articulo');
 
             $consulta->where(function (Builder $q) use ($patron, $nombre, $codigo): void {
-                $q->where(DB::raw($nombre), 'like', $patron)
-                    ->orWhere(DB::raw($codigo), 'like', $patron);
+                $q->whereRaw($nombre." LIKE ? ESCAPE '\\'", [$patron])
+                    ->orWhereRaw($codigo." LIKE ? ESCAPE '\\'", [$patron]);
             });
         }
 
