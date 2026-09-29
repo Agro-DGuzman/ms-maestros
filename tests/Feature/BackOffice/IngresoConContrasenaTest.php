@@ -66,6 +66,11 @@ it('la contrasena correcta abre la sesion del operador que entro', function () {
     expect(SesionDeOperador::actual())->not->toBeNull()
         ->and(SesionDeOperador::actual()->nombre)->toBe('Bruno Ortiz')
         ->and(SesionDeOperador::actual()->correo)->toBe('bruno@agropartners.com.bo');
+
+    // Hasta la redirección no alcanza: cada sección exige su permiso, y una
+    // sesión sin ellos entra y recibe 403 en la primera página.
+    $this->get(route('admin.contactos'))->assertOk();
+    $this->get(route('admin.productos'))->assertOk();
 });
 
 it('la contrasena equivocada no abre sesion', function () {
