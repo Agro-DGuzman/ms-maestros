@@ -9,6 +9,7 @@ use Maestros\Application\Contactos\ObtenerContexto\ContextoDeContacto;
 use Maestros\Application\Contactos\ObtenerContexto\ObtenerContexto;
 use Maestros\Domain\Contactos\Celular;
 use Maestros\Domain\Contactos\IdDePersona;
+use Tests\Soporte\PropiedadesDeEjemplo;
 
 uses(RefreshDatabase::class);
 
@@ -32,6 +33,17 @@ it('arma el contexto con la persona, su grupo y todos los socios del grupo', fun
         ->and($contexto->socios[0]['cardCode'])->toBe('C-004871')
         ->and($contexto->socios[0]['iniciales'])->toBe('SM')
         ->and($contexto->socios[0]['cantidadPropiedades'])->toBe(0);
+});
+
+it('cuenta las propiedades activas de cada socio del grupo', function () {
+    // C-004871 tiene una tercera dada de baja, y la de C-005210 es de otro
+    // grupo: ninguna de las dos cuenta.
+    PropiedadesDeEjemplo::sembrar();
+
+    $contexto = app(Mediator::class)->send(new ObtenerContexto(IdDePersona::desde('p-8f2b1c40')))->value();
+
+    expect(array_column($contexto->socios, 'cantidadPropiedades', 'cardCode'))
+        ->toBe(['C-004871' => 2, 'C-004872' => 1, 'C-004873' => 0]);
 });
 
 it('falla con NOT_FOUND si la persona no existe', function () {

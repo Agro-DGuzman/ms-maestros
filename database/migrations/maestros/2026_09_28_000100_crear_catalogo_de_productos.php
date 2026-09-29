@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Persistence\LotesDeScript;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +22,7 @@ return new class extends Migration
     public function up(): void
     {
         if (DB::getDriverName() === 'sqlsrv') {
-            foreach ($this->lotesDelScript() as $lote) {
+            foreach (LotesDeScript::de('maestros-productos.sql') as $lote) {
                 DB::unprepared($lote);
             }
 
@@ -73,35 +74,5 @@ return new class extends Migration
         Schema::dropIfExists($prefijo.'producto_cultivo');
         Schema::dropIfExists($prefijo.'producto');
         Schema::dropIfExists($prefijo.'categoria');
-    }
-
-    /**
-     * `GO` no es T-SQL: es el separador de lotes de sqlcmd y de SSMS. Hay que
-     * partir el script ahí, porque algunas sentencias tienen que ir solas.
-     *
-     * @return list<string>
-     */
-    private function lotesDelScript(): array
-    {
-        $script = file_get_contents(database_path('sql/maestros-productos.sql'));
-
-        if ($script === false) {
-            throw new RuntimeException('No se pudo leer database/sql/maestros-productos.sql');
-        }
-
-        $lotes = preg_split('/^\s*GO\s*$/mi', $script) ?: [];
-
-        return array_values(array_filter(
-            array_map('trim', $lotes),
-            static fn (string $lote): bool => $lote !== '' && ! self::soloComentarios($lote),
-        ));
-    }
-
-    private static function soloComentarios(string $lote): bool
-    {
-        $sinBloques = preg_replace('#/\*.*?\*/#s', '', $lote) ?? $lote;
-        $sinLineas = preg_replace('/^\s*--.*$/m', '', $sinBloques) ?? $sinBloques;
-
-        return trim($sinLineas) === '';
     }
 };

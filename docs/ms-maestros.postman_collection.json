@@ -11,7 +11,8 @@
     { "key": "otpId", "value": "" },
     { "key": "token", "value": "" },
     { "key": "refreshToken", "value": "" },
-    { "key": "itemCode", "value": "" }
+    { "key": "itemCode", "value": "" },
+    { "key": "cardCode", "value": "" }
   ],
   "item": [
     {
@@ -152,6 +153,35 @@
               "  pm.response.to.have.status(200);",
               "  pm.expect(b.data.items.length).to.be.above(0);",
               "  pm.expect(b.data.items[0].cardCode).to.be.a('string');",
+              "});",
+              "pm.collectionVariables.set('cardCode', b.data.items[0].cardCode);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3c. Propiedades del socio",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": { "raw": "{{baseUrl}}/v1/socios/{{cardCode}}/propiedades", "host": ["{{baseUrl}}"], "path": ["v1", "socios", "{{cardCode}}", "propiedades"] },
+        "description": "El paso 2 de Solicitar visita tecnica: las propiedades activas del socio que guardo 3b. El id de cada una es el que viaja a POST /solicitudes-visita. Un socio fuera del grupo de la persona responde 403 ACCESO_DENEGADO; uno sin propiedades, una lista vacia."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test('lista las propiedades del socio', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(b.data.items).to.be.an('array');",
+              "  b.data.items.forEach(p => pm.expect(p).to.have.all.keys('id', 'nombre'));",
               "});"
             ]
           }
