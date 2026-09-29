@@ -120,6 +120,11 @@ la línea siguiente ya dice, sobra.
   `GET /socios/{cardCode}/propiedades` con el token de la persona, no leyendo
   esta tabla. Sin clave foránea a `socios`: después de cargar, la consulta del
   final del script tiene que dar cero filas, o hay propiedades que no ve nadie.
+  **La tabla tiene que existir en Azure antes que la imagen que la usa**:
+  `/mi-cuenta`, `/socios` y también el login cuentan propiedades, así que una
+  revisión nueva sin la tabla responde 500 a todos. La migración se corre
+  contra Azure desde la imagen local, antes del push; `az containerapp exec`
+  no sirve para esto, porque el contenedor viejo no trae la migración nueva.
 - **Cada sección del back-office exige su `Permiso`** (`accesos`, `catalogo`)
   con `backoffice.permiso:<valor>`. Hoy los autenticadores de desarrollo y
   contraseña dan todos; cuando entre Entra, cada permiso tiene que salir de un

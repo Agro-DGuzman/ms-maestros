@@ -36,12 +36,25 @@ CREATE TABLE maestros.propiedad (
     -- Un espacio de más en el id viajaría distinto a ms-comercial, y en el
     -- código de socio dejaría la propiedad invisible. LEN ignora los espacios
     -- finales: DATALENGTH contra RTRIM los detecta.
+    --
+    -- RTRIM y LIKE N' %' solo ven el espacio común. Un tab, el CR que deja un
+    -- CSV de Windows o el espacio duro que se pega desde Excel pasarían igual,
+    -- así que se rechazan en cualquier posición, comparando en binario para
+    -- que la colación no los confunda con un espacio. Estos CHECK quedan
+    -- congelados cuando la tabla existe: cambiarlos después exige un bloque
+    -- que los borre y los vuelva a crear.
     CONSTRAINT CK_propiedad_id CHECK (LEN(id_propiedad) > 0 AND id_propiedad NOT LIKE N' %'
-        AND DATALENGTH(id_propiedad) = DATALENGTH(RTRIM(id_propiedad))),
+        AND DATALENGTH(id_propiedad) = DATALENGTH(RTRIM(id_propiedad))
+        AND id_propiedad COLLATE Latin1_General_BIN2
+            NOT LIKE N'%[' + NCHAR(9) + NCHAR(10) + NCHAR(13) + NCHAR(160) + N']%'),
     CONSTRAINT CK_propiedad_nombre CHECK (LEN(nombre) > 0 AND nombre NOT LIKE N' %'
-        AND DATALENGTH(nombre) = DATALENGTH(RTRIM(nombre))),
+        AND DATALENGTH(nombre) = DATALENGTH(RTRIM(nombre))
+        AND nombre COLLATE Latin1_General_BIN2
+            NOT LIKE N'%[' + NCHAR(9) + NCHAR(10) + NCHAR(13) + NCHAR(160) + N']%'),
     CONSTRAINT CK_propiedad_socio CHECK (LEN(codigo_de_socio) > 0 AND codigo_de_socio NOT LIKE N' %'
-        AND DATALENGTH(codigo_de_socio) = DATALENGTH(RTRIM(codigo_de_socio)))
+        AND DATALENGTH(codigo_de_socio) = DATALENGTH(RTRIM(codigo_de_socio))
+        AND codigo_de_socio COLLATE Latin1_General_BIN2
+            NOT LIKE N'%[' + NCHAR(9) + NCHAR(10) + NCHAR(13) + NCHAR(160) + N']%')
 );
 GO
 
@@ -53,7 +66,13 @@ GO
 /* Verificación después de cargar: propiedades cuyo socio no está en la réplica.
    No aparecen en ningún lado, así que tiene que devolver cero filas.
 
+   La comparación es binaria a propósito: con la colación de la base,
+   'c-004871' encuentra a 'C-004871' y no se señala, pero el conteo de
+   cantidadPropiedades la busca por el código exacto y da 0 mientras la lista
+   la muestra.
+
 SELECT p.id_propiedad, p.nombre, p.codigo_de_socio
 FROM maestros.propiedad p
-WHERE NOT EXISTS (SELECT 1 FROM maestros.socios s WHERE s.codigo_de_socio = p.codigo_de_socio);
+WHERE NOT EXISTS (SELECT 1 FROM maestros.socios s
+                  WHERE s.codigo_de_socio = p.codigo_de_socio COLLATE Latin1_General_BIN2);
 */
