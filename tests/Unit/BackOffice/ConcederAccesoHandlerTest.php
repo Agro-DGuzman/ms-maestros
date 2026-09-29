@@ -7,6 +7,7 @@ use BackOffice\Application\Accesos\ConcederAcceso\ConcederAccesoHandler;
 use BackOffice\Domain\Bitacora\AccionDeAcceso;
 use BackOffice\Domain\Operadores\IdDeOperador;
 use BackOffice\Domain\Operadores\Operador;
+use BackOffice\Domain\Operadores\Permiso;
 use Core\Results\Error;
 use Core\Results\Result;
 use Identidad\Application\Habilitacion\HabilitarPersona\HabilitarPersona;
@@ -22,6 +23,7 @@ function comandoDeConceder(): ConcederAcceso
             IdDeOperador::desdeOid('oid-77'),
             'Mónica Salvatierra',
             'monica@agropartners.com.bo',
+            Permiso::todos(),
         ),
         direccionIp: '190.129.4.7',
     );

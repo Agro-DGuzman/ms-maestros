@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use BackOffice\Presentation\Http\AccesosController;
 use BackOffice\Presentation\Http\IngresoConContrasenaController;
+use BackOffice\Presentation\Http\ProductosController;
 use BackOffice\Presentation\Http\SesionController;
 use Illuminate\Support\Facades\Route;
 
@@ -24,9 +25,17 @@ Route::prefix('admin')->name('admin.')->middleware(['web', 'backoffice.ip'])->gr
     Route::middleware('backoffice.sesion')->group(function (): void {
         Route::post('/salir', [SesionController::class, 'salir'])->name('salir');
 
-        Route::get('/contactos', [AccesosController::class, 'index'])->name('contactos');
-        Route::post('/contactos/{id}/habilitar', [AccesosController::class, 'habilitar'])->name('habilitar');
-        Route::post('/contactos/{id}/deshabilitar', [AccesosController::class, 'deshabilitar'])->name('deshabilitar');
-        Route::get('/contactos/{id}/historial', [AccesosController::class, 'historial'])->name('historial');
+        Route::middleware('backoffice.permiso:accesos')->group(function (): void {
+            Route::get('/contactos', [AccesosController::class, 'index'])->name('contactos');
+            Route::post('/contactos/{id}/habilitar', [AccesosController::class, 'habilitar'])->name('habilitar');
+            Route::post('/contactos/{id}/deshabilitar', [AccesosController::class, 'deshabilitar'])->name('deshabilitar');
+            Route::get('/contactos/{id}/historial', [AccesosController::class, 'historial'])->name('historial');
+        });
+
+        Route::middleware('backoffice.permiso:catalogo')->group(function (): void {
+            Route::get('/productos', [ProductosController::class, 'index'])->name('productos');
+            Route::get('/productos/{id}', [ProductosController::class, 'mostrar'])->whereNumber('id')->name('producto');
+            Route::post('/productos/{id}', [ProductosController::class, 'guardar'])->whereNumber('id')->name('producto.guardar');
+        });
     });
 });

@@ -6,6 +6,7 @@ namespace BackOffice\Presentation\Http;
 
 use BackOffice\Domain\Operadores\IdDeOperador;
 use BackOffice\Domain\Operadores\Operador;
+use BackOffice\Domain\Operadores\Permiso;
 use Illuminate\Support\Facades\Session;
 
 /**
@@ -22,6 +23,7 @@ final class SesionDeOperador
             'oid' => $operador->id->valor,
             'nombre' => $operador->nombre,
             'correo' => $operador->correo,
+            'permisos' => array_map(static fn (Permiso $p): string => $p->value, $operador->permisos),
         ]);
     }
 
@@ -36,6 +38,7 @@ final class SesionDeOperador
         $oid = $datos['oid'] ?? null;
         $nombre = $datos['nombre'] ?? null;
         $correo = $datos['correo'] ?? null;
+        $permisos = $datos['permisos'] ?? null;
 
         // Una cookie de sesión vieja o manipulada no puede hacer estallar la
         // pantalla: si no trae las tres cosas, es como no tener sesión.
@@ -43,10 +46,21 @@ final class SesionDeOperador
             return null;
         }
 
+        // Una sesión de antes de que existieran los permisos se vuelve a
+        // ingresar: suponer permisos que nadie le dio sería abrirle todo.
+        if (! is_array($permisos)) {
+            return null;
+        }
+
         return new Operador(
             id: IdDeOperador::desdeOid($oid),
             nombre: $nombre,
             correo: $correo,
+            // Un valor que ya no existe se descarta en vez de romper la sesión.
+            permisos: array_values(array_filter(array_map(
+                static fn (mixed $p): ?Permiso => is_string($p) ? Permiso::tryFrom($p) : null,
+                $permisos,
+            ))),
         );
     }
 

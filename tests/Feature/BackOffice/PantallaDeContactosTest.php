@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use BackOffice\Domain\Operadores\IdDeOperador;
 use BackOffice\Domain\Operadores\Operador;
+use BackOffice\Domain\Operadores\Permiso;
 use BackOffice\Infrastructure\Persistence\AsientoRecord;
 use BackOffice\Presentation\Http\SesionDeOperador;
 use Identidad\Application\Contracts\DirectorioDeIdentidades;
@@ -66,6 +67,7 @@ beforeEach(function () {
         IdDeOperador::desdeOid('oid-77'),
         'Jorge Pena',
         'jorge@agropartners.com.bo',
+        Permiso::todos(),
     ));
 });
 

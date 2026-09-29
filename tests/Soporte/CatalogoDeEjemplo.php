@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Soporte;
 
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 /**
  * Un catálogo chico que cubre cada caso de visibilidad: tres productos que la
@@ -66,6 +67,18 @@ final class CatalogoDeEjemplo
         ]);
         self::producto(['codigo_articulo' => null, 'nombre' => 'Sin código SAP todavía', 'codigo_categoria' => 'herbicidas']);
         self::producto(['codigo_articulo' => 'A-0400', 'nombre' => 'Sin categoría todavía', 'codigo_categoria' => null]);
+    }
+
+    /** El back-office edita por id: un producto puede no tener código todavía. */
+    public static function idDe(string $nombre): int
+    {
+        $id = DB::table(self::tabla('producto'))->where('nombre', $nombre)->value('id_producto');
+
+        if (! is_numeric($id)) {
+            throw new RuntimeException("No hay un producto «{$nombre}» en el catálogo de ejemplo");
+        }
+
+        return (int) $id;
     }
 
     public static function tabla(string $nombre): string

@@ -6,6 +6,7 @@ use BackOffice\Domain\Bitacora\AccionDeAcceso;
 use BackOffice\Domain\Bitacora\AsientoDeBitacora;
 use BackOffice\Domain\Operadores\IdDeOperador;
 use BackOffice\Domain\Operadores\Operador;
+use BackOffice\Domain\Operadores\Permiso;
 
 function unAsiento(AccionDeAcceso $accion): AsientoDeBitacora
 {
@@ -14,6 +15,7 @@ function unAsiento(AccionDeAcceso $accion): AsientoDeBitacora
             id: IdDeOperador::desdeOid('oid-77'),
             nombre: 'Mónica Salvatierra',
             correo: 'monica@agropartners.com.bo',
+            permisos: Permiso::todos(),
         ),
         idDePersona: 'p-8f2b1c40',
         accion: $accion,

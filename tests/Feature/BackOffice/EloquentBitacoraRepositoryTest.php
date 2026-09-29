@@ -7,6 +7,7 @@ use BackOffice\Domain\Bitacora\AsientoDeBitacora;
 use BackOffice\Domain\Bitacora\BitacoraRepository;
 use BackOffice\Domain\Operadores\IdDeOperador;
 use BackOffice\Domain\Operadores\Operador;
+use BackOffice\Domain\Operadores\Permiso;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -18,6 +19,7 @@ function asientoDe(string $idDePersona, AccionDeAcceso $accion, string $momento)
             IdDeOperador::desdeOid('oid-77'),
             'Mónica Salvatierra',
             'monica@agropartners.com.bo',
+            Permiso::todos(),
         ),
         idDePersona: $idDePersona,
         accion: $accion,

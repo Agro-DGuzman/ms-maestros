@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use BackOffice\Domain\Operadores\IdDeOperador;
 use BackOffice\Domain\Operadores\Operador;
+use BackOffice\Domain\Operadores\Permiso;
 use BackOffice\Presentation\Http\SesionDeOperador;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Maestros\Domain\Contactos\Celular;
@@ -63,6 +64,7 @@ beforeEach(function () {
         IdDeOperador::desdeOid('oid-77'),
         'Operador',
         'o@agropartners.com.bo',
+        Permiso::todos(),
     ));
 });
 

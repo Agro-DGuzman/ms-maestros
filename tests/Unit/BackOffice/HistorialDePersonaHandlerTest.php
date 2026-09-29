@@ -8,12 +8,13 @@ use BackOffice\Domain\Bitacora\AccionDeAcceso;
 use BackOffice\Domain\Bitacora\AsientoDeBitacora;
 use BackOffice\Domain\Operadores\IdDeOperador;
 use BackOffice\Domain\Operadores\Operador;
+use BackOffice\Domain\Operadores\Permiso;
 use Tests\Dobles\BitacoraEnMemoria;
 
 function asientoPara(string $idDePersona, AccionDeAcceso $accion): AsientoDeBitacora
 {
     return AsientoDeBitacora::nuevo(
-        operador: new Operador(IdDeOperador::desdeOid('oid-77'), 'Mónica', 'monica@agropartners.com.bo'),
+        operador: new Operador(IdDeOperador::desdeOid('oid-77'), 'Mónica', 'monica@agropartners.com.bo', Permiso::todos()),
         idDePersona: $idDePersona,
         accion: $accion,
         direccionIp: '190.129.4.7',

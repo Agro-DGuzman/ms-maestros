@@ -24,12 +24,23 @@
         .rojo { color: var(--rojo); }
         button { font:inherit; cursor:pointer; padding:6px 12px; }
         a { color: var(--verde); }
+        header a { color:#fff; }
     </style>
 </head>
 <body>
 <header>
-    <span class="marca">Back-office · Accesos</span>
+    <span class="marca">Back-office</span>
     @if ($operador = \BackOffice\Presentation\Http\SesionDeOperador::actual())
+        {{-- Solo las secciones que la persona puede usar: un enlace que lleva
+             a un 403 no le sirve a nadie. --}}
+        <nav style="display:flex; gap:12px;">
+            @if ($operador->puede(\BackOffice\Domain\Operadores\Permiso::Accesos))
+                <a href="{{ route('admin.contactos') }}">Contactos</a>
+            @endif
+            @if ($operador->puede(\BackOffice\Domain\Operadores\Permiso::Catalogo))
+                <a href="{{ route('admin.productos') }}">Productos</a>
+            @endif
+        </nav>
         <span>{{ $operador->nombre }}</span>
         <form method="POST" action="{{ route('admin.salir') }}">
             @csrf

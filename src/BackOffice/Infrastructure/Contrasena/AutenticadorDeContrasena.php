@@ -8,6 +8,7 @@ use BackOffice\Application\Contracts\AutenticadorDeOperador;
 use BackOffice\Application\Contracts\IngresoRechazado;
 use BackOffice\Domain\Operadores\IdDeOperador;
 use BackOffice\Domain\Operadores\Operador;
+use BackOffice\Domain\Operadores\Permiso;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -96,6 +97,9 @@ final readonly class AutenticadorDeContrasena implements AutenticadorDeOperador
             id: IdDeOperador::desdeOid($operador->correo),
             nombre: $operador->nombre,
             correo: $operador->correo,
+            // Hasta que Entra decida por rol, quien tiene contraseña es del
+            // equipo que administra todo el back-office.
+            permisos: Permiso::todos(),
         );
     }
 
