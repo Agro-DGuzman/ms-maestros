@@ -15,6 +15,7 @@ use Tests\Dobles\EnviadorQueRecuerda;
 use Tests\Dobles\VerificadorFalso;
 use Tests\Soporte\CatalogoDeEjemplo;
 use Tests\Soporte\Contrato;
+use Tests\Soporte\PropiedadesDeEjemplo;
 
 /*
  * Cada respuesta que la App puede recibir, contra el esquema que el contrato
@@ -152,6 +153,19 @@ it('la configuracion de la App', function (string $ruta, array $cabeceras, int $
     'bancos sin token' => ['/bancos', [], 401],
     'atencion al cliente' => ['/contactos/atencion-al-cliente', CON_TOKEN, 200],
     'atencion al cliente sin token' => ['/contactos/atencion-al-cliente', [], 401],
+]);
+
+it('las propiedades del socio', function (string $url, array $cabeceras, int $status) {
+    PropiedadesDeEjemplo::sembrar();
+
+    $respuesta = $this->getJson('/v1'.$url, $cabeceras)->assertStatus($status);
+
+    expect(Contrato::diferencias($respuesta, 'GET', '/socios/{cardCode}/propiedades'))->toBe([]);
+})->with([
+    'con propiedades' => ['/socios/C-004871/propiedades', CON_TOKEN, 200],
+    'sin propiedades' => ['/socios/C-004873/propiedades', CON_TOKEN, 200],
+    'socio ajeno' => ['/socios/C-005210/propiedades', CON_TOKEN, 403],
+    'sin token' => ['/socios/C-004871/propiedades', [], 401],
 ]);
 
 it('el catalogo de productos', function (string $url, string $ruta, array $cabeceras, int $status) {

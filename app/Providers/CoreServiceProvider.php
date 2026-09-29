@@ -43,6 +43,8 @@ use Maestros\Application\Contactos\ObtenerContexto\ObtenerContexto;
 use Maestros\Application\Contactos\ObtenerContexto\ObtenerContextoHandler;
 use Maestros\Application\Productos\CambiarEnlaces\CambiarEnlacesDeProducto;
 use Maestros\Application\Productos\CambiarEnlaces\CambiarEnlacesDeProductoHandler;
+use Maestros\Application\Propiedades\ListarPropiedades\ListarPropiedades;
+use Maestros\Application\Propiedades\ListarPropiedades\ListarPropiedadesHandler;
 
 final class CoreServiceProvider extends ServiceProvider
 {
@@ -58,6 +60,7 @@ final class CoreServiceProvider extends ServiceProvider
         RevocarAcceso::class => RevocarAccesoHandler::class,
         ListarHabilitadas::class => ListarHabilitadasHandler::class,
         ObtenerContexto::class => ObtenerContextoHandler::class,
+        ListarPropiedades::class => ListarPropiedadesHandler::class,
         CerrarSesion::class => CerrarSesionHandler::class,
         DeshabilitarPersona::class => DeshabilitarPersonaHandler::class,
         HabilitarPersona::class => HabilitarPersonaHandler::class,
