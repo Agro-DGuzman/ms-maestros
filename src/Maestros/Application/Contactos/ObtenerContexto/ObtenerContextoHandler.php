@@ -8,11 +8,13 @@ use Core\Contracts\Request;
 use Core\Contracts\RequestHandler;
 use Core\Results\Result;
 use Core\Results\ResultWithValue;
+use Maestros\Application\Propiedades\PropiedadesDeSocios;
 use Maestros\Domain\Contactos\ContactoErrors;
 use Maestros\Domain\Contactos\ContactoRepository;
 use Maestros\Domain\Contactos\PersonaDeContacto;
 use Maestros\Domain\Grupos\GrupoEconomico;
 use Maestros\Domain\Grupos\GrupoRepository;
+use Maestros\Domain\Socios\CodigoDeSocio;
 use Maestros\Domain\Socios\Socio;
 use Maestros\Domain\Socios\SocioErrors;
 use Maestros\Domain\Socios\SocioRepository;
@@ -23,6 +25,7 @@ final readonly class ObtenerContextoHandler implements RequestHandler
         private ContactoRepository $contactos,
         private SocioRepository $socios,
         private GrupoRepository $grupos,
+        private PropiedadesDeSocios $propiedades,
     ) {}
 
     public function handle(Request $peticion): Result
@@ -52,15 +55,24 @@ final readonly class ObtenerContextoHandler implements RequestHandler
         // contexto: se responde con el nombre vacío.
         $nombreDelGrupo = $grupoEconomico instanceof GrupoEconomico ? $grupoEconomico->nombre() : '';
 
+        $sociosDelGrupo = $this->socios->porGrupo($grupo);
+
+        // Una sola consulta para todo el grupo, con la misma definición de
+        // «activa» que la lista: el número tiene que coincidir con lo que la
+        // persona ve al pedir una visita.
+        $cantidades = $this->propiedades->contarPorSocio(array_values(array_map(
+            static fn (Socio $s): CodigoDeSocio => $s->codigoDeSocio(),
+            $sociosDelGrupo,
+        )));
+
         $socios = array_map(
             static fn (Socio $s): array => [
                 'cardCode' => $s->codigoDeSocio()->value(),
                 'razonSocial' => $s->razonSocial()->texto(),
                 'iniciales' => (string) $s->razonSocial()->iniciales(),
-                // Supuesto S1: el UDT de propiedades no existe todavía en SAP.
-                'cantidadPropiedades' => 0,
+                'cantidadPropiedades' => $cantidades[$s->codigoDeSocio()->value()] ?? 0,
             ],
-            $this->socios->porGrupo($grupo),
+            $sociosDelGrupo,
         );
 
         return ResultWithValue::of(new ContextoDeContacto(

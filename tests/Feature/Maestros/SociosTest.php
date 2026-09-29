@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Identidad\Application\Contracts\VerificadorDeToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Dobles\VerificadorFalso;
+use Tests\Soporte\PropiedadesDeEjemplo;
 
 uses(RefreshDatabase::class);
 
@@ -32,6 +33,24 @@ it('son los mismos socios que muestra mi-cuenta', function () {
 
     expect($socios)->not->toBeEmpty()
         ->and($socios)->toBe($miCuenta);
+});
+
+it('cantidadPropiedades es el largo de la lista de cada socio', function () {
+    // El selector dice «2 propiedades» y el paso 2 de la visita tiene que
+    // mostrar esas dos: si difieren, el socio ve una cuenta que no cierra.
+    PropiedadesDeEjemplo::sembrar();
+    $cabeceras = ['Authorization' => 'Bearer token-bueno'];
+
+    $socios = $this->getJson('/v1/socios', $cabeceras)->json('data.items');
+
+    foreach ($socios as $socio) {
+        $lista = $this->getJson("/v1/socios/{$socio['cardCode']}/propiedades", $cabeceras)->json('data.items');
+
+        expect($socio['cantidadPropiedades'])->toBe(count($lista));
+    }
+
+    // Sin esto, 0 contra una lista vacía pasaría en verde sin probar nada.
+    expect(max(array_column($socios, 'cantidadPropiedades')))->toBeGreaterThan(0);
 });
 
 it('responde 401 sin cabecera Authorization', function () {
