@@ -24,7 +24,7 @@
         <img id="vista-previa" alt="{{ $producto->nombre }}" referrerpolicy="no-referrer"
              @if ($producto->enlaces->imagen !== null) src="{{ $producto->enlaces->imagen }}" @else hidden @endif
              style="max-width:240px; max-height:240px; border:1px solid var(--borde);">
-        <span id="vista-previa-error" class="rojo" style="font-size:13px;" hidden>La imagen no carga desde esta dirección.</span>
+        <span id="vista-previa-estado" style="font-size:13px;" hidden></span>
     </p>
 
     <form method="POST" action="{{ route('admin.producto.guardar', $producto->id) }}" style="margin:16px 0;">
@@ -55,30 +55,49 @@
         (() => {
             const campo = document.querySelector('[data-vista-previa]');
             const imagen = document.getElementById('vista-previa');
-            const error = document.getElementById('vista-previa-error');
+            const estado = document.getElementById('vista-previa-estado');
+
+            const avisar = (texto, clase = 'tenue') => {
+                estado.textContent = texto;
+                estado.className = clase;
+                estado.hidden = texto === '';
+            };
+            const cargo = () => { imagen.hidden = false; avisar(''); };
+            const fallo = () => { imagen.hidden = true; avisar('La imagen no carga desde esta dirección.', 'rojo'); };
 
             const mostrar = () => {
                 const url = campo.value.trim();
-                error.hidden = true;
 
                 // Solo https, que es lo único que Enlace acepta: cualquier otra
                 // cosa no se intenta cargar.
                 if (! /^https:\/\//i.test(url)) {
                     imagen.hidden = true;
                     imagen.removeAttribute('src');
+                    avisar('');
                     return;
                 }
 
-                imagen.hidden = false;
-                if (imagen.getAttribute('src') !== url) imagen.src = url;
+                if (imagen.getAttribute('src') === url) return;
+
+                // Mientras la nueva carga, el navegador sigue mostrando la
+                // anterior: una URL rota se vería bien durante los segundos que
+                // tarda en fallar, y guardarla en ese rato sería publicarla.
+                imagen.hidden = true;
+                avisar('Cargando la imagen…');
+                imagen.src = url;
             };
 
-            imagen.addEventListener('error', () => {
-                if (! imagen.getAttribute('src')) return;
-                imagen.hidden = true;
-                error.hidden = false;
-            });
-            imagen.addEventListener('load', () => { error.hidden = true; });
+            imagen.addEventListener('load', () => { if (imagen.getAttribute('src')) cargo(); });
+            imagen.addEventListener('error', () => { if (imagen.getAttribute('src')) fallo(); });
+
+            // La guardada pudo terminar de cargar, o de fallar, antes de que
+            // este script escuchara: se mira cómo quedó.
+            if (imagen.getAttribute('src')) {
+                if (! imagen.complete) { imagen.hidden = true; avisar('Cargando la imagen…'); }
+                else if (imagen.naturalWidth > 0) cargo();
+                else fallo();
+            }
+
             campo.addEventListener('input', mostrar);
             mostrar();
         })();
