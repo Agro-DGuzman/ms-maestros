@@ -142,17 +142,16 @@ final class ModulosServiceProvider extends ServiceProvider
             ->needs('$maximoPorHora')
             ->give(fn (): int => Config::integer('identidad.desafios_por_hora'));
 
-        // TEMPORAL: ver EcoDeCodigoDePrueba. Los números se normalizan acá, así
-        // que uno mal escrito revienta al arrancar en vez de no coincidir nunca.
+        // TEMPORAL, se va con el eco: la misma lista, para que un número que
+        // recibe su código en la respuesta no quede además sin poder pedirlo.
+        $this->app->when(SolicitarDesafioHandler::class)
+            ->needs('$celularesSinLimite')
+            ->give(fn (): array => self::numerosDePrueba());
+
+        // TEMPORAL: ver EcoDeCodigoDePrueba.
         $this->app->singleton(EcoDeCodigoDePrueba::class, fn ($app): EcoDeCodigoDePrueba => new EcoDeCodigoDePrueba(
             $app->make(DesafioRepository::class),
-            array_values(array_map(
-                static fn (string $numero): string => Celular::desdeLocalBoliviano(trim($numero))->e164(),
-                array_filter(
-                    explode(',', Config::string('identidad.numeros_con_codigo_en_respuesta')),
-                    static fn (string $numero): bool => trim($numero) !== '',
-                ),
-            )),
+            self::numerosDePrueba(),
             $app->environment(),
         ));
 
@@ -169,6 +168,23 @@ final class ModulosServiceProvider extends ServiceProvider
             'recomendada' => Config::string("app_movil.versiones.{$plataforma}.recomendada"),
             'tienda' => Config::string("app_movil.versiones.{$plataforma}.tienda"),
         ];
+    }
+
+    /**
+     * TEMPORAL, se va con el eco. Se normalizan acá, así que un número mal
+     * escrito revienta al arrancar en vez de no coincidir nunca.
+     *
+     * @return list<string> en E.164
+     */
+    private static function numerosDePrueba(): array
+    {
+        return array_values(array_map(
+            static fn (string $numero): string => Celular::desdeLocalBoliviano(trim($numero))->e164(),
+            array_filter(
+                explode(',', Config::string('identidad.numeros_con_codigo_en_respuesta')),
+                static fn (string $numero): bool => trim($numero) !== '',
+            ),
+        ));
     }
 
     public function boot(): void

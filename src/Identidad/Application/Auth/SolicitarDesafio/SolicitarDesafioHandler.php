@@ -23,11 +23,20 @@ use Identidad\Domain\Desafios\IdDeDesafio;
  */
 final readonly class SolicitarDesafioHandler implements RequestHandler
 {
+    /**
+     * TEMPORAL, se va junto con el eco: los celulares sin límite son los
+     * números de prueba de EcoDeCodigoDePrueba, que comparte todo el equipo de
+     * la App. A ellos el límite no los protege de nada, porque el código ya
+     * viaja en la respuesta.
+     *
+     * @param  list<string>  $celularesSinLimite  en E.164
+     */
     public function __construct(
         private DesafioRepository $desafios,
         private DespachadorDeDesafio $despachador,
         private RelojDelSistema $reloj,
         private int $maximoPorHora,
+        private array $celularesSinLimite = [],
     ) {}
 
     public function handle(Request $peticion): Result
@@ -38,7 +47,8 @@ final readonly class SolicitarDesafioHandler implements RequestHandler
 
         // El límite va sobre la EMISIÓN, no solo sobre los intentos: sin esto
         // el atacante compra intentos pidiendo desafíos nuevos.
-        if ($this->desafios->emitidosDesde($peticion->celular, $ahora->modify('-1 hour')) >= $this->maximoPorHora) {
+        if (! in_array($peticion->celular->e164(), $this->celularesSinLimite, true)
+            && $this->desafios->emitidosDesde($peticion->celular, $ahora->modify('-1 hour')) >= $this->maximoPorHora) {
             return ResultWithValue::failure(DesafioErrors::limiteDeTasa());
         }
 

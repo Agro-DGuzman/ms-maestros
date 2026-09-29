@@ -446,7 +446,11 @@ curl -s localhost:8082/realms/master/.well-known/openid-configuration
   `OTP_ECO_NUMEROS`**, vacía es apagado, y con `APP_ENV=production` y la lista
   no vacía se niega a existir. Ese último resguardo **no aplica en `staging`**:
   lo que protege de verdad es la lista. Está en un commit propio para poder
-  revertirlo solo, sin arrastrar el renombre a `otpId`.
+  revertirlo solo, sin arrastrar el renombre a `otpId`. Los mismos números
+  **no tienen límite de desafíos por hora** (`$celularesSinLimite` de
+  `SolicitarDesafioHandler`): todo el equipo de la App prueba con uno solo, y
+  el límite no protege un código que ya viaja en la respuesta. Se retira
+  junto con el eco.
 
 - **Reglas del contrato que todavía no se cumplen** (la forma de las respuestas
   sí; esto es comportamiento): 3 envíos por hora por número (hoy 5, por

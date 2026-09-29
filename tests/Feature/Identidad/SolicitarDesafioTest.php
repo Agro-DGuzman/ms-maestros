@@ -163,6 +163,30 @@ it('devuelve el codigo al numero de prueba, y es el mismo que se envia', functio
         ->and($datos['codigoDePrueba'] ?? null)->toBe($enviado);
 });
 
+it('un numero de prueba no tiene limite por celular', function () {
+    // Todo el equipo de la App prueba con el mismo número: con el límite, cinco
+    // pedidos en una hora bloqueaban a todos. Y a ese número el límite no lo
+    // protege de nada, porque el código ya viaja en la respuesta.
+    config(['identidad.desafios_por_hora' => 2]);
+    conNumerosDePrueba('70741828');
+
+    foreach (range(1, 3) as $pedido) {
+        $this->postJson('/v1/auth/otp', ['telefono' => '70741828'])->assertStatus(200);
+    }
+});
+
+it('los demas numeros siguen con limite aunque haya numeros de prueba', function () {
+    config(['identidad.desafios_por_hora' => 2]);
+    conNumerosDePrueba('70741828');
+
+    $this->postJson('/v1/auth/otp', ['telefono' => '70112233'])->assertStatus(200);
+    $this->postJson('/v1/auth/otp', ['telefono' => '70112233'])->assertStatus(200);
+
+    $this->postJson('/v1/auth/otp', ['telefono' => '70112233'])
+        ->assertStatus(429)
+        ->assertJsonPath('error.code', ['LIMITE_TASA_SUPERADO']);
+});
+
 it('a un numero registrado que no esta en la lista no le devuelve el codigo', function () {
     // Registrado y todo: la puerta es la lista, no estar en la réplica.
     conNumerosDePrueba('70741828');
