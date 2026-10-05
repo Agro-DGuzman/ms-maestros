@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maestros\Infrastructure\Persistence;
 
+use App\Persistence\FechaEnUtc;
 use Core\Contracts\EntityId;
 use Core\Domain\AggregateRoot;
 use DateTimeImmutable;
@@ -16,6 +17,8 @@ use Maestros\Domain\Socios\CodigoDeSocio;
 
 final class EloquentContactoRepository implements ContactoRepository
 {
+    use FechaEnUtc;
+
     public function find(EntityId $id): ?PersonaDeContacto
     {
         $record = ContactoRecord::query()->find($id->value());
@@ -36,6 +39,14 @@ final class EloquentContactoRepository implements ContactoRepository
             ['id_de_persona' => $agregado->idDePersona()->value()],
             $this->aFila($agregado),
         );
+    }
+
+    public function replicar(PersonaDeContacto $persona): void
+    {
+        $fila = $this->aFila($persona);
+        unset($fila['habilitada_el']);
+
+        ContactoRecord::query()->updateOrCreate(['id_de_persona' => $persona->idDePersona()->value()], $fila);
     }
 
     public function porCelular(Celular $celular): ?PersonaDeContacto
@@ -92,14 +103,14 @@ final class EloquentContactoRepository implements ContactoRepository
     {
         $this->sinBajaFueraDe($vistos)
             ->where('codigo_de_socio', $socio->value())
-            ->update(['dado_de_baja_el' => $momento->format('Y-m-d H:i:s')]);
+            ->update(['dado_de_baja_el' => self::enUtc($momento)]);
     }
 
     /** @param list<IdDePersona> $vistos */
     public function darDeBajaAusentes(array $vistos, DateTimeImmutable $momento): void
     {
         $this->sinBajaFueraDe($vistos)
-            ->update(['dado_de_baja_el' => $momento->format('Y-m-d H:i:s')]);
+            ->update(['dado_de_baja_el' => self::enUtc($momento)]);
     }
 
     /**
@@ -144,11 +155,11 @@ final class EloquentContactoRepository implements ContactoRepository
             'codigo_de_socio' => $persona->codigoDeSocio()->value(),
             'nombre' => $persona->nombre(),
             'celular' => $persona->celular()?->e164(),
-            'habilitada_el' => $persona->habilitadaEl()?->format('Y-m-d H:i:s'),
-            'vigente_desde' => $persona->vigenteDesde()->format('Y-m-d H:i:s'),
+            'habilitada_el' => self::enUtc($persona->habilitadaEl()),
+            'vigente_desde' => self::enUtc($persona->vigenteDesde()),
             'importado_el' => (new DateTimeImmutable)->format('Y-m-d H:i:s'),
             'activo' => $persona->activa(),
-            'dado_de_baja_el' => $persona->dadoDeBajaEl()?->format('Y-m-d H:i:s'),
+            'dado_de_baja_el' => self::enUtc($persona->dadoDeBajaEl()),
         ];
     }
 }

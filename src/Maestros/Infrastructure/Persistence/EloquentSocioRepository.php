@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maestros\Infrastructure\Persistence;
 
+use App\Persistence\FechaEnUtc;
 use Core\Contracts\EntityId;
 use Core\Domain\AggregateRoot;
 use DateTimeImmutable;
@@ -15,6 +16,8 @@ use Maestros\Domain\Socios\SocioRepository;
 
 final class EloquentSocioRepository implements SocioRepository
 {
+    use FechaEnUtc;
+
     public function find(EntityId $id): ?Socio
     {
         $record = SocioRecord::query()->find($id->value());
@@ -77,10 +80,10 @@ final class EloquentSocioRepository implements SocioRepository
             'codigo_de_socio' => $socio->codigoDeSocio()->value(),
             'razon_social' => $socio->razonSocial()->texto(),
             'id_de_grupo' => $socio->grupo()?->value(),
-            'vigente_desde' => $socio->vigenteDesde()->format('Y-m-d H:i:s'),
+            'vigente_desde' => self::enUtc($socio->vigenteDesde()),
             'importado_el' => (new DateTimeImmutable)->format('Y-m-d H:i:s'),
             'activo' => $socio->activo(),
-            'dado_de_baja_el' => $socio->dadoDeBajaEl()?->format('Y-m-d H:i:s'),
+            'dado_de_baja_el' => self::enUtc($socio->dadoDeBajaEl()),
             'origen_esquema' => $socio->origenEsquema(),
             'origen_evento_id' => $socio->origenEventoId(),
         ];

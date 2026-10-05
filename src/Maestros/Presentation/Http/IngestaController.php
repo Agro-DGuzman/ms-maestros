@@ -121,7 +121,9 @@ final readonly class IngestaController
                 ),
                 $contactos,
             )),
-            vigenteDesde: new DateTimeImmutable(self::texto($datos, 'vigenteDesde')),
+            // En UTC desde la frontera: guardada con su desfase, 08:00-04:00
+            // quedaría como las 08:00 y un envío más viejo parecería más nuevo.
+            vigenteDesde: (new DateTimeImmutable(self::texto($datos, 'vigenteDesde')))->setTimezone(new DateTimeZone('UTC')),
             origenEsquema: self::texto($origen, 'esquema'),
             origenEventoId: is_numeric($origen['eventoId'] ?? null) ? (int) $origen['eventoId'] : 0,
         );

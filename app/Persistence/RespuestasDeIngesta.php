@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Persistence;
 
 use DateTimeImmutable;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 /** La memoria de la idempotencia de /ingesta: status y cuerpo de la primera vez. */
@@ -34,19 +35,25 @@ final class RespuestasDeIngesta
     }
 
     /**
-     * `insertOrIgnore`: dos entregas casi simultáneas de la misma terna no
-     * pueden convertirse en un 500 por la clave primaria. Gana la primera.
+     * Dos entregas casi simultáneas de la misma terna no pueden convertirse en
+     * un 500 por la clave primaria: gana la primera. No es `insertOrIgnore`
+     * porque la gramática de SQL Server de Laravel no lo implementa, y en
+     * Azure toda llamada a la ingesta respondía 500.
      */
     public function guardar(string $clave, string $metodo, string $ruta, int $status, ?string $cuerpo): void
     {
-        DB::table($this->tabla())->insertOrIgnore([
-            'clave' => $clave,
-            'metodo' => $metodo,
-            'ruta' => $ruta,
-            'status' => $status,
-            'cuerpo' => $cuerpo,
-            'recibida_el' => (new DateTimeImmutable)->format('Y-m-d H:i:s'),
-        ]);
+        try {
+            DB::table($this->tabla())->insert([
+                'clave' => $clave,
+                'metodo' => $metodo,
+                'ruta' => $ruta,
+                'status' => $status,
+                'cuerpo' => $cuerpo,
+                'recibida_el' => (new DateTimeImmutable)->format('Y-m-d H:i:s'),
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            // Ya estaba: la primera respuesta es la que se repite.
+        }
     }
 
     private function tabla(): string

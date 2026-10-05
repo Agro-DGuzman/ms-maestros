@@ -20,7 +20,9 @@ use Maestros\Domain\Socios\CodigoDeSocio;
 use Maestros\Domain\Socios\Socio;
 use Maestros\Domain\Socios\SocioRepository;
 use Maestros\Infrastructure\Persistence\ContactoRecord;
+use Maestros\Infrastructure\Persistence\EloquentContactoRepository;
 use Maestros\Infrastructure\Persistence\SocioRecord;
+use Tests\Dobles\ContactosConLecturaVieja;
 use Tests\Soporte\CuerpoDeIngesta;
 
 uses(RefreshDatabase::class);
@@ -207,4 +209,29 @@ it('un contacto que estaba en otro socio pasa a este', function () {
     replicar(CuerpoDeIngesta::socio(contactos: [new ContactoIngresado('1523', 'Mónica Salvatierra', '70741828', true)]));
 
     expect(contactoReplicado('p-1523')?->codigoDeSocio()->value())->toBe('C-900001');
+});
+
+it('un cuerpo viejo de un no cliente no da de baja a un cliente vigente', function () {
+    // Un lead que SAP convirtió en cliente: si el envío viejo (L) llega
+    // después del nuevo (C), no puede dar de baja al socio. La vigencia manda
+    // también sobre el tipo.
+    replicar(CuerpoDeIngesta::socio(vigenteDesde: '2026-10-05T12:00:00Z'));
+
+    $resultado = replicar(CuerpoDeIngesta::socio(tipoSap: 'L', vigenteDesde: '2026-10-05T11:00:00Z'), OperacionDeIngesta::Reemplazar);
+
+    expect($resultado->value())->toBe(ResultadoDeIngesta::IgnoradoPorViejo)
+        ->and(socioReplicado()?->esVisible())->toBeTrue()
+        ->and(contactoReplicado('p-1523')?->dadoDeBajaEl())->toBeNull();
+});
+
+it('una habilitacion concedida durante la ingesta no queda pisada', function () {
+    // La ingesta leyó a la persona sin habilitar y el back-office la habilitó
+    // en el medio: lo que leyó no puede volver a escribirse encima.
+    replicar(CuerpoDeIngesta::socio());
+    ContactoRecord::query()->where('id_de_persona', 'p-1523')->update(['habilitada_el' => '2026-10-05 12:45:00']);
+    app()->instance(ContactoRepository::class, new ContactosConLecturaVieja(app(EloquentContactoRepository::class)));
+
+    replicar(CuerpoDeIngesta::socio(vigenteDesde: '2026-10-05T13:00:00Z'), OperacionDeIngesta::Reemplazar);
+
+    expect(ContactoRecord::query()->find('p-1523')?->habilitada_el?->format('Y-m-d H:i:s'))->toBe('2026-10-05 12:45:00');
 });

@@ -66,6 +66,14 @@ final readonly class ReplicarSocioHandler implements RequestHandler
             return ResultWithValue::failure(SocioErrors::noEncontrado($cuerpo->cardCode));
         }
 
+        // Una réplica nunca retrocede, tampoco detrás de una baja (la baja fijó
+        // su vigencia en el momento en que se hizo), y la vigencia va antes que
+        // el tipo: un envío viejo de cuando era un lead no puede dar de baja a
+        // quien SAP ya convirtió en cliente.
+        if ($existente instanceof Socio && ! self::esMasNuevo($cuerpo->vigenteDesde, $existente->vigenteDesde())) {
+            return ResultWithValue::of(ResultadoDeIngesta::IgnoradoPorViejo);
+        }
+
         // Solo los clientes son socios: un proveedor o un lead no se conserva,
         // y un socio que deja de ser cliente se da de baja.
         if ($cuerpo->tipoSap !== 'C') {
@@ -77,12 +85,6 @@ final readonly class ReplicarSocioHandler implements RequestHandler
             $this->contactos->darDeBajaLosQueNoVinieron($codigo, [], $peticion->momento);
 
             return ResultWithValue::of(ResultadoDeIngesta::DadoDeBaja);
-        }
-
-        // Una réplica nunca retrocede, tampoco detrás de una baja: la baja fijó
-        // su vigencia en el momento en que se hizo.
-        if ($existente instanceof Socio && ! self::esMasNuevo($cuerpo->vigenteDesde, $existente->vigenteDesde())) {
-            return ResultWithValue::of(ResultadoDeIngesta::IgnoradoPorViejo);
         }
 
         // Todo lo que puede lanzar, armado antes de escribir.
@@ -105,16 +107,15 @@ final readonly class ReplicarSocioHandler implements RequestHandler
         ));
 
         foreach ($cuerpo->contactos as $i => $contacto) {
-            $id = $ids[$i];
-            $anterior = $this->contactos->find($id);
-
-            $this->contactos->save(PersonaDeContacto::replica(
-                $id,
+            // `replicar` y no `save`: la habilitación la decide el back-office
+            // y la ingesta no la escribe, ni siquiera con el valor que leyó
+            // (una concedida en el medio quedaría pisada).
+            $this->contactos->replicar(PersonaDeContacto::replica(
+                $ids[$i],
                 $codigo,
                 $contacto->nombre,
                 self::celular($contacto->celular),
-                // La habilitación la decide el back-office, nunca SAP.
-                $anterior instanceof PersonaDeContacto ? $anterior->habilitadaEl() : null,
+                null,
                 $cuerpo->vigenteDesde,
                 activa: $contacto->activo,
             ));

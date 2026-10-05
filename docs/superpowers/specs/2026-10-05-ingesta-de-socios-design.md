@@ -160,11 +160,14 @@ HTTP: el caso de uso recibe un cuerpo bien formado.
    - crear un socio que existe y no está dado de baja (activo o inactivo)
      → 409;
    - reemplazar uno inexistente o dado de baja → 404.
-3. **Tipo.** Si `tipoSap` no es `C`:
+3. **Vigencia.** Si lo guardado tiene `vigente_desde` igual o posterior al
+   cuerpo, se ignora el cuerpo entero (grupo incluido) y se responde éxito.
+   Va antes que el tipo: un envío viejo de cuando era un lead no puede dar de
+   baja a quien SAP ya convirtió en cliente. *(Corregido en la revisión final:
+   la primera versión ponía el tipo antes.)*
+4. **Tipo.** Si `tipoSap` no es `C`:
    - al crear: 201 sin guardar nada;
    - al reemplazar: baja igual que en `DELETE` (sin el 404) y 200.
-4. **Vigencia.** Si lo guardado tiene `vigente_desde` igual o posterior al
-   cuerpo, se ignora el cuerpo entero (grupo incluido) y se responde éxito.
 5. **Grupo primero:**
    - si viene y no existe, se crea con la vigencia del cuerpo;
    - si existe y el cuerpo es más nuevo que *su* vigencia, se actualizan

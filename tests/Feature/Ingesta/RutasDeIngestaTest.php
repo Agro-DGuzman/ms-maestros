@@ -144,3 +144,16 @@ it('deja una linea de log por envio, para cruzarla con la del Sincronizador', fu
             && $contexto['eventoId'] === 1842,
     );
 });
+
+it('una vigencia con desfase horario se guarda en UTC y la replica no retrocede', function () {
+    // 08:00 en -04:00 son las 12:00 UTC. Guardada como hora local, un PUT
+    // leído a las 11:00 UTC parecería más nuevo y pisaría el dato.
+    crearSocio(['vigenteDesde' => '2026-10-05T08:00:00-04:00'])->assertStatus(201);
+
+    reemplazarSocio('C-900001', ['vigenteDesde' => '2026-10-05T11:00:00Z', 'razonSocial' => 'Leida antes'])->assertStatus(200);
+
+    $socio = SocioRecord::query()->find('C-900001');
+
+    expect($socio?->razon_social)->toBe('Agro Prueba SRL')
+        ->and($socio?->vigente_desde->format('Y-m-d H:i:s'))->toBe('2026-10-05 12:00:00');
+});

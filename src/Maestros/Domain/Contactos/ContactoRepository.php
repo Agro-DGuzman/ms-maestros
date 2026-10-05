@@ -17,6 +17,12 @@ interface ContactoRepository extends Repository
      */
     public function porCelular(Celular $celular): ?PersonaDeContacto;
 
+    /**
+     * Guarda lo que vino de SAP sin tocar `habilitada_el`: la habilitación es
+     * del back-office. Una persona nueva queda sin habilitar.
+     */
+    public function replicar(PersonaDeContacto $persona): void;
+
     /** Activa, sin baja y de un socio visible: lo único que cuenta para la App. */
     public function visible(IdDePersona $id): ?PersonaDeContacto;
 
