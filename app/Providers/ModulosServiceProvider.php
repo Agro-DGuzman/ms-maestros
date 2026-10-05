@@ -202,6 +202,7 @@ final class ModulosServiceProvider extends ServiceProvider
 
         $this->loadRoutesFrom(base_path('src/Identidad/Presentation/Http/routes.php'));
         $this->loadRoutesFrom(base_path('src/Maestros/Presentation/Http/routes.php'));
+        $this->loadRoutesFrom(base_path('src/Maestros/Presentation/Http/ingesta.php'));
 
         if ($this->app->runningInConsole()) {
             $this->commands([

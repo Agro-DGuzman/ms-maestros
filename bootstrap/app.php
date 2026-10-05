@@ -8,6 +8,7 @@ use App\Http\Middleware\AutenticarIngesta;
 use App\Http\Middleware\AutenticarPorToken;
 use App\Http\Middleware\EsquemaRealDetrasDelIngress;
 use App\Http\Middleware\ExigirSecretoDelGateway;
+use App\Http\Middleware\ForzarJson;
 use App\Http\Middleware\Idempotencia;
 use App\Http\Middleware\IpRealDetrasDelIngress;
 use Core\Results\DomainException;
@@ -32,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'gateway' => ExigirSecretoDelGateway::class,
             'ingesta.token' => AutenticarIngesta::class,
             'ingesta.idempotencia' => Idempotencia::class,
+            'json' => ForzarJson::class,
         ]);
 
         // Primero de la cadena: todo lo que después mire `ip()` —el filtro de
