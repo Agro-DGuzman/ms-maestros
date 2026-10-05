@@ -41,15 +41,17 @@ final class EloquentGrupoRepository implements GrupoRepository
             IdDeGrupo::desde((string) $record->id_de_grupo),
             (string) $record->nombre,
             $record->vigente_desde->toDateTimeImmutable(),
+            $record->segmento,
         );
     }
 
-    /** @return array<string, string> */
+    /** @return array<string, string|null> */
     private function aFila(GrupoEconomico $grupo): array
     {
         return [
             'id_de_grupo' => $grupo->idDeGrupo()->value(),
             'nombre' => $grupo->nombre(),
+            'segmento' => $grupo->segmento(),
             'vigente_desde' => $grupo->vigenteDesde()->format('Y-m-d H:i:s'),
             'importado_el' => (new DateTimeImmutable)->format('Y-m-d H:i:s'),
         ];

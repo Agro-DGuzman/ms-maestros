@@ -52,23 +52,33 @@ final class EloquentSocioRepository implements SocioRepository
 
     private function aDominio(SocioRecord $record): Socio
     {
+        $grupo = $record->id_de_grupo;
+
         return Socio::replica(
             CodigoDeSocio::desde((string) $record->codigo_de_socio),
             RazonSocial::desde((string) $record->razon_social),
-            IdDeGrupo::desde((string) $record->id_de_grupo),
+            is_string($grupo) && trim($grupo) !== '' ? IdDeGrupo::desde($grupo) : null,
             $record->vigente_desde->toDateTimeImmutable(),
+            activo: (bool) $record->activo,
+            dadoDeBajaEl: $record->dado_de_baja_el?->toDateTimeImmutable(),
+            origenEsquema: $record->origen_esquema,
+            origenEventoId: $record->origen_evento_id,
         );
     }
 
-    /** @return array<string, string> */
+    /** @return array<string, string|int|bool|null> */
     private function aFila(Socio $socio): array
     {
         return [
             'codigo_de_socio' => $socio->codigoDeSocio()->value(),
             'razon_social' => $socio->razonSocial()->texto(),
-            'id_de_grupo' => $socio->idDeGrupo()->value(),
+            'id_de_grupo' => $socio->grupo()?->value(),
             'vigente_desde' => $socio->vigenteDesde()->format('Y-m-d H:i:s'),
             'importado_el' => (new DateTimeImmutable)->format('Y-m-d H:i:s'),
+            'activo' => $socio->activo(),
+            'dado_de_baja_el' => $socio->dadoDeBajaEl()?->format('Y-m-d H:i:s'),
+            'origen_esquema' => $socio->origenEsquema(),
+            'origen_evento_id' => $socio->origenEventoId(),
         ];
     }
 }

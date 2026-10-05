@@ -13,13 +13,22 @@ final class GrupoEconomico extends AggregateRoot
         IdDeGrupo $id,
         private readonly string $nombre,
         private readonly DateTimeImmutable $vigenteDesde,
+        private readonly ?string $segmento,
     ) {
         parent::__construct($id);
     }
 
-    public static function replica(IdDeGrupo $id, string $nombre, DateTimeImmutable $vigenteDesde): self
+    /** El segmento es informativo (D11): no decide precios, crédito ni visibilidad. */
+    public static function replica(IdDeGrupo $id, string $nombre, DateTimeImmutable $vigenteDesde, ?string $segmento = null): self
     {
-        return new self($id, trim($nombre), $vigenteDesde);
+        $segmento = $segmento === null ? null : trim($segmento);
+
+        return new self($id, trim($nombre), $vigenteDesde, $segmento === '' ? null : $segmento);
+    }
+
+    public function segmento(): ?string
+    {
+        return $this->segmento;
     }
 
     public function idDeGrupo(): IdDeGrupo

@@ -100,23 +100,3 @@ it('no avisa sobre quien no tiene acceso, aunque tampoco haya venido', function 
     expect(filaDe($html, 'Ana Roca'))->not->toContain('No vino en la última importación');
 });
 
-it('la importacion marca como vista a una fila que omite por vieja', function () {
-    $archivo = database_path('semillas/maestros-ejemplo.json');
-
-    // Dos corridas del mismo archivo: la segunda omite todo por no ser mas
-    // nueva, y aun asi tiene que dejar constancia de que la vio.
-    $this->artisan('maestros:importar', ['archivo' => $archivo])->assertExitCode(0);
-    $antes = ContactoRecord::query()->find('p-8f2b1c40')->vista_en_importacion_el;
-
-    ContactoRecord::query()->where('id_de_persona', 'p-8f2b1c40')
-        ->update(['vista_en_importacion_el' => '2020-01-01 00:00:00']);
-
-    $this->artisan('maestros:importar', ['archivo' => $archivo])
-        ->expectsOutputToContain('Omitidos por ser más viejos')
-        ->assertExitCode(0);
-
-    $despues = ContactoRecord::query()->find('p-8f2b1c40')->vista_en_importacion_el;
-
-    expect($antes)->not->toBeNull()
-        ->and($despues->format('Y'))->not->toBe('2020');
-});

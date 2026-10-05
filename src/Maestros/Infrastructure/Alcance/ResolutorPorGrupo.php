@@ -39,6 +39,9 @@ final readonly class ResolutorPorGrupo implements ResolutorDeAlcance
             return false;
         }
 
-        return $pedido->idDeGrupo()->equals($suSocio->idDeGrupo());
+        $grupoDelPedido = $pedido->grupo();
+        $suGrupo = $suSocio->grupo();
+
+        return $grupoDelPedido !== null && $suGrupo !== null && $grupoDelPedido->equals($suGrupo);
     }
 }

@@ -13,6 +13,21 @@ final readonly class IdDePersona implements EntityId
 {
     private function __construct(private string $id) {}
 
+    /**
+     * El id de persona es el usuario de Keycloak y el `preferred_username` del
+     * token: se deriva del `OCPR.CntctCode` de SAP para que el mismo contacto
+     * dé siempre el mismo id, sin tabla de traducción. Solo dígitos, y entra
+     * en los 40 de la columna con el prefijo.
+     */
+    public static function deContactoSap(string $codigo): self
+    {
+        if (preg_match('/^\d{1,38}$/', $codigo) !== 1) {
+            throw new DomainException(ContactoErrors::idInvalido());
+        }
+
+        return new self('p-'.$codigo);
+    }
+
     public static function desde(string $id): self
     {
         $limpio = trim($id);

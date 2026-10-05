@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $id_de_grupo
  * @property string $nombre
  * @property CarbonImmutable $vigente_desde
+ * @property string|null $segmento
  */
 final class GrupoRecord extends Model
 {

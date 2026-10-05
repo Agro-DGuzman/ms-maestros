@@ -48,14 +48,14 @@ final readonly class ObtenerContextoHandler implements RequestHandler
             );
         }
 
-        $grupo = $socioDeLaPersona->idDeGrupo();
-        $grupoEconomico = $this->grupos->find($grupo);
+        $grupo = $socioDeLaPersona->grupo();
+        $grupoEconomico = $grupo === null ? null : $this->grupos->find($grupo);
 
         // Un socio sin su grupo en la réplica no es motivo para negar el
         // contexto: se responde con el nombre vacío.
         $nombreDelGrupo = $grupoEconomico instanceof GrupoEconomico ? $grupoEconomico->nombre() : '';
 
-        $sociosDelGrupo = $this->socios->porGrupo($grupo);
+        $sociosDelGrupo = $grupo === null ? [] : $this->socios->porGrupo($grupo);
 
         // Una sola consulta para todo el grupo, con la misma definición de
         // «activa» que la lista: el número tiene que coincidir con lo que la
@@ -78,8 +78,8 @@ final readonly class ObtenerContextoHandler implements RequestHandler
         return ResultWithValue::of(new ContextoDeContacto(
             nombre: $persona->nombre(),
             iniciales: (string) $persona->iniciales(),
-            celular: $persona->celular()->paraMostrar(),
-            grupoId: $grupo->value(),
+            celular: $persona->celular()?->paraMostrar(),
+            grupoId: $grupo?->value() ?? '',
             grupoNombre: $nombreDelGrupo,
             socios: array_values($socios),
         ));

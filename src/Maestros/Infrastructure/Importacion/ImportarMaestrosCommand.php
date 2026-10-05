@@ -132,7 +132,11 @@ final class ImportarMaestrosCommand extends Command
             $contactos->save($persona);
         }
 
-        $contactos->marcarVistasEnImportacion($vistas, new DateTimeImmutable);
+        // Un archivo sin la lista de contactos no dice nada de ellos: tomarlo
+        // como «ninguno sigue en SAP» los daría de baja a todos.
+        if (array_key_exists('contactos', $raiz)) {
+            $contactos->darDeBajaAusentes($vistas, new DateTimeImmutable);
+        }
 
         $this->info(sprintf(
             'Importados %d grupos, %d socios y %d contactos. Omitidos por ser más viejos: %d.',
