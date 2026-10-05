@@ -22,6 +22,10 @@ final class MapaDeErroresHttp
         'REFRESH_TOKEN_INVALIDO' => 401,
         'ACCESO_DENEGADO' => 403,
         'LIMITE_TASA_SUPERADO' => 429,
+        // La regla de negocio violada que el contrato de ingesta reserva a 422.
+        'CARDCODE_NO_COINCIDE' => 422,
+        // Transitorio: el Sincronizador lo reintenta como cualquier 5xx.
+        'ENTRA_NO_DISPONIBLE' => 503,
     ];
 
     public static function status(Error $error): int

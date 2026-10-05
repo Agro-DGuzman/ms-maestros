@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 use App\Http\Envelope;
 use App\Http\MapaDeErroresHttp;
+use App\Http\Middleware\AutenticarIngesta;
 use App\Http\Middleware\AutenticarPorToken;
 use App\Http\Middleware\EsquemaRealDetrasDelIngress;
+use App\Http\Middleware\ExigirSecretoDelGateway;
+use App\Http\Middleware\Idempotencia;
 use App\Http\Middleware\IpRealDetrasDelIngress;
 use Core\Results\DomainException;
 use Core\Results\FieldError;
@@ -24,7 +27,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->alias(['auth.token' => AutenticarPorToken::class]);
+        $middleware->alias([
+            'auth.token' => AutenticarPorToken::class,
+            'gateway' => ExigirSecretoDelGateway::class,
+            'ingesta.token' => AutenticarIngesta::class,
+            'ingesta.idempotencia' => Idempotencia::class,
+        ]);
 
         // Primero de la cadena: todo lo que después mire `ip()` —el filtro de
         // rangos, el freno de intentos, la bitácora— tiene que ver ya la
