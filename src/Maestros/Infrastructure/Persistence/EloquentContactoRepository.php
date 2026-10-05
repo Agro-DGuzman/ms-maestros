@@ -40,9 +40,38 @@ final class EloquentContactoRepository implements ContactoRepository
 
     public function porCelular(Celular $celular): ?PersonaDeContacto
     {
-        $record = ContactoRecord::query()->where('celular', $celular->e164())->first();
+        // Dos alcanzan para saber que no es una sola.
+        $encontradas = $this->visibles()->where('c.celular', $celular->e164())->limit(2)->get();
+
+        return $encontradas->count() === 1 ? $this->aDominio($encontradas->firstOrFail()) : null;
+    }
+
+    public function visible(IdDePersona $id): ?PersonaDeContacto
+    {
+        $record = $this->visibles()->where('c.id_de_persona', $id->value())->first();
 
         return $record === null ? null : $this->aDominio($record);
+    }
+
+    /**
+     * La única definición de «visible» para un contacto: activo, sin baja, y
+     * de un socio activo y sin baja. De acá cuelgan el alcance, el contexto,
+     * el ingreso y la renovación de sesión.
+     *
+     * @return Builder<ContactoRecord>
+     */
+    private function visibles(): Builder
+    {
+        $socios = (new SocioRecord)->getTable();
+
+        return ContactoRecord::query()
+            ->from((new ContactoRecord)->getTable().' as c')
+            ->join($socios.' as s', 's.codigo_de_socio', '=', 'c.codigo_de_socio')
+            ->select('c.*')
+            ->where('c.activo', true)
+            ->whereNull('c.dado_de_baja_el')
+            ->where('s.activo', true)
+            ->whereNull('s.dado_de_baja_el');
     }
 
     /** @return list<PersonaDeContacto> */

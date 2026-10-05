@@ -32,7 +32,9 @@ final readonly class ObtenerContextoHandler implements RequestHandler
     {
         assert($peticion instanceof ObtenerContexto);
 
-        $persona = $this->contactos->find($peticion->persona);
+        // Una persona inactiva o dada de baja en SAP se trata como inexistente:
+        // de esto depende también que no pueda renovar su sesión.
+        $persona = $this->contactos->visible($peticion->persona);
 
         if (! $persona instanceof PersonaDeContacto) {
             return ResultWithValue::failure(
@@ -55,7 +57,8 @@ final readonly class ObtenerContextoHandler implements RequestHandler
         // contexto: se responde con el nombre vacío.
         $nombreDelGrupo = $grupoEconomico instanceof GrupoEconomico ? $grupoEconomico->nombre() : '';
 
-        $sociosDelGrupo = $grupo === null ? [] : $this->socios->porGrupo($grupo);
+        // Sin grupo, su alcance es su propio socio, como en ResolutorPorGrupo.
+        $sociosDelGrupo = $grupo === null ? [$socioDeLaPersona] : $this->socios->porGrupo($grupo);
 
         // Una sola consulta para todo el grupo, con la misma definición de
         // «activa» que la lista: el número tiene que coincidir con lo que la

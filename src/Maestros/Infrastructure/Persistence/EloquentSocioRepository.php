@@ -43,6 +43,10 @@ final class EloquentSocioRepository implements SocioRepository
         return array_values(
             SocioRecord::query()
                 ->where('id_de_grupo', $grupo->value())
+                // Los mismos dos que Socio::esVisible(): lo inactivo o dado
+                // de baja no aparece en el selector ni cuenta para el grupo.
+                ->where('activo', true)
+                ->whereNull('dado_de_baja_el')
                 ->orderBy('codigo_de_socio')
                 ->get()
                 ->map(fn (SocioRecord $r): Socio => $this->aDominio($r))

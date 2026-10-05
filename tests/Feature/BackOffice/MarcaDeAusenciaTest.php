@@ -99,4 +99,3 @@ it('no avisa sobre quien no tiene acceso, aunque tampoco haya venido', function 
 
     expect(filaDe($html, 'Ana Roca'))->not->toContain('No vino en la última importación');
 });
-

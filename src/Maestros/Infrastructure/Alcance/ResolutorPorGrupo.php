@@ -26,7 +26,7 @@ final readonly class ResolutorPorGrupo implements ResolutorDeAlcance
 
     public function alcanza(IdDePersona $persona, CodigoDeSocio $socio): bool
     {
-        $contacto = $this->contactos->find($persona);
+        $contacto = $this->contactos->visible($persona);
 
         if (! $contacto instanceof PersonaDeContacto) {
             return false;
@@ -35,13 +35,20 @@ final readonly class ResolutorPorGrupo implements ResolutorDeAlcance
         $suSocio = $this->socios->find($contacto->codigoDeSocio());
         $pedido = $this->socios->find($socio);
 
-        if (! $suSocio instanceof Socio || ! $pedido instanceof Socio) {
+        if (! $suSocio instanceof Socio || ! $pedido instanceof Socio || ! $pedido->esVisible()) {
             return false;
         }
 
-        $grupoDelPedido = $pedido->grupo();
         $suGrupo = $suSocio->grupo();
 
-        return $grupoDelPedido !== null && $suGrupo !== null && $grupoDelPedido->equals($suGrupo);
+        // Sin grupo, el alcance es su propio socio (D12): un grupo de uno no
+        // junta a nadie, que es lo que un grupo SIN_ASIGNAR habría hecho.
+        if ($suGrupo === null) {
+            return $pedido->codigoDeSocio()->equals($suSocio->codigoDeSocio());
+        }
+
+        $grupoDelPedido = $pedido->grupo();
+
+        return $grupoDelPedido !== null && $grupoDelPedido->equals($suGrupo);
     }
 }

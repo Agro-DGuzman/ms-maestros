@@ -10,7 +10,15 @@ use Maestros\Domain\Socios\CodigoDeSocio;
 
 interface ContactoRepository extends Repository
 {
+    /**
+     * La persona visible con ese celular, si es exactamente una. Ninguna, o
+     * dos o más (un celular en conflicto), es null: el celular es la
+     * credencial, y si lo comparten no hay forma de saber quién entra.
+     */
     public function porCelular(Celular $celular): ?PersonaDeContacto;
+
+    /** Activa, sin baja y de un socio visible: lo único que cuenta para la App. */
+    public function visible(IdDePersona $id): ?PersonaDeContacto;
 
     /** @return list<PersonaDeContacto> */
     public function habilitadas(): array;
