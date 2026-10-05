@@ -34,8 +34,12 @@
                 <td>
                     <strong>{{ $contacto->nombre }}</strong>
                     <span class="tenue">({{ $contacto->iniciales }})</span>
-                    @if ($contacto->ausenteEnUltimaImportacion)
-                        <div class="rojo" style="font-size:12px;">No vino en la última importación</div>
+                    {{-- En rojo solo si todavía tiene acceso: ahí hay algo que hacer. --}}
+                    @if ($contacto->estado !== 'visible')
+                        <div class="{{ $contacto->dadoDeBajaEnSap ? 'rojo' : 'tenue' }}" style="font-size:12px;">{{ $contacto->estado === 'dado-de-baja' ? 'Dada de baja en SAP' : 'Inactiva en SAP' }}</div>
+                    @endif
+                    @if ($contacto->celularEnConflicto)
+                        <div class="rojo" style="font-size:12px;">Celular en conflicto: otro contacto activo tiene el mismo</div>
                     @endif
                 </td>
                 {{-- Completo, sin enmascarar (B12). --}}

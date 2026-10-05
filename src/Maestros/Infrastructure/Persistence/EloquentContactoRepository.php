@@ -64,14 +64,14 @@ final class EloquentContactoRepository implements ContactoRepository
     {
         $socios = (new SocioRecord)->getTable();
 
-        return ContactoRecord::query()
+        $consulta = ContactoRecord::query()
             ->from((new ContactoRecord)->getTable().' as c')
             ->join($socios.' as s', 's.codigo_de_socio', '=', 'c.codigo_de_socio')
-            ->select('c.*')
-            ->where('c.activo', true)
-            ->whereNull('c.dado_de_baja_el')
-            ->where('s.activo', true)
-            ->whereNull('s.dado_de_baja_el');
+            ->select('c.*');
+
+        Visibilidad::exigir($consulta, 'c', 's');
+
+        return $consulta;
     }
 
     /** @return list<PersonaDeContacto> */

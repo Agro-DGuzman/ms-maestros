@@ -32,11 +32,9 @@ final class EloquentBuscadorDeContactos implements BuscadorDeContactos
             ->limit($criterio->tamanoDePagina)
             ->get();
 
-        $ultima = $this->ultimaImportacion();
-
         return new PaginaDeContactos(
             items: array_values(array_map(
-                fn (object $fila): ContactoDeBackOffice => $this->aFila((array) $fila, $ultima),
+                fn (object $fila): ContactoDeBackOffice => $this->aFila((array) $fila),
                 $filas->all(),
             )),
             total: $total,
@@ -53,10 +51,21 @@ final class EloquentBuscadorDeContactos implements BuscadorDeContactos
             // todavía no trajo, y esa fila igual tiene que listarse.
             ->leftJoin($this->tabla('grupos').' as g', 'g.id_de_grupo', '=', 's.id_de_grupo')
             ->select([
-                'c.id_de_persona', 'c.nombre', 'c.celular', 'c.habilitada_el', 'c.vista_en_importacion_el',
+                'c.id_de_persona', 'c.nombre', 'c.celular', 'c.habilitada_el',
+                'c.activo', 'c.dado_de_baja_el', 's.activo as socio_activo', 's.dado_de_baja_el as socio_dado_de_baja_el',
                 's.codigo_de_socio', 's.razon_social',
                 'g.nombre as grupo_nombre',
-            ]);
+            ])
+            // Cuántos contactos visibles tienen este celular: dos o más es un
+            // conflicto, y el ingreso trata ese número como desconocido.
+            ->selectSub(function (Builder $q): void {
+                $q->from($this->tabla('contactos').' as c2')
+                    ->join($this->tabla('socios').' as s2', 's2.codigo_de_socio', '=', 'c2.codigo_de_socio')
+                    ->whereColumn('c2.celular', 'c.celular')
+                    ->selectRaw('count(*)');
+
+                Visibilidad::exigir($q, 'c2', 's2');
+            }, 'compartido');
 
         $consulta = match ($criterio->estado) {
             FiltroDeEstado::Habilitadas => $consulta->whereNotNull('c.habilitada_el'),
@@ -94,21 +103,13 @@ final class EloquentBuscadorDeContactos implements BuscadorDeContactos
         return str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $texto);
     }
 
-    /** La corrida más reciente que tocó la réplica, contra la que se compara. */
-    private function ultimaImportacion(): ?DateTimeImmutable
-    {
-        $maximo = DB::table($this->tabla('contactos'))->max('vista_en_importacion_el');
-
-        return is_string($maximo) && $maximo !== '' ? new DateTimeImmutable($maximo) : null;
-    }
-
     /** @param array<string, mixed> $fila */
-    private function aFila(array $fila, ?DateTimeImmutable $ultimaImportacion): ContactoDeBackOffice
+    private function aFila(array $fila): ContactoDeBackOffice
     {
         $celular = $this->textoOpcional($fila, 'celular');
         $nombre = $this->texto($fila, 'nombre');
         $habilitadaEl = $this->momento($fila, 'habilitada_el');
-        $vistaEl = $this->momento($fila, 'vista_en_importacion_el');
+        $estado = $this->estado($fila);
 
         return new ContactoDeBackOffice(
             idDePersona: $this->texto($fila, 'id_de_persona'),
@@ -123,12 +124,11 @@ final class EloquentBuscadorDeContactos implements BuscadorDeContactos
             grupoEconomico: $this->textoOpcional($fila, 'grupo_nombre'),
             estaHabilitada: $habilitadaEl !== null,
             habilitadaEl: $habilitadaEl,
-            vistaEnImportacionEl: $vistaEl,
-            // Solo se avisa sobre quien tiene acceso: que no venga alguien que
-            // nunca lo tuvo no le cambia nada a nadie.
-            ausenteEnUltimaImportacion: $habilitadaEl !== null
-                && $ultimaImportacion !== null
-                && ($vistaEl === null || $vistaEl < $ultimaImportacion),
+            estado: $estado,
+            // Solo se avisa sobre quien tiene acceso: que SAP dé de baja a alguien
+            // que nunca pudo entrar no le cambia nada a nadie.
+            dadoDeBajaEnSap: $habilitadaEl !== null && $estado !== 'visible',
+            celularEnConflicto: $estado === 'visible' && $this->entero($fila, 'compartido') > 1,
         );
     }
 
@@ -163,6 +163,29 @@ final class EloquentBuscadorDeContactos implements BuscadorDeContactos
         $texto = $this->textoOpcional($fila, $clave);
 
         return $texto === null ? null : new DateTimeImmutable($texto);
+    }
+
+    /**
+     * Lo que la App ve de esta persona, contando también a su socio. La baja
+     * pesa más que la inactividad: es lo que hay que contarle al operador.
+     *
+     * @param  array<string, mixed>  $fila
+     */
+    private function estado(array $fila): string
+    {
+        if ($this->momento($fila, 'dado_de_baja_el') !== null || $this->momento($fila, 'socio_dado_de_baja_el') !== null) {
+            return 'dado-de-baja';
+        }
+
+        return $this->entero($fila, 'activo') === 1 && $this->entero($fila, 'socio_activo') === 1 ? 'visible' : 'inactivo';
+    }
+
+    /** @param array<string, mixed> $fila */
+    private function entero(array $fila, string $clave): int
+    {
+        $valor = $fila[$clave] ?? 0;
+
+        return is_numeric($valor) ? (int) $valor : (is_bool($valor) ? (int) $valor : 0);
     }
 
     private function celularEsValido(string $celular): bool

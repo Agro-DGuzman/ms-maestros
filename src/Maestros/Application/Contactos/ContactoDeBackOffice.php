@@ -27,13 +27,14 @@ final readonly class ContactoDeBackOffice
         public ?string $grupoEconomico,
         public bool $estaHabilitada,
         public ?DateTimeImmutable $habilitadaEl,
-        public ?DateTimeImmutable $vistaEnImportacionEl,
+        /** `visible`, `inactivo` o `dado-de-baja`, contando también al socio. */
+        public string $estado = 'visible',
         /**
-         * Tiene acceso pero la última corrida de importación no la trajo. No
-         * la deshabilita nadie: la pantalla avisa y una persona decide, porque
-         * la ausencia todavía no distingue una baja en SAP de un archivo
-         * incompleto.
+         * Tiene habilitación pero la App ya no la ve. No la deshabilita nadie
+         * desde acá: la pantalla avisa y una persona decide.
          */
-        public bool $ausenteEnUltimaImportacion = false,
+        public bool $dadoDeBajaEnSap = false,
+        /** Otro contacto visible tiene el mismo celular: nadie puede entrar con él. */
+        public bool $celularEnConflicto = false,
     ) {}
 }
