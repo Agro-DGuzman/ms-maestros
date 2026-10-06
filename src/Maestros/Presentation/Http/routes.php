@@ -9,7 +9,7 @@ use Maestros\Presentation\Http\ProductosController;
 use Maestros\Presentation\Http\PropiedadesController;
 use Maestros\Presentation\Http\SociosController;
 
-Route::prefix('v1')->group(function (): void {
+Route::prefix('v1')->middleware('gateway:v1')->group(function (): void {
     // Pública: la App la consulta al arrancar, antes del login.
     Route::get('version', [ConfiguracionDeLaAppController::class, 'version']);
 

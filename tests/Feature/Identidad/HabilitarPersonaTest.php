@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Maestros\Domain\Contactos\IdDePersona;
 use Maestros\Infrastructure\Persistence\ContactoRecord;
 use Tests\Dobles\DirectorioFalso;
+use Tests\Soporte\ReplicaDeEjemplo;
 
 uses(RefreshDatabase::class);
 
@@ -71,4 +72,36 @@ it('rechaza habilitar a alguien que no existe en la replica', function () {
 
     expect($resultado->isFailure())->toBeTrue()
         ->and($resultado->error->code)->toBe('CONTACTO_NO_ENCONTRADO');
+});
+
+it('no habilita a una persona dada de baja en SAP', function () {
+    ReplicaDeEjemplo::personaDadaDeBaja('p-8f2b1c40');
+
+    $resultado = app(Mediator::class)->send(new HabilitarPersona(IdDePersona::desde('p-8f2b1c40')));
+
+    expect($resultado->isFailure())->toBeTrue()
+        ->and($resultado->error->code)->toBe('CONTACTO_NO_VISIBLE')
+        ->and($this->directorio->usuarios)->toBe([]);
+});
+
+it('no habilita a quien comparte el celular con otro contacto activo', function () {
+    // Darle credencial no le serviría: el ingreso trata ese número como
+    // desconocido hasta que SAP lo corrija.
+    ReplicaDeEjemplo::otroContactoCon('+59170741828');
+
+    $resultado = app(Mediator::class)->send(new HabilitarPersona(IdDePersona::desde('p-8f2b1c40')));
+
+    expect($resultado->isFailure())->toBeTrue()
+        ->and($resultado->error->code)->toBe('CELULAR_EN_CONFLICTO')
+        ->and($this->directorio->usuarios)->toBe([]);
+});
+
+it('no habilita a quien no tiene celular', function () {
+    ContactoRecord::query()->where('id_de_persona', 'p-8f2b1c40')->update(['celular' => null]);
+
+    $resultado = app(Mediator::class)->send(new HabilitarPersona(IdDePersona::desde('p-8f2b1c40')));
+
+    expect($resultado->isFailure())->toBeTrue()
+        ->and($resultado->error->code)->toBe('CELULAR_INVALIDO')
+        ->and($this->directorio->usuarios)->toBe([]);
 });

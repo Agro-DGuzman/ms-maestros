@@ -151,6 +151,35 @@ la línea siguiente ya dice, sobra.
   **`QUEUE_CONNECTION` no puede ser `sync` en producción**, o la fuga vuelve.
 - **Una réplica nunca retrocede:** antes de escribir, comparar `vigenteDesde`
   contra lo guardado con `debeReemplazarA()`.
+- **En Azure la réplica se escribe por la ingesta**, no con el importador:
+  `POST /ingesta/v1/socios` y `PUT`/`DELETE /ingesta/v1/socios/{cardCode}`,
+  contra `contrato/ingesta-api-v1.yaml` (copia enmendada, en OpenAPI 3.1 para
+  validar los nulos; el archivo oficial lo tiene el equipo del Sincronizador).
+  `maestros:importar` queda para local y para los tests.
+  - **La seguridad corta en orden:** `X-Gateway-Secret` (403, y falla cerrado
+    con `GATEWAY_SECRETO` vacío) → token de Entra con `iss` v2, audiencia y el
+    rol `Ingesta.Maestros.Escribir` (401, con el motivo en el log; 503 si no hay
+    claves) → `Idempotency-Key` (400). La idempotencia es por la terna clave,
+    método y ruta, porque el Sincronizador reintenta un `POST` que dio 409 como
+    `PUT` con la misma clave; las 5xx no se guardan.
+  - **El contacto de SAP es la persona `p-{CntctCode}`**, y la ingesta **nunca
+    escribe `habilitada_el`**: la habilitación la decide el back-office.
+  - **Visible** es la palabra de la que cuelga todo: socio activo y sin baja;
+    contacto activo, sin baja y de un socio visible. Lo no visible no se
+    alcanza (403), no tiene contexto, no puede ingresar y no puede renovar la
+    sesión, así que una baja en SAP corta todo en lo que dura el token. La
+    definición en SQL vive en `Maestros\Infrastructure\Persistence\Visibilidad`.
+  - **Un socio sin grupo se ve solo a sí mismo** (D12: un grupo de uno).
+  - **Un celular que comparten dos contactos visibles está en conflicto:** se
+    acepta, nadie puede ingresar con él y el back-office lo marca. Falla cerrado
+    solo para ese número.
+  - **La baja es lógica** y fija la vigencia en su momento, así un envío leído en
+    SAP antes de la baja no resucita al socio.
+  - Las peticiones de la ingesta son `EscrituraDeMaquina`: no hay persona y no
+    hay alcance. `AlcanceTest` exige que solo las de `Maestros\Application\Ingesta`
+    lleven el marcador.
+  - **Las migraciones que cambian la réplica van antes del push**, igual que las
+    de propiedades.
 - **Un `Result` fallido confirma la transacción; solo la excepción deshace.**
   Un fallo es una salida deliberada del caso de uso y lo que escribió antes es
   parte de la decisión: el contador de intentos del desafío se persiste justo
@@ -293,6 +322,33 @@ contacto de la semilla, con celular `70741828`.
 La verificación de que `POST /auth/otp` no filtra por tiempo **no la hace
 ningún test**: hay que pedir el desafío para un número registrado y para uno
 desconocido y comparar los tiempos, que tienen que ser indistinguibles.
+
+### La ingesta, sin Azure
+
+`tests/Manual/probar-ingesta.php` le pega a `/ingesta` por el pipeline real
+—secreto, token, idempotencia, controlador, base— con Entra simulado por el
+mismo doble de los tests, e imprime la respuesta y lo que el controlador dejó
+en el log (`aplicado`, `ignorado-por-viejo`, el motivo de un token rechazado).
+El uso está en su encabezado; los cuerpos de ejemplo, en `tests/Manual/ingesta/`.
+
+Escribe de verdad, así que va contra una **base de descarte**: `DB_DATABASE`
+apuntando a otro `.sqlite`, con la **ruta absoluta** (`artisan serve` corre
+desde `public/` y una relativa abre otra base). Contra Azure SQL se niega a
+correr. Para SQL Server, dentro de la imagen y montando `tests/`, que
+`.dockerignore` excluye:
+
+```sh
+docker compose run --rm --no-deps -T -v ./tests:/app/tests app php tests/Manual/probar-ingesta.php POST tests/Manual/ingesta/socio-nuevo.json
+```
+
+En Git Bash de Windows, con `MSYS_NO_PATHCONV=1` delante: si no, convierte el
+`/app/tests` del volumen en una ruta de Windows y PHP no encuentra el archivo.
+PowerShell no lo necesita. Sin `sqlserver` levantado solo responden los casos
+que cortan antes de la base (secreto, token, clave).
+
+**Después de un `DELETE`, reenviar el mismo cuerpo responde 201 y no hace
+nada**: la baja fija la vigencia en su momento, y el cuerpo es más viejo. Para
+recrear el socio, `--vigencia=` con la hora actual o posterior.
 
 ### Entrar al back-office con contraseña
 
@@ -497,6 +553,18 @@ curl -s localhost:8082/realms/master/.well-known/openid-configuration
 - Keycloak arranca con `start-dev` en `compose.yaml`, con base embebida que se
   pierde al recrear el contenedor. La imagen de `docker/keycloak/Dockerfile` es
   la que lo reemplaza en la nube; el `compose.yaml` local todavía no la usa.
-- Sin responder: si una persona de contacto puede estar registrada en socios de
-  dos grupos distintos. Si el caso existe, hoy no falla con un error claro: le
-  muestra al usuario la mitad de sus socios.
+- **Parte B de la ingesta: la habilitación en el back-office.** Dar acceso
+  tiene que marcar `habilitada_el` y quitarlo, borrarla; la pantalla y
+  `identidad:conciliar` se ajustan a eso. Tiene que estar antes de que entren
+  personas reales por la ingesta, porque la ingesta no la escribe nunca.
+- **Borrar `vista_en_importacion_el`** en una entrega posterior: quedó en
+  desuso, pero el código que corre en Azure la leía al momento de la migración.
+- **La semilla en Azure** (8 socios de prueba, 267 propiedades con socios
+  inventados, la persona `p-8f2b1c40`): decidir si se borra cuando lleguen los
+  socios reales. Un `cardCode` real podría coincidir con uno de la semilla.
+- **Prender `GATEWAY_SECRETO_EN_V1`** cuando el APIM mande `X-Gateway-Secret`
+  también en `/v1`. Hasta entonces la App se puede llamar saltándose el APIM.
+- Una persona de contacto en socios de dos grupos son dos contactos de SAP con
+  el mismo celular: hoy queda **en conflicto** y no puede ingresar hasta que
+  SAP lo corrija. Si el caso existe de verdad, hay que diseñar una persona con
+  más de un socio.

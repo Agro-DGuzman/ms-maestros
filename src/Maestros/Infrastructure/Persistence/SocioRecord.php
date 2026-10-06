@@ -11,8 +11,12 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * @property string $codigo_de_socio
  * @property string $razon_social
- * @property string $id_de_grupo
+ * @property string|null $id_de_grupo
  * @property CarbonImmutable $vigente_desde
+ * @property bool $activo
+ * @property CarbonImmutable|null $dado_de_baja_el
+ * @property string|null $origen_esquema
+ * @property int|null $origen_evento_id
  */
 final class SocioRecord extends Model
 {
@@ -31,6 +35,9 @@ final class SocioRecord extends Model
     protected $casts = [
         'vigente_desde' => 'immutable_datetime',
         'importado_el' => 'immutable_datetime',
+        'dado_de_baja_el' => 'immutable_datetime',
+        'activo' => 'boolean',
+        'origen_evento_id' => 'integer',
     ];
 
     public function getTable(): string

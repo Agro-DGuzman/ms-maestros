@@ -41,6 +41,10 @@ use Maestros\Application\Contactos\ListarHabilitadas\ListarHabilitadas;
 use Maestros\Application\Contactos\ListarHabilitadas\ListarHabilitadasHandler;
 use Maestros\Application\Contactos\ObtenerContexto\ObtenerContexto;
 use Maestros\Application\Contactos\ObtenerContexto\ObtenerContextoHandler;
+use Maestros\Application\Ingesta\DarDeBajaSocio\DarDeBajaSocio;
+use Maestros\Application\Ingesta\DarDeBajaSocio\DarDeBajaSocioHandler;
+use Maestros\Application\Ingesta\ReplicarSocio\ReplicarSocio;
+use Maestros\Application\Ingesta\ReplicarSocio\ReplicarSocioHandler;
 use Maestros\Application\Productos\CambiarEnlaces\CambiarEnlacesDeProducto;
 use Maestros\Application\Productos\CambiarEnlaces\CambiarEnlacesDeProductoHandler;
 use Maestros\Application\Propiedades\ListarPropiedades\ListarPropiedades;
@@ -61,6 +65,8 @@ final class CoreServiceProvider extends ServiceProvider
         ListarHabilitadas::class => ListarHabilitadasHandler::class,
         ObtenerContexto::class => ObtenerContextoHandler::class,
         ListarPropiedades::class => ListarPropiedadesHandler::class,
+        ReplicarSocio::class => ReplicarSocioHandler::class,
+        DarDeBajaSocio::class => DarDeBajaSocioHandler::class,
         CerrarSesion::class => CerrarSesionHandler::class,
         DeshabilitarPersona::class => DeshabilitarPersonaHandler::class,
         HabilitarPersona::class => HabilitarPersonaHandler::class,

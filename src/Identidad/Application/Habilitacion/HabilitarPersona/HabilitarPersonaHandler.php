@@ -42,6 +42,22 @@ final readonly class HabilitarPersonaHandler implements RequestHandler
             );
         }
 
+        // Darle credencial a quien igual no podría entrar solo confunde: el
+        // operador cree que habilitó y la persona recibe «código inválido».
+        if (! $this->contactos->visible($peticion->persona) instanceof PersonaDeContacto) {
+            return Result::failure(ContactoErrors::noVisible($peticion->persona->value()));
+        }
+
+        $celular = $persona->celular();
+
+        if ($celular === null) {
+            return Result::failure(ContactoErrors::celularNoUtilizable());
+        }
+
+        if (! $this->contactos->porCelular($celular)?->idDePersona()->equals($peticion->persona)) {
+            return Result::failure(ContactoErrors::celularEnConflicto());
+        }
+
         $contrasena = bin2hex(random_bytes(16));   // 32 caracteres, nunca la ve nadie
 
         // Primero el directorio: si falla, no queda una contraseña guardada

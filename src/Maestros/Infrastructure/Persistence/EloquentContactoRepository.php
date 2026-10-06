@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Maestros\Infrastructure\Persistence;
 
+use App\Persistence\FechaEnUtc;
 use Core\Contracts\EntityId;
 use Core\Domain\AggregateRoot;
 use DateTimeImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Maestros\Domain\Contactos\Celular;
 use Maestros\Domain\Contactos\ContactoRepository;
 use Maestros\Domain\Contactos\IdDePersona;
@@ -15,6 +17,8 @@ use Maestros\Domain\Socios\CodigoDeSocio;
 
 final class EloquentContactoRepository implements ContactoRepository
 {
+    use FechaEnUtc;
+
     public function find(EntityId $id): ?PersonaDeContacto
     {
         $record = ContactoRecord::query()->find($id->value());
@@ -37,11 +41,48 @@ final class EloquentContactoRepository implements ContactoRepository
         );
     }
 
+    public function replicar(PersonaDeContacto $persona): void
+    {
+        $fila = $this->aFila($persona);
+        unset($fila['habilitada_el']);
+
+        ContactoRecord::query()->updateOrCreate(['id_de_persona' => $persona->idDePersona()->value()], $fila);
+    }
+
     public function porCelular(Celular $celular): ?PersonaDeContacto
     {
-        $record = ContactoRecord::query()->where('celular', $celular->e164())->first();
+        // Dos alcanzan para saber que no es una sola.
+        $encontradas = $this->visibles()->where('c.celular', $celular->e164())->limit(2)->get();
+
+        return $encontradas->count() === 1 ? $this->aDominio($encontradas->firstOrFail()) : null;
+    }
+
+    public function visible(IdDePersona $id): ?PersonaDeContacto
+    {
+        $record = $this->visibles()->where('c.id_de_persona', $id->value())->first();
 
         return $record === null ? null : $this->aDominio($record);
+    }
+
+    /**
+     * La única definición de «visible» para un contacto: activo, sin baja, y
+     * de un socio activo y sin baja. De acá cuelgan el alcance, el contexto,
+     * el ingreso y la renovación de sesión.
+     *
+     * @return Builder<ContactoRecord>
+     */
+    private function visibles(): Builder
+    {
+        $socios = (new SocioRecord)->getTable();
+
+        $consulta = ContactoRecord::query()
+            ->from((new ContactoRecord)->getTable().' as c')
+            ->join($socios.' as s', 's.codigo_de_socio', '=', 'c.codigo_de_socio')
+            ->select('c.*');
+
+        Visibilidad::exigir($consulta, 'c', 's');
+
+        return $consulta;
     }
 
     /** @return list<PersonaDeContacto> */
@@ -57,19 +98,39 @@ final class EloquentContactoRepository implements ContactoRepository
         );
     }
 
-    /** @param list<IdDePersona> $personas */
-    public function marcarVistasEnImportacion(array $personas, DateTimeImmutable $momento): void
+    /** @param list<IdDePersona> $vistos */
+    public function darDeBajaLosQueNoVinieron(CodigoDeSocio $socio, array $vistos, DateTimeImmutable $momento): void
     {
-        if ($personas === []) {
-            return;
+        $this->sinBajaFueraDe($vistos)
+            ->where('codigo_de_socio', $socio->value())
+            ->update(['dado_de_baja_el' => self::enUtc($momento)]);
+    }
+
+    /** @param list<IdDePersona> $vistos */
+    public function darDeBajaAusentes(array $vistos, DateTimeImmutable $momento): void
+    {
+        $this->sinBajaFueraDe($vistos)
+            ->update(['dado_de_baja_el' => self::enUtc($momento)]);
+    }
+
+    /**
+     * Una baja anterior conserva su fecha: es cuándo dejó de estar en SAP.
+     *
+     * @param  list<IdDePersona>  $vistos
+     * @return Builder<ContactoRecord>
+     */
+    private function sinBajaFueraDe(array $vistos): Builder
+    {
+        $consulta = ContactoRecord::query()->whereNull('dado_de_baja_el');
+
+        if ($vistos !== []) {
+            $consulta->whereNotIn('id_de_persona', array_map(
+                static fn (IdDePersona $p): string => $p->value(),
+                $vistos,
+            ));
         }
 
-        ContactoRecord::query()
-            ->whereIn('id_de_persona', array_map(
-                static fn (IdDePersona $p): string => $p->value(),
-                $personas,
-            ))
-            ->update(['vista_en_importacion_el' => $momento->format('Y-m-d H:i:s')]);
+        return $consulta;
     }
 
     private function aDominio(ContactoRecord $record): PersonaDeContacto
@@ -78,23 +139,27 @@ final class EloquentContactoRepository implements ContactoRepository
             IdDePersona::desde((string) $record->id_de_persona),
             CodigoDeSocio::desde((string) $record->codigo_de_socio),
             (string) $record->nombre,
-            Celular::desdeLocalBoliviano((string) $record->celular),
+            is_string($record->celular) && $record->celular !== '' ? Celular::desdeLocalBoliviano($record->celular) : null,
             $record->habilitada_el?->toDateTimeImmutable(),
             $record->vigente_desde->toDateTimeImmutable(),
+            activa: (bool) $record->activo,
+            dadoDeBajaEl: $record->dado_de_baja_el?->toDateTimeImmutable(),
         );
     }
 
-    /** @return array<string, string|null> */
+    /** @return array<string, string|bool|null> */
     private function aFila(PersonaDeContacto $persona): array
     {
         return [
             'id_de_persona' => $persona->idDePersona()->value(),
             'codigo_de_socio' => $persona->codigoDeSocio()->value(),
             'nombre' => $persona->nombre(),
-            'celular' => $persona->celular()->e164(),
-            'habilitada_el' => $persona->habilitadaEl()?->format('Y-m-d H:i:s'),
-            'vigente_desde' => $persona->vigenteDesde()->format('Y-m-d H:i:s'),
+            'celular' => $persona->celular()?->e164(),
+            'habilitada_el' => self::enUtc($persona->habilitadaEl()),
+            'vigente_desde' => self::enUtc($persona->vigenteDesde()),
             'importado_el' => (new DateTimeImmutable)->format('Y-m-d H:i:s'),
+            'activo' => $persona->activa(),
+            'dado_de_baja_el' => self::enUtc($persona->dadoDeBajaEl()),
         ];
     }
 }

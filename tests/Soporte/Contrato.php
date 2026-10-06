@@ -18,28 +18,28 @@ use Symfony\Component\Yaml\Yaml;
  */
 final class Contrato
 {
-    private const string ID = 'https://contrato.agropartners/api-v1.json';
+    /** @var array<string, Validator> uno por archivo de contrato */
+    private static array $validadores = [];
 
-    private static ?Validator $validador = null;
-
-    private static ?stdClass $documento = null;
+    /** @var array<string, stdClass> */
+    private static array $documentos = [];
 
     /**
      * @param  TestResponse<Response>  $respuesta
      * @return list<string> las diferencias; vacía si la respuesta cumple
      */
-    public static function diferencias(TestResponse $respuesta, string $metodo, string $ruta): array
+    public static function diferencias(TestResponse $respuesta, string $metodo, string $ruta, string $archivo = 'agropartners-api-v1.yaml'): array
     {
         $status = (string) $respuesta->getStatusCode();
-        $puntero = self::punteroAlEsquema(strtolower($metodo), $ruta, $status);
+        $puntero = self::punteroAlEsquema($archivo, strtolower($metodo), $ruta, $status);
 
         if ($puntero === null) {
             return ["el contrato no declara {$status} para {$metodo} {$ruta}"];
         }
 
-        $resultado = self::validador()->validate(
+        $resultado = self::validador($archivo)->validate(
             json_decode((string) $respuesta->getContent()),
-            self::ID.'#'.$puntero,
+            self::id($archivo).'#'.$puntero,
         );
 
         if ($resultado->isValid()) {
@@ -57,9 +57,9 @@ final class Contrato
         return $diferencias;
     }
 
-    private static function punteroAlEsquema(string $metodo, string $ruta, string $status): ?string
+    private static function punteroAlEsquema(string $archivo, string $metodo, string $ruta, string $status): ?string
     {
-        $operacion = self::documento()->paths->{$ruta}->{$metodo} ?? null;
+        $operacion = self::documento($archivo)->paths->{$ruta}->{$metodo} ?? null;
         $respuesta = $operacion?->responses->{$status} ?? null;
 
         if (! $respuesta instanceof stdClass) {
@@ -86,28 +86,35 @@ final class Contrato
         return rawurlencode(str_replace(['~', '/'], ['~0', '~1'], $segmento));
     }
 
-    private static function documento(): stdClass
+    private static function documento(string $archivo): stdClass
     {
-        if (self::$documento === null) {
+        if (! isset(self::$documentos[$archivo])) {
             $documento = Yaml::parseFile(
-                dirname(__DIR__, 2).'/contrato/agropartners-api-v1.yaml',
+                dirname(__DIR__, 2).'/contrato/'.$archivo,
                 Yaml::PARSE_OBJECT_FOR_MAP,
             );
             assert($documento instanceof stdClass);
-            self::$documento = $documento;
+            self::$documentos[$archivo] = $documento;
         }
 
-        return self::$documento;
+        return self::$documentos[$archivo];
     }
 
-    private static function validador(): Validator
+    /** Cada contrato con su propio id: los `$ref` internos se resuelven contra el suyo. */
+    private static function id(string $archivo): string
     {
-        if (self::$validador === null) {
-            self::$validador = new Validator;
-            self::$validador->setMaxErrors(20);
-            self::$validador->resolver()?->registerRaw(self::documento(), self::ID);
+        return 'https://contrato.agropartners/'.pathinfo($archivo, PATHINFO_FILENAME).'.json';
+    }
+
+    private static function validador(string $archivo): Validator
+    {
+        if (! isset(self::$validadores[$archivo])) {
+            $validador = new Validator;
+            $validador->setMaxErrors(20);
+            $validador->resolver()?->registerRaw(self::documento($archivo), self::id($archivo));
+            self::$validadores[$archivo] = $validador;
         }
 
-        return self::$validador;
+        return self::$validadores[$archivo];
     }
 }

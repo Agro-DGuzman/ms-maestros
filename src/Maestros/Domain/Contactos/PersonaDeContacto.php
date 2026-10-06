@@ -17,22 +17,31 @@ final class PersonaDeContacto extends AggregateRoot
         IdDePersona $id,
         private readonly CodigoDeSocio $codigoDeSocio,
         private readonly string $nombre,
-        private readonly Celular $celular,
+        private readonly ?Celular $celular,
         private readonly ?DateTimeImmutable $habilitadaEl,
         private readonly DateTimeImmutable $vigenteDesde,
+        private readonly bool $activa,
+        private readonly ?DateTimeImmutable $dadoDeBajaEl,
     ) {
         parent::__construct($id);
     }
 
+    /**
+     * Sin celular se replica igual: SAP puede traer uno vacío o un fijo, y eso
+     * no es motivo para rechazar al socio entero. Esa persona simplemente no
+     * puede entrar.
+     */
     public static function replica(
         IdDePersona $id,
         CodigoDeSocio $codigoDeSocio,
         string $nombre,
-        Celular $celular,
+        ?Celular $celular,
         ?DateTimeImmutable $habilitadaEl,
         DateTimeImmutable $vigenteDesde,
+        bool $activa = true,
+        ?DateTimeImmutable $dadoDeBajaEl = null,
     ): self {
-        return new self($id, $codigoDeSocio, trim($nombre), $celular, $habilitadaEl, $vigenteDesde);
+        return new self($id, $codigoDeSocio, trim($nombre), $celular, $habilitadaEl, $vigenteDesde, $activa, $dadoDeBajaEl);
     }
 
     public function idDePersona(): IdDePersona
@@ -58,9 +67,19 @@ final class PersonaDeContacto extends AggregateRoot
         return RazonSocial::desde($this->nombre)->iniciales();
     }
 
-    public function celular(): Celular
+    public function celular(): ?Celular
     {
         return $this->celular;
+    }
+
+    public function activa(): bool
+    {
+        return $this->activa;
+    }
+
+    public function dadoDeBajaEl(): ?DateTimeImmutable
+    {
+        return $this->dadoDeBajaEl;
     }
 
     public function habilitadaEl(): ?DateTimeImmutable

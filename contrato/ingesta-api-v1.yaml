@@ -1,0 +1,345 @@
+openapi: 3.1.0
+info:
+  title: Agropartners · API de ingesta desde SAP
+  version: 1.0.0
+  description: |-
+    API interna por la que el Sincronizador entrega a los microservicios el estado
+    confirmado en SAP Business One. No la consume ninguna App.
+
+    **Copia enmendada en ms-maestros.** Parte de la versión del 1 de octubre de 2026 con
+    las enmiendas de `DECISIONES-INGESTA-SOCIOS.md` (5 de octubre): rol
+    `Ingesta.Maestros.Escribir`, grupo económico opcional `{ codigo, nombre, segmento }`,
+    error con la forma de `/v1`, y los status 401, 403 y 503. Está en OpenAPI 3.1 porque
+    es el dialecto con el que se validan las respuestas en los tests; el archivo oficial
+    puede seguir en 3.0.3 para el APIM.
+
+    **Seguridad:** lista blanca con la IP pública del Sincronizador y JWT de Microsoft
+    Entra ID (client credentials) con el rol `Ingesta.Maestros.Escribir`, validado en el
+    gateway **y** en `ms-maestros`. APIM agrega `X-Gateway-Secret` hacia el backend;
+    `ms-maestros` rechaza con 403 cualquier llamada a `/ingesta/*` sin esa cabecera.
+
+    **Idempotencia:** toda operación exige `Idempotency-Key`. Si la clave ya fue
+    procesada para el mismo método y la misma ruta, el servicio devuelve el mismo código
+    de estado y el mismo cuerpo de la primera vez sin volver a aplicar el cambio. Las
+    respuestas 5xx no se guardan.
+
+    **Orden:** cada cuerpo trae `vigenteDesde` (instante en que el Sincronizador leyó
+    SAP). Si el servicio ya tiene una versión igual o más nueva, ignora la entrante y
+    responde igual con éxito. El grupo económico tiene su propia vigencia.
+
+    **Envelope:** las respuestas con cuerpo usan `{ data, success, error }`, como `/v1`.
+servers:
+  - url: https://agropartners-apim.azure-api.net/ingesta/v1
+security:
+  - entraId: []
+tags:
+  - name: Socios
+paths:
+  /socios:
+    x-agropartners-servicio: maestros
+    post:
+      tags: [Socios]
+      summary: Crear un socio con sus personas de contacto
+      operationId: ingestaCrearSocio
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SocioIngesta'
+      responses:
+        '201':
+          description: Creado, ignorado por viejo, o no conservado por no ser cliente (o clave de idempotencia ya procesada con 201).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaSocio'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/TokenInvalido'
+        '403':
+          $ref: '#/components/responses/SinGateway'
+        '409':
+          $ref: '#/components/responses/SocioYaExiste'
+        '422':
+          $ref: '#/components/responses/DatosInvalidos'
+        '503':
+          $ref: '#/components/responses/EntraNoDisponible'
+  /socios/{cardCode}:
+    x-agropartners-servicio: maestros
+    parameters:
+      - $ref: '#/components/parameters/CardCode'
+      - $ref: '#/components/parameters/IdempotencyKey'
+    put:
+      tags: [Socios]
+      summary: Reemplazar un socio y sus personas de contacto
+      description: |-
+        Reemplazo completo. Los contactos que no vengan en `contactos` se dan de baja
+        en la réplica. `cardCode` del cuerpo debe coincidir con el de la ruta.
+      operationId: ingestaReemplazarSocio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SocioIngesta'
+      responses:
+        '200':
+          description: Reemplazado, ignorado por ser más viejo que la versión guardada, o dado de baja por dejar de ser cliente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaSocio'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/TokenInvalido'
+        '403':
+          $ref: '#/components/responses/SinGateway'
+        '404':
+          $ref: '#/components/responses/SocioNoEncontrado'
+        '422':
+          $ref: '#/components/responses/DatosInvalidos'
+        '503':
+          $ref: '#/components/responses/EntraNoDisponible'
+    delete:
+      tags: [Socios]
+      summary: Dar de baja un socio eliminado en SAP
+      description: |-
+        Baja lógica en la réplica: el socio y sus personas de contacto quedan dados de
+        baja. El Sincronizador trata 404 como éxito: el socio ya no estaba.
+      operationId: ingestaEliminarSocio
+      responses:
+        '204':
+          description: Dado de baja.
+        '401':
+          $ref: '#/components/responses/TokenInvalido'
+        '403':
+          $ref: '#/components/responses/SinGateway'
+        '404':
+          $ref: '#/components/responses/SocioNoEncontrado'
+        '503':
+          $ref: '#/components/responses/EntraNoDisponible'
+components:
+  securitySchemes:
+    entraId:
+      type: oauth2
+      description: Client credentials contra Microsoft Entra ID. Rol requerido `Ingesta.Maestros.Escribir`.
+      flows:
+        clientCredentials:
+          tokenUrl: https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token
+          scopes: {}
+  parameters:
+    CardCode:
+      name: cardCode
+      in: path
+      required: true
+      description: Código del socio en SAP (OCRD.CardCode).
+      schema:
+        type: string
+        maxLength: 15
+      example: C-004871
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: MENSAJE_ID del último evento del grupo (32 caracteres hexadecimales).
+      schema:
+        type: string
+        pattern: '^[0-9a-f]{32}$'
+      example: 3f9c2a7b5d1e4f60a8b9c0d1e2f30415
+  schemas:
+    SocioIngesta:
+      type: object
+      required: [cardCode, razonSocial, tipoSap, activo, contactos, vigenteDesde, origen]
+      properties:
+        cardCode:
+          type: string
+          maxLength: 15
+          description: OCRD.CardCode
+          example: C-004871
+        razonSocial:
+          type: string
+          maxLength: 100
+          description: OCRD.CardName
+          example: Sebastian Monasterio
+        tipoSap:
+          type: string
+          enum: [C, S, L]
+          description: OCRD.CardType. C cliente, S proveedor, L lead. ms-maestros conserva solo los clientes.
+        activo:
+          type: boolean
+          description: Derivado de OCRD.frozenFor (inactivo cuando frozenFor = 'Y'). Regla a validar con datos reales.
+        grupoEconomico:
+          oneOf:
+            - $ref: '#/components/schemas/GrupoEconomicoIngesta'
+            - type: 'null'
+          description: |-
+            `@GRUPOECO_SEGMENT`, apuntado por un campo de usuario de OCRD. Ausente o nulo si
+            el socio no tiene grupo o si su código no resuelve: el socio se replica igual y
+            no entra en el alcance de nadie de afuera.
+        contactos:
+          type: array
+          description: Todas las personas de contacto del socio en SAP (OCPR). Lista vacía si no tiene.
+          items:
+            $ref: '#/components/schemas/ContactoIngesta'
+        vigenteDesde:
+          type: string
+          format: date-time
+          description: Instante UTC en que el Sincronizador leyó SAP. Sirve para descartar versiones viejas.
+          example: '2026-10-01T15:42:07Z'
+        origen:
+          $ref: '#/components/schemas/OrigenIngesta'
+    ContactoIngesta:
+      type: object
+      required: [codigoDeContacto, nombre, activo]
+      properties:
+        codigoDeContacto:
+          type: string
+          pattern: '^[0-9]{1,38}$'
+          description: OCPR.CntctCode (identificador interno de SAP). La persona es p-{codigoDeContacto}.
+          example: '1523'
+        nombre:
+          type: string
+          minLength: 1
+          description: OCPR.FirstName + LastName; si ambos están vacíos, OCPR.Name.
+          example: Mónica Salvatierra
+        celular:
+          type: [string, 'null']
+          description: OCPR.Cellolar tal como está en SAP. ms-maestros lo normaliza (+591); si no es un móvil, el contacto queda sin celular.
+          example: '70741828'
+        activo:
+          type: boolean
+          description: OCPR.Active = 'Y'.
+    GrupoEconomicoIngesta:
+      type: object
+      required: [codigo, nombre]
+      properties:
+        codigo:
+          type: string
+          maxLength: 50
+          description: '@GRUPOECO_SEGMENT.Code. Es la identidad del grupo: nunca se desambigua por nombre.'
+          example: GRP-014
+        nombre:
+          type: string
+          description: Informativo.
+          example: Grupo Monasterio
+        segmento:
+          type: [string, 'null']
+          description: Informativo; no decide precios, crédito ni visibilidad.
+          example: Agroindustrial
+    OrigenIngesta:
+      type: object
+      required: [esquema, eventoId]
+      description: Trazabilidad. ms-maestros lo registra; no lo usa para decidir.
+      properties:
+        esquema:
+          type: string
+          example: AGRO_P6
+        eventoId:
+          type: integer
+          format: int64
+          description: EVENTO_ID del último evento del grupo.
+          example: 1842
+    RespuestaSocio:
+      type: object
+      required: [data, success, error]
+      properties:
+        data:
+          type: object
+          required: [cardCode]
+          properties:
+            cardCode:
+              type: string
+        success:
+          type: boolean
+          const: true
+        error:
+          type: 'null'
+    RespuestaError:
+      type: object
+      description: Envelope de error, igual que en `/v1`. `success` es siempre false y `data` siempre null.
+      required: [data, success, error]
+      properties:
+        data:
+          type: 'null'
+        success:
+          type: boolean
+          const: false
+        error:
+          $ref: '#/components/schemas/ErrorApi'
+    ErrorApi:
+      type: object
+      required: [code, type]
+      properties:
+        code:
+          type: array
+          description: Códigos de error en `SCREAMING_SNAKE_CASE`.
+          items:
+            type: string
+        description:
+          type: string
+        structuredMessage:
+          type: array
+          description: Desglose campo por campo. Vacío en errores que no son de validación.
+          items:
+            $ref: '#/components/schemas/DetalleCampo'
+        type:
+          type: string
+          enum: [VALIDATION, NOT_FOUND, CONFLICT, FAILURE, PROBLEM]
+    DetalleCampo:
+      type: object
+      required: [campo, codigo, mensaje]
+      properties:
+        campo:
+          type: string
+        codigo:
+          type: string
+        mensaje:
+          type: string
+  responses:
+    PeticionInvalida:
+      description: JSON mal formado, un campo faltante o inválido, o falta Idempotency-Key. El Sincronizador lo marca FALLIDO.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    DatosInvalidos:
+      description: Datos que no cumplen reglas (`CARDCODE_NO_COINCIDE`). El Sincronizador lo marca FALLIDO.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    SocioYaExiste:
+      description: El socio ya existe (`SOCIO_YA_EXISTE`). El Sincronizador reintenta como PUT.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    SocioNoEncontrado:
+      description: El socio no existe o está dado de baja (`SOCIO_NO_ENCONTRADO`). En PUT el Sincronizador reintenta como POST; en DELETE lo toma como éxito.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    TokenInvalido:
+      description: Token de Entra ausente, inválido, de otro emisor o audiencia, o sin el rol (`TOKEN_INVALIDO`). El Sincronizador pausa sin consumir intentos.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    SinGateway:
+      description: La llamada no trae el `X-Gateway-Secret` del APIM (`ACCESO_DENEGADO`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    EntraNoDisponible:
+      description: No se pudieron obtener las claves de Entra ID (`ENTRA_NO_DISPONIBLE`). Transitorio.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'

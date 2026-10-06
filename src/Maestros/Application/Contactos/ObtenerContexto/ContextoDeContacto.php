@@ -14,7 +14,7 @@ final readonly class ContextoDeContacto
     public function __construct(
         public string $nombre,
         public string $iniciales,
-        public string $celular,
+        public ?string $celular,
         public string $grupoId,
         public string $grupoNombre,
         public array $socios,

@@ -12,10 +12,12 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $id_de_persona
  * @property string $codigo_de_socio
  * @property string $nombre
- * @property string $celular
+ * @property string|null $celular
  * @property CarbonImmutable|null $habilitada_el
  * @property CarbonImmutable $vigente_desde
  * @property CarbonImmutable|null $vista_en_importacion_el
+ * @property bool $activo
+ * @property CarbonImmutable|null $dado_de_baja_el
  */
 final class ContactoRecord extends Model
 {
@@ -36,6 +38,8 @@ final class ContactoRecord extends Model
         'vigente_desde' => 'immutable_datetime',
         'importado_el' => 'immutable_datetime',
         'vista_en_importacion_el' => 'immutable_datetime',
+        'dado_de_baja_el' => 'immutable_datetime',
+        'activo' => 'boolean',
     ];
 
     public function getTable(): string

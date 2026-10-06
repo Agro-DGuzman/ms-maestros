@@ -22,7 +22,14 @@ use Maestros\Infrastructure\Persistence\ContactoRecord;
 
 uses(RefreshDatabase::class);
 
-function personaDe(string $id, string $nombre, string $celular, ?string $habilitadaEl): PersonaDeContacto
+/*
+ * Con la ingesta, que alguien ya no esté en SAP es una baja explícita, no la
+ * ausencia en la última corrida del importador. La pantalla muestra el estado
+ * de todo contacto que la App ya no ve, y lo pinta en rojo solo cuando esa
+ * persona todavía tiene acceso: ahí hay algo que hacer.
+ */
+
+function personaDe(string $id, string $nombre, string $celular, ?string $habilitadaEl, ?string $bajaEl = null, bool $activa = true): PersonaDeContacto
 {
     return PersonaDeContacto::replica(
         IdDePersona::desde($id),
@@ -31,6 +38,8 @@ function personaDe(string $id, string $nombre, string $celular, ?string $habilit
         Celular::desdeLocalBoliviano($celular),
         $habilitadaEl === null ? null : new DateTimeImmutable($habilitadaEl),
         new DateTimeImmutable('2026-09-15T12:00:00Z'),
+        activa: $activa,
+        dadoDeBajaEl: $bajaEl === null ? null : new DateTimeImmutable($bajaEl),
     );
 }
 
@@ -48,17 +57,10 @@ beforeEach(function () {
     ));
 
     $contactos = app(ContactoRepository::class);
-    // Un celular distinto al de la semilla: la columna es unica, y el ultimo
-    // test de este archivo importa el archivo de ejemplo.
     $contactos->save(personaDe('p-001', 'Monica Salvatierra', '70000001', '2026-09-01T10:00:00Z'));
-    $contactos->save(personaDe('p-002', 'Jorge Pena', '67701468', '2026-09-01T10:00:00Z'));
-    $contactos->save(personaDe('p-003', 'Ana Roca', '71234567', null));
-
-    // p-001 vino en la ultima corrida; p-002 y p-003 quedaron en una anterior.
-    ContactoRecord::query()->whereIn('id_de_persona', ['p-002', 'p-003'])
-        ->update(['vista_en_importacion_el' => '2026-09-10 06:00:00']);
-    ContactoRecord::query()->where('id_de_persona', 'p-001')
-        ->update(['vista_en_importacion_el' => '2026-09-15 06:00:00']);
+    $contactos->save(personaDe('p-002', 'Jorge Pena', '67701468', '2026-09-01T10:00:00Z', bajaEl: '2026-10-05T12:00:00Z'));
+    $contactos->save(personaDe('p-003', 'Ana Roca', '71234567', null, bajaEl: '2026-10-05T12:00:00Z'));
+    $contactos->save(personaDe('p-004', 'Luis Paz', '71234568', '2026-09-01T10:00:00Z', activa: false));
 
     SesionDeOperador::guardar(new Operador(
         IdDeOperador::desdeOid('oid-77'),
@@ -81,42 +83,51 @@ function filaDe(string $html, string $nombre): string
     return '';
 }
 
-it('avisa sobre la habilitada que la ultima importacion no trajo', function () {
-    $html = (string) $this->get('/admin/contactos')->assertOk()->getContent();
+function pantallaDeContactos(): string
+{
+    return (string) test()->get('/admin/contactos')->assertOk()->getContent();
+}
 
-    expect(filaDe($html, 'Jorge Pena'))->toContain('No vino en la última importación');
+it('avisa en rojo sobre la habilitada que SAP dio de baja', function () {
+    expect(filaDe(pantallaDeContactos(), 'Jorge Pena'))->toContain('rojo')->toContain('Dada de baja en SAP');
 });
 
-it('no avisa sobre la que si vino', function () {
-    $html = (string) $this->get('/admin/contactos')->assertOk()->getContent();
-
-    expect(filaDe($html, 'Monica Salvatierra'))->not->toContain('No vino en la última importación');
+it('avisa en rojo sobre la habilitada que SAP marco inactiva', function () {
+    expect(filaDe(pantallaDeContactos(), 'Luis Paz'))->toContain('rojo')->toContain('Inactiva en SAP');
 });
 
-it('no avisa sobre quien no tiene acceso, aunque tampoco haya venido', function () {
-    // Que falte alguien que nunca pudo entrar no le cambia nada a nadie.
-    $html = (string) $this->get('/admin/contactos')->assertOk()->getContent();
+it('muestra el estado sin alarma de quien no tiene acceso', function () {
+    $fila = filaDe(pantallaDeContactos(), 'Ana Roca');
 
-    expect(filaDe($html, 'Ana Roca'))->not->toContain('No vino en la última importación');
+    expect($fila)->toContain('Dada de baja en SAP')
+        ->and($fila)->not->toContain('class="rojo" style="font-size:12px;">Dada de baja');
 });
 
-it('la importacion marca como vista a una fila que omite por vieja', function () {
-    $archivo = database_path('semillas/maestros-ejemplo.json');
+it('no marca nada sobre la que sigue en SAP', function () {
+    $fila = filaDe(pantallaDeContactos(), 'Monica Salvatierra');
 
-    // Dos corridas del mismo archivo: la segunda omite todo por no ser mas
-    // nueva, y aun asi tiene que dejar constancia de que la vio.
-    $this->artisan('maestros:importar', ['archivo' => $archivo])->assertExitCode(0);
-    $antes = ContactoRecord::query()->find('p-8f2b1c40')->vista_en_importacion_el;
+    expect($fila)->not->toContain('en SAP')
+        ->and($fila)->not->toContain('Celular en conflicto');
+});
 
-    ContactoRecord::query()->where('id_de_persona', 'p-8f2b1c40')
-        ->update(['vista_en_importacion_el' => '2020-01-01 00:00:00']);
+it('marca a los dos contactos visibles que comparten celular', function () {
+    app(ContactoRepository::class)->save(PersonaDeContacto::replica(
+        IdDePersona::desde('p-005'), CodigoDeSocio::desde('C-004871'), 'Rosa Vaca',
+        Celular::desdeLocalBoliviano('70000001'), null, new DateTimeImmutable('2026-09-15T12:00:00Z'),
+    ));
 
-    $this->artisan('maestros:importar', ['archivo' => $archivo])
-        ->expectsOutputToContain('Omitidos por ser más viejos')
-        ->assertExitCode(0);
+    $html = pantallaDeContactos();
 
-    $despues = ContactoRecord::query()->find('p-8f2b1c40')->vista_en_importacion_el;
+    expect(filaDe($html, 'Monica Salvatierra'))->toContain('Celular en conflicto')
+        ->and(filaDe($html, 'Rosa Vaca'))->toContain('Celular en conflicto');
+});
 
-    expect($antes)->not->toBeNull()
-        ->and($despues->format('Y'))->not->toBe('2020');
+it('un celular compartido con alguien dado de baja no esta en conflicto', function () {
+    ContactoRecord::query()->where('id_de_persona', 'p-003')->update(['celular' => '+59170000001']);
+
+    expect(filaDe(pantallaDeContactos(), 'Monica Salvatierra'))->not->toContain('Celular en conflicto');
+});
+
+it('ya no habla de la ultima importacion', function () {
+    expect(pantallaDeContactos())->not->toContain('No vino en la última importación');
 });

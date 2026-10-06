@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maestros\Infrastructure\Persistence;
 
+use App\Persistence\FechaEnUtc;
 use Core\Contracts\EntityId;
 use Core\Domain\AggregateRoot;
 use DateTimeImmutable;
@@ -13,6 +14,8 @@ use Maestros\Domain\Grupos\IdDeGrupo;
 
 final class EloquentGrupoRepository implements GrupoRepository
 {
+    use FechaEnUtc;
+
     public function find(EntityId $id): ?GrupoEconomico
     {
         $record = GrupoRecord::query()->find($id->value());
@@ -41,16 +44,18 @@ final class EloquentGrupoRepository implements GrupoRepository
             IdDeGrupo::desde((string) $record->id_de_grupo),
             (string) $record->nombre,
             $record->vigente_desde->toDateTimeImmutable(),
+            $record->segmento,
         );
     }
 
-    /** @return array<string, string> */
+    /** @return array<string, string|null> */
     private function aFila(GrupoEconomico $grupo): array
     {
         return [
             'id_de_grupo' => $grupo->idDeGrupo()->value(),
             'nombre' => $grupo->nombre(),
-            'vigente_desde' => $grupo->vigenteDesde()->format('Y-m-d H:i:s'),
+            'segmento' => $grupo->segmento(),
+            'vigente_desde' => self::enUtc($grupo->vigenteDesde()),
             'importado_el' => (new DateTimeImmutable)->format('Y-m-d H:i:s'),
         ];
     }

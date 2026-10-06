@@ -33,7 +33,7 @@ it('guarda un socio y lo vuelve a cargar igual', function () {
 
     expect($recuperado)->toBeInstanceOf(Socio::class)
         ->and($recuperado->razonSocial()->texto())->toBe('Sebastian Monasterio')
-        ->and($recuperado->idDeGrupo()->value())->toBe('GRP-014');
+        ->and($recuperado->grupo()?->value())->toBe('GRP-014');
 });
 
 it('save reemplaza en vez de duplicar', function () {

@@ -9,9 +9,11 @@ use Identidad\Application\Contracts\VerificadorDeToken;
 use Identidad\Domain\Sesiones\SesionRepository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Maestros\Domain\Contactos\IdDePersona;
+use Maestros\Infrastructure\Persistence\ContactoRecord;
 use Tests\Dobles\EmisorFalso;
 use Tests\Dobles\EnviadorQueRecuerda;
 use Tests\Dobles\VerificadorFalso;
+use Tests\Soporte\ReplicaDeEjemplo;
 
 uses(RefreshDatabase::class);
 
@@ -103,4 +105,20 @@ it('con el token de una persona no cierra la sesion de otra', function () {
         ->assertJsonPath('data.sesionCerrada', false);
 
     expect(app(SesionRepository::class)->abiertasDe(IdDePersona::desde('p-8f2b1c40')))->toHaveCount(1);
+});
+
+it('renovar con la persona dada de baja en SAP responde REFRESH_TOKEN_INVALIDO y cierra la sesion', function () {
+    // Sin esto, una baja en SAP dejaría seguir renovando la sesión durante
+    // los 30 días que dura: el token vive 5 minutos, la sesión no.
+    $refresh = $this->login->json('data.tokens.refreshToken');
+    ReplicaDeEjemplo::personaDadaDeBaja('p-8f2b1c40');
+
+    $this->postJson('/v1/auth/refresh', ['refreshToken' => $refresh])
+        ->assertStatus(401)
+        ->assertJsonPath('error.code', ['REFRESH_TOKEN_INVALIDO']);
+
+    // La sesión quedó cerrada: aunque SAP la reactive, ese refresh ya no sirve.
+    ContactoRecord::query()->where('id_de_persona', 'p-8f2b1c40')->update(['dado_de_baja_el' => null]);
+
+    $this->postJson('/v1/auth/refresh', ['refreshToken' => $refresh])->assertStatus(401);
 });
