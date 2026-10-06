@@ -341,6 +341,11 @@ correr. Para SQL Server, dentro de la imagen y montando `tests/`, que
 docker compose run --rm --no-deps -T -v ./tests:/app/tests app php tests/Manual/probar-ingesta.php POST tests/Manual/ingesta/socio-nuevo.json
 ```
 
+En Git Bash de Windows, con `MSYS_NO_PATHCONV=1` delante: si no, convierte el
+`/app/tests` del volumen en una ruta de Windows y PHP no encuentra el archivo.
+PowerShell no lo necesita. Sin `sqlserver` levantado solo responden los casos
+que cortan antes de la base (secreto, token, clave).
+
 **Después de un `DELETE`, reenviar el mismo cuerpo responde 201 y no hace
 nada**: la baja fija la vigencia en su momento, y el cuerpo es más viejo. Para
 recrear el socio, `--vigencia=` con la hora actual o posterior.
