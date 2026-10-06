@@ -1,0 +1,13 @@
+{
+  "cardCode": "C-900001",
+  "razonSocial": "Agro Prueba SRL",
+  "tipoSap": "C",
+  "activo": true,
+  "grupoEconomico": { "codigo": "GRP-900", "nombre": "Grupo Prueba", "segmento": "Agroindustrial" },
+  "contactos": [
+    { "codigoDeContacto": "1523", "nombre": "Mónica Prueba", "celular": "75000001", "activo": true },
+    { "codigoDeContacto": "1524", "nombre": "Luis Prueba", "celular": null, "activo": true }
+  ],
+  "vigenteDesde": "2026-10-06T12:00:00Z",
+  "origen": { "esquema": "AGRO_P6", "eventoId": 1 }
+}

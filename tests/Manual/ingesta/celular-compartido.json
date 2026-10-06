@@ -1,0 +1,12 @@
+{
+  "cardCode": "C-900002",
+  "razonSocial": "Agro Compartido SRL",
+  "tipoSap": "C",
+  "activo": true,
+  "grupoEconomico": null,
+  "contactos": [
+    { "codigoDeContacto": "1530", "nombre": "Mónica Duplicada", "celular": "70741828", "activo": true }
+  ],
+  "vigenteDesde": "2026-10-06T12:00:00Z",
+  "origen": { "esquema": "AGRO_P6", "eventoId": 2 }
+}

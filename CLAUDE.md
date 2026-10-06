@@ -323,6 +323,28 @@ La verificación de que `POST /auth/otp` no filtra por tiempo **no la hace
 ningún test**: hay que pedir el desafío para un número registrado y para uno
 desconocido y comparar los tiempos, que tienen que ser indistinguibles.
 
+### La ingesta, sin Azure
+
+`tests/Manual/probar-ingesta.php` le pega a `/ingesta` por el pipeline real
+—secreto, token, idempotencia, controlador, base— con Entra simulado por el
+mismo doble de los tests, e imprime la respuesta y lo que el controlador dejó
+en el log (`aplicado`, `ignorado-por-viejo`, el motivo de un token rechazado).
+El uso está en su encabezado; los cuerpos de ejemplo, en `tests/Manual/ingesta/`.
+
+Escribe de verdad, así que va contra una **base de descarte**: `DB_DATABASE`
+apuntando a otro `.sqlite`, con la **ruta absoluta** (`artisan serve` corre
+desde `public/` y una relativa abre otra base). Contra Azure SQL se niega a
+correr. Para SQL Server, dentro de la imagen y montando `tests/`, que
+`.dockerignore` excluye:
+
+```sh
+docker compose run --rm --no-deps -T -v ./tests:/app/tests app php tests/Manual/probar-ingesta.php POST tests/Manual/ingesta/socio-nuevo.json
+```
+
+**Después de un `DELETE`, reenviar el mismo cuerpo responde 201 y no hace
+nada**: la baja fija la vigencia en su momento, y el cuerpo es más viejo. Para
+recrear el socio, `--vigencia=` con la hora actual o posterior.
+
 ### Entrar al back-office con contraseña
 
 En local no hace falta: con `BACKOFFICE_AUTENTICADOR=desarrollo`, abrir
