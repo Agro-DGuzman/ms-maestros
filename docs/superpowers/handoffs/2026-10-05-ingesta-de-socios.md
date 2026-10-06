@@ -1,10 +1,12 @@
 # Hand-off · Ingesta de socios desde SAP
 
-**Rama:** `feat/ingesta-de-socios`, 8 commits sobre `main` (`dce478e..fa8cd46`), sin integrar.
+**Rama:** `feat/ingesta-de-socios`, integrada a `main` el 2026-10-06 (merge `55be6d0`).
 **Spec:** `docs/superpowers/specs/2026-10-05-ingesta-de-socios-design.md`
 **Plan:** `docs/superpowers/plans/2026-10-05-ingesta-de-socios.md` (las 7 tareas hechas)
 **Estado:** suite 584/584, Larastan 0, Pint en verde. Recorrido HTTP verificado
-contra SQL Server local. **Nada de esto está desplegado.**
+contra SQL Server local. Las dos migraciones corrieron en Azure el 2026-10-06 y
+`main` se empujó a `azure`. **`/ingesta` todavía no recibe nada de verdad**:
+faltan las variables del Container App y Entra/APIM (§6).
 
 `CLAUDE.md` ya tiene las reglas de la ingesta (seguridad en orden, `p-{CntctCode}`,
 *visible*, conflicto de celular, baja lógica, `EscrituraDeMaquina`). Esto cubre
@@ -122,17 +124,17 @@ No los resuelvas adivinando; si el usuario trae la respuesta, el cambio es chico
   (sí por visibilidad); el token de acceso vive hasta 5 minutos tras una baja;
   una `vigenteDesde` futura congela al socio hasta un `DELETE`.
 
-## 6. Despliegue (lo hace el usuario, en este orden)
+## 6. Despliegue
 
-1. Merge a `main`. `main` local tiene 3 commits que todavía no están en
-   ningún remoto (`7ed5a9f`, `6c3a2ab`, `59afc13`).
-2. Migrar Azure **antes** del push. El login y `/mi-cuenta` ya leen `activo` y
-   `dado_de_baja_el`, así que sin migrar la revisión nueva responde 500 a todos:
-   ```sh
-   docker compose --env-file .env.azure --env-file .env.keycloak.azure -f compose.yaml -f compose.azure.yaml run --rm --no-deps -T app php artisan migrate --force
-   ```
-3. En el Container App: `GATEWAY_SECRETO` (secretRef), `INGESTA_ENTRA_TENANT_ID`
+Hecho el 2026-10-06: merge a `main`, las dos migraciones en Azure (antes del
+push, porque el login y `/mi-cuenta` leen `activo` y `dado_de_baja_el`) y push a
+`azure` y `origin`. Lo que falta lo hace el usuario en el portal:
+
+1. En el Container App: `GATEWAY_SECRETO` (secretRef), `INGESTA_ENTRA_TENANT_ID`
    e `INGESTA_ENTRA_AUDIENCIA`. Sin el secreto, `/ingesta` responde 403 a todo.
-4. Push a `azure` y a `origin`.
-5. Pasos 2 y 3 de `CONFIGURACION-INGESTA-SAP.md` (Entra y APIM) y la prueba de
+2. Pasos 2 y 3 de `CONFIGURACION-INGESTA-SAP.md` (Entra y APIM) y la prueba de
    punta a punta de su §6.
+
+Los números de prueba de la App en Azure son tres (`OTP_ECO_NUMEROS`):
+`70741828` (p-8f2b1c40, GRP-014), `71112233` (p-b2c3d401, GRP-021) y
+`72112233` (p-c3d4e501, GRP-033).

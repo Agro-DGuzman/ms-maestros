@@ -560,8 +560,11 @@ curl -s localhost:8082/realms/master/.well-known/openid-configuration
 - **Borrar `vista_en_importacion_el`** en una entrega posterior: quedó en
   desuso, pero el código que corre en Azure la leía al momento de la migración.
 - **La semilla en Azure** (8 socios de prueba, 267 propiedades con socios
-  inventados, la persona `p-8f2b1c40`): decidir si se borra cuando lleguen los
-  socios reales. Un `cardCode` real podría coincidir con uno de la semilla.
+  inventados, y tres personas con acceso y eco del código: `70741828`,
+  `71112233` y `72112233`): decidir si se borra cuando lleguen los socios
+  reales. Un `cardCode` real podría coincidir con uno de la semilla, y los dos
+  últimos números son inventados: tienen que salir de `OTP_ECO_NUMEROS` antes
+  de prender WhatsApp, o el código le llega a quien tenga ese número.
 - **Prender `GATEWAY_SECRETO_EN_V1`** cuando el APIM mande `X-Gateway-Secret`
   también en `/v1`. Hasta entonces la App se puede llamar saltándose el APIM.
 - Una persona de contacto en socios de dos grupos son dos contactos de SAP con
