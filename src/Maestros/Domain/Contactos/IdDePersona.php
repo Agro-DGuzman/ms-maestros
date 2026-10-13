@@ -44,6 +44,25 @@ final readonly class IdDePersona implements EntityId
         return new self('p-'.substr(Uuid::uuid4()->toString(), 0, 8));
     }
 
+    /**
+     * La persona es el número: todos los contactos de SAP con ese celular son
+     * la misma, y su id sale del número para que no haga falta guardarlo.
+     */
+    public static function deCelular(Celular $celular): self
+    {
+        return new self('n-'.ltrim($celular->e164(), '+'));
+    }
+
+    /** El número de una persona; `null` para un id que no sale de un número. */
+    public function celular(): ?Celular
+    {
+        if (preg_match('/^n-591([67]\d{7})$/', $this->id, $partes) !== 1) {
+            return null;
+        }
+
+        return Celular::desdeLocalBoliviano($partes[1]);
+    }
+
     public function value(): string
     {
         return $this->id;
