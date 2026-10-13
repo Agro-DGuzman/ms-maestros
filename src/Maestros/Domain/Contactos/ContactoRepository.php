@@ -23,6 +23,12 @@ interface ContactoRepository extends Repository
      */
     public function replicar(PersonaDeContacto $persona): void;
 
+    /**
+     * Los socios donde este número es contacto visible, con su grupo: de ahí
+     * sale si la persona entra y qué ve.
+     */
+    public function alcanceDeNumero(Celular $celular): AlcanceDeNumero;
+
     /** Activa, sin baja y de un socio visible: lo único que cuenta para la App. */
     public function visible(IdDePersona $id): ?PersonaDeContacto;
 

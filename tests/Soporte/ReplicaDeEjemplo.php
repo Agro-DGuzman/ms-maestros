@@ -14,6 +14,9 @@ use Illuminate\Support\Facades\DB;
  */
 final class ReplicaDeEjemplo
 {
+    /** Mónica, la persona de la semilla, es su número: el +59170741828. */
+    public const string MONICA = 'n-59170741828';
+
     public static function sinGrupo(string $cardCode): void
     {
         self::socio($cardCode, ['id_de_grupo' => null]);
@@ -39,12 +42,12 @@ final class ReplicaDeEjemplo
         self::contacto($id, ['dado_de_baja_el' => '2026-10-05 12:00:00']);
     }
 
-    /** Otro contacto visible, en un socio de otro grupo, con el mismo número. */
-    public static function otroContactoCon(string $celular, string $id = 'p-9999', bool $dadoDeBaja = false): void
+    /** Otro contacto visible con el mismo número; por defecto, en un socio de otro grupo. */
+    public static function otroContactoCon(string $celular, string $id = 'p-9999', bool $dadoDeBaja = false, string $cardCode = 'C-005210'): void
     {
         DB::table(self::tabla('contactos'))->insert([
             'id_de_persona' => $id,
-            'codigo_de_socio' => 'C-005210',
+            'codigo_de_socio' => $cardCode,
             'nombre' => 'Otra persona',
             'celular' => $celular,
             'vigente_desde' => '2026-10-05 12:00:00',

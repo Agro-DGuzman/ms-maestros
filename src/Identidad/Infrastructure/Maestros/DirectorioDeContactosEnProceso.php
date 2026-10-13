@@ -8,11 +8,14 @@ use Core\Contracts\Mediator;
 use Core\Results\ResultWithValue;
 use Identidad\Application\Contracts\DirectorioDeContactos;
 use Maestros\Application\Contactos\BuscarPorCelular\BuscarPorCelular;
+use Maestros\Application\Contactos\EvaluarNumero\EvaluarNumero;
 use Maestros\Application\Contactos\ListarHabilitadas\ListarHabilitadas;
 use Maestros\Application\Contactos\ObtenerContexto\ContextoDeContacto;
 use Maestros\Application\Contactos\ObtenerContexto\ObtenerContexto;
+use Maestros\Domain\Contactos\AlcanceDeNumero;
 use Maestros\Domain\Contactos\Celular;
 use Maestros\Domain\Contactos\IdDePersona;
+use Maestros\Domain\Contactos\MotivoDeNoIngreso;
 
 final readonly class DirectorioDeContactosEnProceso implements DirectorioDeContactos
 {
@@ -48,6 +51,16 @@ final readonly class DirectorioDeContactosEnProceso implements DirectorioDeConta
         $personas = $resultado->value();
 
         return $personas;
+    }
+
+    public function motivoDeNoIngreso(Celular $celular): ?MotivoDeNoIngreso
+    {
+        $resultado = $this->mediator->send(new EvaluarNumero($celular));
+        assert($resultado instanceof ResultWithValue);
+        $alcance = $resultado->value();
+        assert($alcance instanceof AlcanceDeNumero);
+
+        return $alcance->motivo();
     }
 
     public function contexto(IdDePersona $id): ?ContextoDeContacto

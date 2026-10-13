@@ -10,9 +10,7 @@ use Identidad\Infrastructure\Whatsapp\EnviarDesafioJob;
 use Identidad\Presentation\Http\EcoDeCodigoDePrueba;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
-use Maestros\Application\Contactos\ObtenerContexto\ContextoDeContacto;
-use Maestros\Domain\Contactos\Celular;
-use Maestros\Domain\Contactos\IdDePersona;
+use Tests\Dobles\DirectorioQueCuentaConsultas;
 use Tests\Dobles\EnviadorEspia;
 
 uses(RefreshDatabase::class);
@@ -62,28 +60,7 @@ it('persiste el desafio para cualquier numero, registrado o no', function () {
 it('el handler no consulta el directorio', function () {
     Queue::fake();
 
-    $directorio = new class implements DirectorioDeContactos
-    {
-        public int $consultas = 0;
-
-        public function buscarPorCelular(Celular $celular): ?IdDePersona
-        {
-            $this->consultas++;
-
-            return null;
-        }
-
-        public function contexto(IdDePersona $id): ?ContextoDeContacto
-        {
-            return null;
-        }
-
-        /** @return list<IdDePersona> */
-        public function habilitadas(): array
-        {
-            return [];
-        }
-    };
+    $directorio = new DirectorioQueCuentaConsultas;
 
     $this->app->instance(DirectorioDeContactos::class, $directorio);
 

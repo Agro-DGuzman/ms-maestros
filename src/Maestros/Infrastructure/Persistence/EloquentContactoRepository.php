@@ -9,10 +9,12 @@ use Core\Contracts\EntityId;
 use Core\Domain\AggregateRoot;
 use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Maestros\Domain\Contactos\AlcanceDeNumero;
 use Maestros\Domain\Contactos\Celular;
 use Maestros\Domain\Contactos\ContactoRepository;
 use Maestros\Domain\Contactos\IdDePersona;
 use Maestros\Domain\Contactos\PersonaDeContacto;
+use Maestros\Domain\Grupos\IdDeGrupo;
 use Maestros\Domain\Socios\CodigoDeSocio;
 
 final class EloquentContactoRepository implements ContactoRepository
@@ -55,6 +57,25 @@ final class EloquentContactoRepository implements ContactoRepository
         $encontradas = $this->visibles()->where('c.celular', $celular->e164())->limit(2)->get();
 
         return $encontradas->count() === 1 ? $this->aDominio($encontradas->firstOrFail()) : null;
+    }
+
+    public function alcanceDeNumero(Celular $celular): AlcanceDeNumero
+    {
+        $filas = $this->visibles()
+            ->where('c.celular', $celular->e164())
+            ->select(['s.codigo_de_socio', 's.id_de_grupo'])
+            ->distinct()
+            ->orderBy('s.codigo_de_socio')
+            ->toBase()
+            ->get();
+
+        return AlcanceDeNumero::desde(array_values(array_map(
+            static fn (object $fila): array => [
+                'socio' => CodigoDeSocio::desde((string) $fila->codigo_de_socio),
+                'grupo' => is_string($fila->id_de_grupo) && $fila->id_de_grupo !== '' ? IdDeGrupo::desde($fila->id_de_grupo) : null,
+            ],
+            $filas->all(),
+        )));
     }
 
     public function visible(IdDePersona $id): ?PersonaDeContacto
