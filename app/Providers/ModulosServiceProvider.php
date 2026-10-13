@@ -46,7 +46,7 @@ use Maestros\Domain\Contactos\Celular;
 use Maestros\Domain\Contactos\ContactoRepository;
 use Maestros\Domain\Grupos\GrupoRepository;
 use Maestros\Domain\Socios\SocioRepository;
-use Maestros\Infrastructure\Alcance\ResolutorPorGrupo;
+use Maestros\Infrastructure\Alcance\ResolutorPorNumero;
 use Maestros\Infrastructure\Configuracion\ConfiguracionDesdeEntorno;
 use Maestros\Infrastructure\Importacion\ImportarMaestrosCommand;
 use Maestros\Infrastructure\Persistence\EloquentBuscadorDeContactos;
@@ -63,7 +63,7 @@ final class ModulosServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(SocioRepository::class, EloquentSocioRepository::class);
-        $this->app->bind(ResolutorDeAlcance::class, ResolutorPorGrupo::class);
+        $this->app->bind(ResolutorDeAlcance::class, ResolutorPorNumero::class);
         $this->app->bind(BuscadorDeContactos::class, EloquentBuscadorDeContactos::class);
         $this->app->bind(ContactoRepository::class, EloquentContactoRepository::class);
         $this->app->bind(GrupoRepository::class, EloquentGrupoRepository::class);

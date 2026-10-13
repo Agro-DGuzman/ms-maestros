@@ -10,14 +10,12 @@ use Maestros\Domain\Contactos\IdDePersona;
 use Maestros\Domain\Contactos\MotivoDeNoIngreso;
 
 /**
- * Las tres únicas preguntas que Identidad le hace a Maestros. Hoy se resuelven
+ * Las únicas preguntas que Identidad le hace a Maestros. Hoy se resuelven
  * en proceso; el día que se partan los servicios, el adaptador se reemplaza
  * por un cliente HTTP y nada más cambia.
  */
 interface DirectorioDeContactos
 {
-    public function buscarPorCelular(Celular $celular): ?IdDePersona;
-
     public function contexto(IdDePersona $id): ?ContextoDeContacto;
 
     /**

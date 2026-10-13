@@ -11,13 +11,6 @@ use Maestros\Domain\Socios\CodigoDeSocio;
 interface ContactoRepository extends Repository
 {
     /**
-     * La persona visible con ese celular, si es exactamente una. Ninguna, o
-     * dos o más (un celular en conflicto), es null: el celular es la
-     * credencial, y si lo comparten no hay forma de saber quién entra.
-     */
-    public function porCelular(Celular $celular): ?PersonaDeContacto;
-
-    /**
      * Guarda lo que vino de SAP sin tocar `habilitada_el`: la habilitación es
      * del back-office. Una persona nueva queda sin habilitar.
      */

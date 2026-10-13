@@ -18,13 +18,6 @@ final class DirectorioQueCuentaConsultas implements DirectorioDeContactos
 {
     public int $consultas = 0;
 
-    public function buscarPorCelular(Celular $celular): ?IdDePersona
-    {
-        $this->consultas++;
-
-        return null;
-    }
-
     public function contexto(IdDePersona $id): ?ContextoDeContacto
     {
         $this->consultas++;

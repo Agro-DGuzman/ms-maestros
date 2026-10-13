@@ -33,8 +33,6 @@ use Identidad\Application\Habilitacion\DeshabilitarPersona\DeshabilitarPersonaHa
 use Identidad\Application\Habilitacion\HabilitarPersona\HabilitarPersona;
 use Identidad\Application\Habilitacion\HabilitarPersona\HabilitarPersonaHandler;
 use Illuminate\Support\ServiceProvider;
-use Maestros\Application\Contactos\BuscarPorCelular\BuscarPorCelular;
-use Maestros\Application\Contactos\BuscarPorCelular\BuscarPorCelularHandler;
 use Maestros\Application\Contactos\EvaluarNumero\EvaluarNumero;
 use Maestros\Application\Contactos\EvaluarNumero\EvaluarNumeroHandler;
 use Maestros\Application\Contactos\ListarContactos\ListarContactos;
@@ -56,7 +54,6 @@ final class CoreServiceProvider extends ServiceProvider
 {
     /** @var array<class-string, class-string> */
     public const HANDLERS = [
-        BuscarPorCelular::class => BuscarPorCelularHandler::class,
         EvaluarNumero::class => EvaluarNumeroHandler::class,
         ActualizarEnlaces::class => ActualizarEnlacesHandler::class,
         CambiarEnlacesDeProducto::class => CambiarEnlacesDeProductoHandler::class,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Identidad\Infrastructure\Whatsapp;
 
+use Identidad\Application\Contracts\BovedaDeContrasenas;
 use Identidad\Application\Contracts\DirectorioDeContactos;
 use Identidad\Application\Contracts\EnviadorDeDesafio;
 use Illuminate\Bus\Queueable;
@@ -12,6 +13,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Maestros\Domain\Contactos\Celular;
+use Maestros\Domain\Contactos\IdDePersona;
 
 final class EnviarDesafioJob implements ShouldQueue
 {
@@ -28,13 +30,15 @@ final class EnviarDesafioJob implements ShouldQueue
         private readonly string $digitos,
     ) {}
 
-    public function handle(DirectorioDeContactos $directorio, EnviadorDeDesafio $enviador): void
+    public function handle(DirectorioDeContactos $directorio, BovedaDeContrasenas $boveda, EnviadorDeDesafio $enviador): void
     {
         $celular = Celular::desdeLocalBoliviano($this->celularE164);
+        $persona = IdDePersona::deCelular($celular);
 
-        // La búsqueda vive acá y no en el handler: es lo que hacía que el
-        // endpoint tardara distinto según si el número existía.
-        if ($directorio->buscarPorCelular($celular) === null) {
+        // La consulta vive acá y no en el handler: es lo que hacía que el
+        // endpoint tardara distinto según si el número existía. Solo recibe el
+        // código un número que puede entrar: habilitado y en un solo grupo.
+        if ($boveda->leer($persona) === null || $directorio->contexto($persona) === null) {
             return;
         }
 

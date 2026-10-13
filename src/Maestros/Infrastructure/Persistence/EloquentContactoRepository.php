@@ -51,14 +51,6 @@ final class EloquentContactoRepository implements ContactoRepository
         ContactoRecord::query()->updateOrCreate(['id_de_persona' => $persona->idDePersona()->value()], $fila);
     }
 
-    public function porCelular(Celular $celular): ?PersonaDeContacto
-    {
-        // Dos alcanzan para saber que no es una sola.
-        $encontradas = $this->visibles()->where('c.celular', $celular->e164())->limit(2)->get();
-
-        return $encontradas->count() === 1 ? $this->aDominio($encontradas->firstOrFail()) : null;
-    }
-
     public function alcanceDeNumero(Celular $celular): AlcanceDeNumero
     {
         $filas = $this->visibles()

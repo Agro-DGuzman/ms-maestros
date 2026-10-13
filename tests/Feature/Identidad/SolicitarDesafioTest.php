@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Identidad\Application\Contracts\BovedaDeContrasenas;
 use Identidad\Application\Contracts\DirectorioDeContactos;
 use Identidad\Application\Contracts\EnviadorDeDesafio;
 use Identidad\Domain\Desafios\DesafioRepository;
@@ -10,8 +11,10 @@ use Identidad\Infrastructure\Whatsapp\EnviarDesafioJob;
 use Identidad\Presentation\Http\EcoDeCodigoDePrueba;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
+use Maestros\Domain\Contactos\IdDePersona;
 use Tests\Dobles\DirectorioQueCuentaConsultas;
 use Tests\Dobles\EnviadorEspia;
+use Tests\Soporte\ReplicaDeEjemplo;
 
 uses(RefreshDatabase::class);
 
@@ -19,6 +22,8 @@ beforeEach(function () {
     $this->artisan('maestros:importar', ['archivo' => database_path('semillas/maestros-ejemplo.json')]);
     $this->enviador = new EnviadorEspia;
     $this->app->instance(EnviadorDeDesafio::class, $this->enviador);
+    // El código se envía solo a un número habilitado: Mónica lo está.
+    app(BovedaDeContrasenas::class)->guardar(IdDePersona::desde(ReplicaDeEjemplo::MONICA), 'la-contrasena');
 });
 
 it('responde igual para un numero registrado y uno que no lo esta', function () {

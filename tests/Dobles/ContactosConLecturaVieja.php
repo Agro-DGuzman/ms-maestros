@@ -49,11 +49,6 @@ final class ContactosConLecturaVieja implements ContactoRepository
         $this->real->replicar($persona);
     }
 
-    public function porCelular(Celular $celular): ?PersonaDeContacto
-    {
-        return $this->real->porCelular($celular);
-    }
-
     public function alcanceDeNumero(Celular $celular): AlcanceDeNumero
     {
         return $this->real->alcanceDeNumero($celular);

@@ -7,7 +7,6 @@ namespace Identidad\Infrastructure\Maestros;
 use Core\Contracts\Mediator;
 use Core\Results\ResultWithValue;
 use Identidad\Application\Contracts\DirectorioDeContactos;
-use Maestros\Application\Contactos\BuscarPorCelular\BuscarPorCelular;
 use Maestros\Application\Contactos\EvaluarNumero\EvaluarNumero;
 use Maestros\Application\Contactos\ListarHabilitadas\ListarHabilitadas;
 use Maestros\Application\Contactos\ObtenerContexto\ContextoDeContacto;
@@ -20,21 +19,6 @@ use Maestros\Domain\Contactos\MotivoDeNoIngreso;
 final readonly class DirectorioDeContactosEnProceso implements DirectorioDeContactos
 {
     public function __construct(private Mediator $mediator) {}
-
-    public function buscarPorCelular(Celular $celular): ?IdDePersona
-    {
-        $resultado = $this->mediator->send(new BuscarPorCelular($celular));
-
-        if ($resultado->isFailure()) {
-            return null;
-        }
-
-        assert($resultado instanceof ResultWithValue);
-        $persona = $resultado->value();
-        assert($persona instanceof IdDePersona);
-
-        return $persona;
-    }
 
     /** @return list<IdDePersona> */
     public function habilitadas(): array

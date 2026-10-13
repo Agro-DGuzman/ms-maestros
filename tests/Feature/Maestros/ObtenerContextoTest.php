@@ -4,67 +4,72 @@ declare(strict_types=1);
 
 use Core\Contracts\Mediator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Maestros\Application\Contactos\BuscarPorCelular\BuscarPorCelular;
-use Maestros\Application\Contactos\ObtenerContexto\ContextoDeContacto;
 use Maestros\Application\Contactos\ObtenerContexto\ObtenerContexto;
-use Maestros\Domain\Contactos\Celular;
 use Maestros\Domain\Contactos\IdDePersona;
 use Tests\Soporte\PropiedadesDeEjemplo;
+use Tests\Soporte\ReplicaDeEjemplo;
 
 uses(RefreshDatabase::class);
 
+// La persona es su número. Mónica (+59170741828) es contacto solo de C-004871,
+// del grupo GRP-014: ve ese socio y ninguno más del grupo.
 beforeEach(function () {
     $this->artisan('maestros:importar', ['archivo' => database_path('semillas/maestros-ejemplo.json')]);
+    $this->contexto = fn (string $id) => app(Mediator::class)->send(new ObtenerContexto(IdDePersona::desde($id)));
 });
 
-it('arma el contexto con la persona, su grupo y todos los socios del grupo', function () {
-    $resultado = app(Mediator::class)->send(new ObtenerContexto(IdDePersona::desde('p-8f2b1c40')));
+it('Monica ve solo su socio y el nombre de su grupo', function () {
+    $contexto = ($this->contexto)(ReplicaDeEjemplo::MONICA)->value();
 
-    expect($resultado->isSuccess)->toBeTrue();
-
-    $contexto = $resultado->value();
-    expect($contexto)->toBeInstanceOf(ContextoDeContacto::class)
-        ->and($contexto->nombre)->toBe('Monica Salvatierra')
-        ->and($contexto->iniciales)->toBe('MS')
+    expect($contexto->nombre)->toBe('Grupo Monasterio')
+        ->and($contexto->iniciales)->toBe('GM')
         ->and($contexto->celular)->toBe('+591 707 41 828')
         ->and($contexto->grupoId)->toBe('GRP-014')
         ->and($contexto->grupoNombre)->toBe('Grupo Monasterio')
-        ->and($contexto->socios)->toHaveCount(3)
-        ->and($contexto->socios[0]['cardCode'])->toBe('C-004871')
+        ->and(array_column($contexto->socios, 'cardCode'))->toBe(['C-004871'])
         ->and($contexto->socios[0]['iniciales'])->toBe('SM')
         ->and($contexto->socios[0]['cantidadPropiedades'])->toBe(0);
 });
 
-it('cuenta las propiedades activas de cada socio del grupo', function () {
-    // C-004871 tiene una tercera dada de baja, y la de C-005210 es de otro
-    // grupo: ninguna de las dos cuenta.
-    PropiedadesDeEjemplo::sembrar();
+it('el mismo numero en otro socio del grupo suma ese socio', function () {
+    ReplicaDeEjemplo::otroContactoCon('+59170741828', 'p-9999', cardCode: 'C-004872');
 
-    $contexto = app(Mediator::class)->send(new ObtenerContexto(IdDePersona::desde('p-8f2b1c40')))->value();
+    expect(array_column(($this->contexto)(ReplicaDeEjemplo::MONICA)->value()->socios, 'cardCode'))
+        ->toBe(['C-004871', 'C-004872']);
+});
+
+it('cuenta las propiedades activas de cada socio del numero', function () {
+    // C-004871 tiene una tercera dada de baja, que no cuenta.
+    PropiedadesDeEjemplo::sembrar();
+    ReplicaDeEjemplo::otroContactoCon('+59170741828', 'p-9999', cardCode: 'C-004872');
+
+    $contexto = ($this->contexto)(ReplicaDeEjemplo::MONICA)->value();
 
     expect(array_column($contexto->socios, 'cantidadPropiedades', 'cardCode'))
-        ->toBe(['C-004871' => 2, 'C-004872' => 1, 'C-004873' => 0]);
+        ->toBe(['C-004871' => 2, 'C-004872' => 1]);
 });
 
-it('falla con NOT_FOUND si la persona no existe', function () {
-    $resultado = app(Mediator::class)->send(new ObtenerContexto(IdDePersona::desde('p-nadie')));
+it('un numero en dos grupos no tiene contexto', function () {
+    ReplicaDeEjemplo::otroContactoCon('+59170741828');
 
-    expect($resultado->isFailure())->toBeTrue()
-        ->and($resultado->error->code)->toBe('CONTACTO_NO_ENCONTRADO');
+    expect(($this->contexto)(ReplicaDeEjemplo::MONICA)->error->code)->toBe('CONTACTO_NO_ENCONTRADO');
 });
 
-it('resuelve la persona a partir del celular', function () {
-    $resultado = app(Mediator::class)->send(
-        new BuscarPorCelular(Celular::desdeLocalBoliviano('70741828')),
-    );
+it('un grupo que no esta en la replica da el nombre vacio', function () {
+    ReplicaDeEjemplo::aGrupo('C-004871', 'GRP-099');
 
-    expect($resultado->value()->value())->toBe('p-8f2b1c40');
+    $contexto = ($this->contexto)(ReplicaDeEjemplo::MONICA)->value();
+
+    expect($contexto->nombre)->toBe('')
+        ->and($contexto->iniciales)->toBe('')
+        ->and($contexto->grupoId)->toBe('GRP-099')
+        ->and(array_column($contexto->socios, 'cardCode'))->toBe(['C-004871']);
 });
 
-it('no encuentra persona para un celular desconocido', function () {
-    $resultado = app(Mediator::class)->send(
-        new BuscarPorCelular(Celular::desdeLocalBoliviano('79999999')),
-    );
+it('un id por contacto no tiene contexto', function () {
+    expect(($this->contexto)('p-8f2b1c40')->error->code)->toBe('CONTACTO_NO_ENCONTRADO');
+});
 
-    expect($resultado->isFailure())->toBeTrue();
+it('un numero que no es de nadie no tiene contexto', function () {
+    expect(($this->contexto)('n-59179999999')->error->code)->toBe('CONTACTO_NO_ENCONTRADO');
 });

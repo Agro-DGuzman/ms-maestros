@@ -22,6 +22,12 @@ final class ReplicaDeEjemplo
         self::socio($cardCode, ['id_de_grupo' => null]);
     }
 
+    /** El socio pasa a otro grupo, exista o no la fila del grupo en la réplica. */
+    public static function aGrupo(string $cardCode, string $grupo): void
+    {
+        self::socio($cardCode, ['id_de_grupo' => $grupo]);
+    }
+
     public static function socioInactivo(string $cardCode): void
     {
         self::socio($cardCode, ['activo' => false]);
