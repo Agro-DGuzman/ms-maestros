@@ -27,7 +27,10 @@ final class MigrarANumerosCommand extends Command
 
     public function handle(BovedaDeContrasenas $boveda, ContactoRepository $contactos, Mediator $mediator): int
     {
+        // Corre una sola vez en Azure: lo que falle tiene que verse en la
+        // salida y en el código de salida, no solo en una línea entre otras.
         $migradas = 0;
+        $conError = 0;
 
         foreach ($boveda->personas() as $vieja) {
             if ($vieja->celular() !== null) {
@@ -44,6 +47,7 @@ final class MigrarANumerosCommand extends Command
 
             if ($celular === null) {
                 $this->warn("{$vieja->value()}: sin contacto o sin celular válido, no se toca.");
+                $conError++;
 
                 continue;
             }
@@ -54,16 +58,28 @@ final class MigrarANumerosCommand extends Command
             // La vieja se deshabilita aunque habilitar el número haya fallado:
             // después del despliegue ese id ya no sirve para entrar, y dejarla
             // activa es una credencial que nadie controla.
-            $mediator->send(new DeshabilitarPersona($vieja));
-            $migradas++;
+            $deshabilitada = $mediator->send(new DeshabilitarPersona($vieja));
 
-            $this->line($habilitado->isSuccess
-                ? "{$vieja->value()} → {$numero->value()}"
-                : "{$vieja->value()} → {$numero->value()} no se pudo habilitar: [{$habilitado->error->code}] {$habilitado->error->description}");
+            if ($habilitado->isFailure()) {
+                $this->error("{$vieja->value()} → {$numero->value()}: no se pudo habilitar el número: [{$habilitado->error->code}] {$habilitado->error->description}");
+            }
+
+            if ($deshabilitada->isFailure()) {
+                $this->error("{$vieja->value()}: no se pudo deshabilitar el id viejo: [{$deshabilitada->error->code}] {$deshabilitada->error->description}");
+            }
+
+            if ($habilitado->isFailure() || $deshabilitada->isFailure()) {
+                $conError++;
+
+                continue;
+            }
+
+            $migradas++;
+            $this->line("{$vieja->value()} → {$numero->value()}");
         }
 
-        $this->info("Migradas {$migradas}.");
+        $this->info("Migradas {$migradas}, con error {$conError}.");
 
-        return self::SUCCESS;
+        return $conError === 0 ? self::SUCCESS : self::FAILURE;
     }
 }

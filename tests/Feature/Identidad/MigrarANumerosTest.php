@@ -57,9 +57,32 @@ it('una segunda corrida no hace nada', function () {
 it('un contacto sin celular valido se informa y no se toca', function () {
     ContactoRecord::query()->where('id_de_persona', 'p-8f2b1c40')->update(['celular' => null]);
 
+    // Queda una credencial por contacto: la migración no terminó, y lo dice.
     $this->artisan('identidad:migrar-a-numeros')
         ->expectsOutputToContain('p-8f2b1c40')
-        ->expectsOutputToContain('Migradas 0');
+        ->expectsOutputToContain('Migradas 0, con error 1')
+        ->assertExitCode(1);
 
     expect(app(BovedaDeContrasenas::class)->leer(IdDePersona::desde('p-8f2b1c40')))->not->toBeNull();
+});
+
+it('si no puede habilitar el numero lo informa y sale con error', function () {
+    // El número quedó en dos grupos: no se puede habilitar. La vieja se
+    // deshabilita igual, pero eso no es una migración hecha.
+    ReplicaDeEjemplo::otroContactoCon('+59170741828');
+
+    $this->artisan('identidad:migrar-a-numeros')
+        ->expectsOutputToContain('NUMERO_EN_VARIOS_GRUPOS')
+        ->expectsOutputToContain('Migradas 0, con error 1')
+        ->assertExitCode(1);
+
+    expect($this->directorio->estaActivo(IdDePersona::desde('p-8f2b1c40')))->toBeFalse();
+});
+
+it('si el directorio no responde sale con error', function () {
+    $this->directorio->caido = true;
+
+    $this->artisan('identidad:migrar-a-numeros')
+        ->expectsOutputToContain('Migradas 0, con error 1')
+        ->assertExitCode(1);
 });
