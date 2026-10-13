@@ -58,4 +58,17 @@ final class DirectorioFalso implements DirectorioDeIdentidades
     {
         return $this->activos[$persona->value()] ?? false;
     }
+
+    /** @return list<IdDePersona>|null */
+    public function activos(): ?array
+    {
+        if ($this->caido) {
+            return null;
+        }
+
+        return array_values(array_map(
+            static fn (string $id): IdDePersona => IdDePersona::desde($id),
+            array_keys(array_filter($this->activos)),
+        ));
+    }
 }

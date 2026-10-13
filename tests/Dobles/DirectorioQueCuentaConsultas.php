@@ -31,12 +31,4 @@ final class DirectorioQueCuentaConsultas implements DirectorioDeContactos
 
         return MotivoDeNoIngreso::SinContactos;
     }
-
-    /** @return list<IdDePersona> */
-    public function habilitadas(): array
-    {
-        $this->consultas++;
-
-        return [];
-    }
 }

@@ -23,13 +23,4 @@ interface DirectorioDeContactos
      * la habilitación para decirle al operador qué corregir en SAP.
      */
     public function motivoDeNoIngreso(Celular $celular): ?MotivoDeNoIngreso;
-
-    /**
-     * Las personas a las que Agropartners ya les concedió acceso. La necesita
-     * la conciliación, y va acá y no por SQL para que no haya una sola
-     * consulta que cruce de un esquema al otro.
-     *
-     * @return list<IdDePersona>
-     */
-    public function habilitadas(): array;
 }

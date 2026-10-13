@@ -59,11 +59,6 @@ final class ContactosConLecturaVieja implements ContactoRepository
         return $this->real->visible($id);
     }
 
-    public function habilitadas(): array
-    {
-        return $this->real->habilitadas();
-    }
-
     public function darDeBajaLosQueNoVinieron(CodigoDeSocio $socio, array $vistos, DateTimeImmutable $momento): void
     {
         $this->real->darDeBajaLosQueNoVinieron($socio, $vistos, $momento);

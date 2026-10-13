@@ -25,9 +25,6 @@ interface ContactoRepository extends Repository
     /** Activa, sin baja y de un socio visible: lo único que cuenta para la App. */
     public function visible(IdDePersona $id): ?PersonaDeContacto;
 
-    /** @return list<PersonaDeContacto> */
-    public function habilitadas(): array;
-
     /**
      * Los contactos del socio que no vinieron en la última entrega ya no están
      * en SAP. Va aparte de `save()` porque una réplica que no retrocede omite

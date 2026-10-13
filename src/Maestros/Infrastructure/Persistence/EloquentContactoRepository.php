@@ -98,19 +98,6 @@ final class EloquentContactoRepository implements ContactoRepository
         return $consulta;
     }
 
-    /** @return list<PersonaDeContacto> */
-    public function habilitadas(): array
-    {
-        return array_values(
-            ContactoRecord::query()
-                ->whereNotNull('habilitada_el')
-                ->orderBy('id_de_persona')
-                ->get()
-                ->map(fn (ContactoRecord $r): PersonaDeContacto => $this->aDominio($r))
-                ->all(),
-        );
-    }
-
     /** @param list<IdDePersona> $vistos */
     public function darDeBajaLosQueNoVinieron(CodigoDeSocio $socio, array $vistos, DateTimeImmutable $momento): void
     {
