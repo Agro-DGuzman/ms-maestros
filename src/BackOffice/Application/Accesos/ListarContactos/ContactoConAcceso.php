@@ -7,12 +7,8 @@ namespace BackOffice\Application\Accesos\ListarContactos;
 use Maestros\Application\Contactos\ContactoDeBackOffice;
 
 /**
- * Una fila de la pantalla, con las dos verdades separadas.
- *
- * `$replica->estaHabilitada` es lo que dice SAP; `$tieneCredencial` es si esta
- * persona puede entrar hoy. Divergen, y mostrarlas como una sola cosa fue lo
- * que hacía que el interruptor no respondiera al operador: él actúa sobre la
- * segunda y la pantalla leía la primera.
+ * Una fila de la pantalla: un contacto de SAP y si su número tiene acceso.
+ * Varias filas con el mismo número son la misma persona, y comparten acceso.
  */
 final readonly class ContactoConAcceso
 {
@@ -21,15 +17,21 @@ final readonly class ContactoConAcceso
         public bool $tieneCredencial,
     ) {}
 
-    /** SAP la marca habilitada pero nunca le dimos acceso. */
-    public function faltaDarleAcceso(): bool
+    /**
+     * El acceso es del número: se ofrece solo si ese número puede entrar hoy.
+     * Una fila dada de baja lo ofrece igual si otro contacto con el mismo
+     * número sigue en SAP, porque es la misma persona.
+     */
+    public function puedeDarAcceso(): bool
     {
-        return $this->replica->estaHabilitada && ! $this->tieneCredencial;
+        return $this->replica->personaDelNumero !== null
+            && ! $this->tieneCredencial
+            && $this->replica->alcanceDelNumero?->entra() === true;
     }
 
-    /** Puede entrar, pero SAP ya no la marca habilitada. */
-    public function conservaAccesoSinRespaldo(): bool
+    /** Tiene acceso pero hoy no puede entrar: hay algo que corregir en SAP o quitarle. */
+    public function conservaAccesoSinPoderEntrar(): bool
     {
-        return $this->tieneCredencial && ! $this->replica->estaHabilitada;
+        return $this->tieneCredencial && $this->replica->alcanceDelNumero?->entra() !== true;
     }
 }

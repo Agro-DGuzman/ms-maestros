@@ -111,7 +111,7 @@ Habilitar a la persona de la semilla y recorrer los tres endpoints:
 
 ```sh
 az containerapp exec --name <app> --resource-group <grupo> \
-  --command "php artisan identidad:habilitar p-8f2b1c40"
+  --command "php artisan identidad:habilitar 70741828"
 ```
 
 Después, contra `urlDeLaApp`: `POST /v1/auth/otp` con

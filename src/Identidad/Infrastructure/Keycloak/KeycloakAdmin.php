@@ -105,6 +105,43 @@ final readonly class KeycloakAdmin implements DirectorioDeIdentidades
         return ($this->fila($token, $persona)['enabled'] ?? false) === true;
     }
 
+    /** @return list<IdDePersona>|null */
+    public function activos(): ?array
+    {
+        $token = $this->tokenDeServicio();
+
+        if ($token === null) {
+            return null;
+        }
+
+        try {
+            // Una página alcanza para el piloto. El realm también tiene la
+            // cuenta de servicio del cliente: solo cuentan los ids de persona.
+            $respuesta = $this->http->withToken($token)->timeout($this->timeout)
+                ->get($this->admin('users'), ['enabled' => 'true', 'briefRepresentation' => 'true', 'max' => 1000]);
+        } catch (ConnectionException) {
+            return null;
+        }
+
+        $usuarios = $respuesta->json();
+
+        if (! $respuesta->successful() || ! is_array($usuarios)) {
+            return null;
+        }
+
+        $personas = [];
+
+        foreach ($usuarios as $usuario) {
+            $nombre = is_array($usuario) ? ($usuario['username'] ?? null) : null;
+
+            if (is_string($nombre) && preg_match('/^[np]-/', $nombre) === 1) {
+                $personas[] = IdDePersona::desde($nombre);
+            }
+        }
+
+        return $personas;
+    }
+
     private function buscar(string $token, IdDePersona $persona): ?string
     {
         $id = $this->fila($token, $persona)['id'] ?? null;

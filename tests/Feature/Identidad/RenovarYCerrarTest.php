@@ -24,9 +24,9 @@ beforeEach(function () {
     $this->enviador = new EnviadorQueRecuerda;
     $this->app->instance(EmisorDeToken::class, $this->emisor);
     $this->app->instance(EnviadorDeDesafio::class, $this->enviador);
-    $this->app->instance(VerificadorDeToken::class, new VerificadorFalso('p-8f2b1c40'));
+    $this->app->instance(VerificadorDeToken::class, new VerificadorFalso(ReplicaDeEjemplo::MONICA));
 
-    app(BovedaDeContrasenas::class)->guardar(IdDePersona::desde('p-8f2b1c40'), 'la-contrasena');
+    app(BovedaDeContrasenas::class)->guardar(IdDePersona::desde(ReplicaDeEjemplo::MONICA), 'la-contrasena');
 
     $id = (string) $this->postJson('/v1/auth/otp', ['telefono' => '70741828'])->json('data.otpId');
     $this->login = $this->postJson('/v1/auth/login', [
@@ -62,7 +62,7 @@ it('cierra la sesion y deja de renovar', function () {
         ->assertStatus(200)
         ->assertJsonPath('data.sesionCerrada', true);
 
-    expect(app(SesionRepository::class)->abiertasDe(IdDePersona::desde('p-8f2b1c40')))->toBe([]);
+    expect(app(SesionRepository::class)->abiertasDe(IdDePersona::desde(ReplicaDeEjemplo::MONICA)))->toBe([]);
 
     $this->postJson('/v1/auth/refresh', ['refreshToken' => $refresh])->assertStatus(401);
 });
@@ -83,7 +83,7 @@ it('sin token no cierra nada', function () {
         ->assertStatus(401)
         ->assertJsonPath('error.code', ['TOKEN_INVALIDO']);
 
-    expect(app(SesionRepository::class)->abiertasDe(IdDePersona::desde('p-8f2b1c40')))->toHaveCount(1);
+    expect(app(SesionRepository::class)->abiertasDe(IdDePersona::desde(ReplicaDeEjemplo::MONICA)))->toHaveCount(1);
 });
 
 it('cierra la sesion por su instalacion, sin el refresh token', function () {
@@ -93,7 +93,7 @@ it('cierra la sesion por su instalacion, sin el refresh token', function () {
         ->assertStatus(200)
         ->assertJsonPath('data.sesionCerrada', true);
 
-    expect(app(SesionRepository::class)->abiertasDe(IdDePersona::desde('p-8f2b1c40')))->toBe([]);
+    expect(app(SesionRepository::class)->abiertasDe(IdDePersona::desde(ReplicaDeEjemplo::MONICA)))->toBe([]);
 });
 
 it('con el token de una persona no cierra la sesion de otra', function () {
@@ -104,7 +104,7 @@ it('con el token de una persona no cierra la sesion de otra', function () {
         ->assertStatus(200)
         ->assertJsonPath('data.sesionCerrada', false);
 
-    expect(app(SesionRepository::class)->abiertasDe(IdDePersona::desde('p-8f2b1c40')))->toHaveCount(1);
+    expect(app(SesionRepository::class)->abiertasDe(IdDePersona::desde(ReplicaDeEjemplo::MONICA)))->toHaveCount(1);
 });
 
 it('renovar con la persona dada de baja en SAP responde REFRESH_TOKEN_INVALIDO y cierra la sesion', function () {
@@ -121,4 +121,13 @@ it('renovar con la persona dada de baja en SAP responde REFRESH_TOKEN_INVALIDO y
     ContactoRecord::query()->where('id_de_persona', 'p-8f2b1c40')->update(['dado_de_baja_el' => null]);
 
     $this->postJson('/v1/auth/refresh', ['refreshToken' => $refresh])->assertStatus(401);
+});
+
+it('si el numero pasa a estar en dos grupos no renueva', function () {
+    $refresh = $this->login->json('data.tokens.refreshToken');
+    ReplicaDeEjemplo::otroContactoCon('+59170741828');
+
+    $this->postJson('/v1/auth/refresh', ['refreshToken' => $refresh])
+        ->assertStatus(401)
+        ->assertJsonPath('error.code', ['REFRESH_TOKEN_INVALIDO']);
 });

@@ -91,6 +91,6 @@ it('no cierra sesiones si el directorio falla', function () {
         ->and(app(SesionRepository::class)->abiertasDe($persona))->toHaveCount(1);
 });
 
-it('el comando devuelve 0 al deshabilitar', function () {
-    $this->artisan('identidad:deshabilitar', ['persona' => 'p-8f2b1c40'])->assertExitCode(0);
+it('el comando recibe el celular y devuelve 0 al deshabilitar', function () {
+    $this->artisan('identidad:deshabilitar', ['celular' => '70741828'])->assertExitCode(0);
 });

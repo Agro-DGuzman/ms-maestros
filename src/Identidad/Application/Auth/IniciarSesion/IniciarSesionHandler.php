@@ -6,7 +6,6 @@ namespace Identidad\Application\Auth\IniciarSesion;
 
 use Core\Contracts\Request;
 use Core\Contracts\RequestHandler;
-use Core\Results\Error;
 use Core\Results\Result;
 use Core\Results\ResultWithValue;
 use Identidad\Application\Contracts\BovedaDeContrasenas;
@@ -23,7 +22,7 @@ use Identidad\Domain\Dispositivos\Plataforma;
 use Identidad\Domain\Sesiones\IdDeSesion;
 use Identidad\Domain\Sesiones\SesionDeAplicacion;
 use Identidad\Domain\Sesiones\SesionRepository;
-use Maestros\Domain\Contactos\ContactoErrors;
+use Maestros\Domain\Contactos\IdDePersona;
 
 final readonly class IniciarSesionHandler implements RequestHandler
 {
@@ -56,24 +55,16 @@ final readonly class IniciarSesionHandler implements RequestHandler
             return ResultWithValue::failure($resuelto->error);
         }
 
-        $persona = $this->directorio->buscarPorCelular($desafio->celular());
-
-        // Un desafío emitido para un número que no es de nadie: mismo error
-        // que un código equivocado, para no distinguir un caso del otro.
-        // Desde que /auth/otp emite para cualquier número, este caso existe.
-        if ($persona === null) {
-            return ResultWithValue::failure(DesafioErrors::codigoInvalido());
-        }
-
+        // La persona es el número. Uno que no entra (no habilitado, en dos
+        // grupos, de nadie) responde lo mismo que un código equivocado, para no
+        // distinguir un caso del otro. El contexto se pide antes de abrir la
+        // sesión, para no dejar abierta una que no sirve.
+        $persona = IdDePersona::deCelular($desafio->celular());
+        $contexto = $this->directorio->contexto($persona);
         $contrasena = $this->boveda->leer($persona);
 
-        // Acá sí es un problema nuestro: la persona existe pero no tiene
-        // credencial en el proveedor de identidad.
-        if ($contrasena === null) {
-            return ResultWithValue::failure(Error::problem(
-                'IDENTIDAD_NO_DISPONIBLE',
-                'La persona no tiene credencial en el proveedor de identidad',
-            ));
+        if ($contexto === null || $contrasena === null) {
+            return ResultWithValue::failure(DesafioErrors::codigoInvalido());
         }
 
         $token = $this->emisor->emitirPara($persona, $contrasena);
@@ -100,14 +91,6 @@ final readonly class IniciarSesionHandler implements RequestHandler
 
         $sesion->asociarRefresh($emitido->refreshToken);
         $this->sesiones->save($sesion);
-
-        $contexto = $this->directorio->contexto($persona);
-
-        if ($contexto === null) {
-            return ResultWithValue::failure(
-                ContactoErrors::noEncontrado($persona->value()),
-            );
-        }
 
         return ResultWithValue::of([
             'token' => $emitido,

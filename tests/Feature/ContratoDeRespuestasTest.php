@@ -16,6 +16,7 @@ use Tests\Dobles\VerificadorFalso;
 use Tests\Soporte\CatalogoDeEjemplo;
 use Tests\Soporte\Contrato;
 use Tests\Soporte\PropiedadesDeEjemplo;
+use Tests\Soporte\ReplicaDeEjemplo;
 
 /*
  * Cada respuesta que la App puede recibir, contra el esquema que el contrato
@@ -31,9 +32,10 @@ beforeEach(function () {
     $this->enviador = new EnviadorQueRecuerda;
     $this->app->instance(EmisorDeToken::class, new EmisorFalso);
     $this->app->instance(EnviadorDeDesafio::class, $this->enviador);
-    $this->app->instance(VerificadorDeToken::class, new VerificadorFalso('p-8f2b1c40'));
+    $this->app->instance(VerificadorDeToken::class, new VerificadorFalso(ReplicaDeEjemplo::MONICA));
 
-    app(BovedaDeContrasenas::class)->guardar(IdDePersona::desde('p-8f2b1c40'), 'la-contrasena');
+    app(BovedaDeContrasenas::class)->guardar(IdDePersona::desde(ReplicaDeEjemplo::MONICA), 'la-contrasena');
+    ReplicaDeEjemplo::otroContactoCon('+59170741828', 'p-9999', cardCode: 'C-004873');
 });
 
 const CON_TOKEN = ['Authorization' => 'Bearer token-bueno'];
@@ -163,6 +165,7 @@ it('las propiedades del socio', function (string $url, array $cabeceras, int $st
     expect(Contrato::diferencias($respuesta, 'GET', '/socios/{cardCode}/propiedades'))->toBe([]);
 })->with([
     'con propiedades' => ['/socios/C-004871/propiedades', CON_TOKEN, 200],
+    // C-004873 no tiene propiedades; Mónica también es contacto ahí (beforeEach).
     'sin propiedades' => ['/socios/C-004873/propiedades', CON_TOKEN, 200],
     'socio ajeno' => ['/socios/C-005210/propiedades', CON_TOKEN, 403],
     'sin token' => ['/socios/C-004871/propiedades', [], 401],

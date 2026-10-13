@@ -5,7 +5,6 @@ declare(strict_types=1);
 use Core\Contracts\Mediator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Maestros\Application\Contactos\CriterioDeBusqueda;
-use Maestros\Application\Contactos\FiltroDeEstado;
 use Maestros\Application\Contactos\ListarContactos\ListarContactos;
 use Maestros\Application\Contactos\PaginaDeContactos;
 use Maestros\Domain\Contactos\Celular;
@@ -70,10 +69,10 @@ beforeEach(function () {
     ));
 });
 
-function listar(?string $texto, FiltroDeEstado $estado, int $pagina = 1, int $tamano = 25): PaginaDeContactos
+function listar(?string $texto, int $pagina = 1, int $tamano = 25): PaginaDeContactos
 {
     $resultado = app(Mediator::class)->send(
-        new ListarContactos(CriterioDeBusqueda::de($texto, $estado, $pagina, $tamano)),
+        new ListarContactos(CriterioDeBusqueda::de($texto, $pagina, $tamano)),
     );
 
     expect($resultado->isSuccess)->toBeTrue();
@@ -82,41 +81,31 @@ function listar(?string $texto, FiltroDeEstado $estado, int $pagina = 1, int $ta
 }
 
 it('sin filtros devuelve todas con el total', function () {
-    $pagina = listar(null, FiltroDeEstado::Todas);
+    $pagina = listar(null);
 
     expect($pagina->total)->toBe(3)->and($pagina->items)->toHaveCount(3);
 });
 
-it('filtra por estado de habilitacion', function () {
-    $habilitadas = listar(null, FiltroDeEstado::Habilitadas);
-    $noHabilitadas = listar(null, FiltroDeEstado::NoHabilitadas);
-
-    expect($habilitadas->total)->toBe(1)
-        ->and($habilitadas->items[0]->idDePersona)->toBe('p-001')
-        ->and($habilitadas->items[0]->estaHabilitada)->toBeTrue()
-        ->and($noHabilitadas->total)->toBe(2);
-});
-
 it('busca por nombre de la persona sin importar mayusculas', function () {
-    $pagina = listar('salvatierra', FiltroDeEstado::Todas);
+    $pagina = listar('salvatierra');
 
     expect($pagina->total)->toBe(1)->and($pagina->items[0]->idDePersona)->toBe('p-001');
 });
 
 it('busca por razon social del socio', function () {
-    $pagina = listar('Agricola', FiltroDeEstado::Todas);
+    $pagina = listar('Agricola');
 
     expect($pagina->total)->toBe(1)->and($pagina->items[0]->idDePersona)->toBe('p-002');
 });
 
 it('busca por el celular normalizado', function () {
-    $pagina = listar('70741828', FiltroDeEstado::Todas);
+    $pagina = listar('70741828');
 
     expect($pagina->total)->toBe(1)->and($pagina->items[0]->idDePersona)->toBe('p-001');
 });
 
 it('trae el socio y el grupo economico de cada fila', function () {
-    $fila = listar('salvatierra', FiltroDeEstado::Todas)->items[0];
+    $fila = listar('salvatierra')->items[0];
 
     expect($fila->cardCode)->toBe('C-004871')
         ->and($fila->razonSocial)->toBe('Sebastian Monasterio')
@@ -124,19 +113,19 @@ it('trae el socio y el grupo economico de cada fila', function () {
 });
 
 it('deriva las iniciales en vez de leerlas de una columna', function () {
-    expect(listar('salvatierra', FiltroDeEstado::Todas)->items[0]->iniciales)->toBe('MS');
+    expect(listar('salvatierra')->items[0]->iniciales)->toBe('MS');
 });
 
 it('un socio sin grupo conocido no rompe la fila', function () {
-    $fila = listar('Agricola', FiltroDeEstado::Todas)->items[0];
+    $fila = listar('Agricola')->items[0];
 
     expect($fila->grupoEconomico)->toBeNull()
         ->and($fila->razonSocial)->toBe('Agricola del Este');
 });
 
 it('pagina los resultados conservando el total', function () {
-    $primera = listar(null, FiltroDeEstado::Todas, 1, 2);
-    $segunda = listar(null, FiltroDeEstado::Todas, 2, 2);
+    $primera = listar(null, 1, 2);
+    $segunda = listar(null, 2, 2);
 
     expect($primera->items)->toHaveCount(2)
         ->and($segunda->items)->toHaveCount(1)
@@ -145,7 +134,7 @@ it('pagina los resultados conservando el total', function () {
 });
 
 it('el celular replicado se reporta como valido', function () {
-    $fila = listar('salvatierra', FiltroDeEstado::Todas)->items[0];
+    $fila = listar('salvatierra')->items[0];
 
     expect($fila->celular)->toBe('+59170741828')
         ->and($fila->celularEsValido)->toBeTrue();

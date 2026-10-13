@@ -162,17 +162,16 @@ la línea siguiente ya dice, sobra.
     claves) → `Idempotency-Key` (400). La idempotencia es por la terna clave,
     método y ruta, porque el Sincronizador reintenta un `POST` que dio 409 como
     `PUT` con la misma clave; las 5xx no se guardan.
-  - **El contacto de SAP es la persona `p-{CntctCode}`**, y la ingesta **nunca
-    escribe `habilitada_el`**: la habilitación la decide el back-office.
+  - **El contacto de SAP es la fila `p-{CntctCode}` de la réplica**, no una
+    persona: la persona es su número (ver abajo). La ingesta **nunca escribe
+    nada de habilitación**.
   - **Visible** es la palabra de la que cuelga todo: socio activo y sin baja;
     contacto activo, sin baja y de un socio visible. Lo no visible no se
     alcanza (403), no tiene contexto, no puede ingresar y no puede renovar la
     sesión, así que una baja en SAP corta todo en lo que dura el token. La
     definición en SQL vive en `Maestros\Infrastructure\Persistence\Visibilidad`.
-  - **Un socio sin grupo se ve solo a sí mismo** (D12: un grupo de uno).
-  - **Un celular que comparten dos contactos visibles está en conflicto:** se
-    acepta, nadie puede ingresar con él y el back-office lo marca. Falla cerrado
-    solo para ese número.
+  - **Un socio sin grupo no aparece en la App para nadie** (D12): no suma
+    socios ni bloquea.
   - **La baja es lógica** y fija la vigencia en su momento, así un envío leído en
     SAP antes de la baja no resucita al socio.
   - Las peticiones de la ingesta son `EscrituraDeMaquina`: no hay persona y no
@@ -180,6 +179,24 @@ la línea siguiente ya dice, sobra.
     lleven el marcador.
   - **Las migraciones que cambian la réplica van antes del push**, igual que las
     de propiedades.
+- **La persona es el número** (`docs/superpowers/specs/2026-10-13-persona-por-numero-design.md`).
+  Se habilita un celular, y todos los contactos visibles de SAP con ese número
+  son la misma persona. Su id es `n-` y el E.164 sin el `+`
+  (`IdDePersona::deCelular`): ese es el usuario de Keycloak, el
+  `preferred_username`, la credencial, las sesiones y la bitácora.
+  - **Ve exactamente los socios donde su número es contacto**; el grupo no
+    suma socios. El acceso sigue a SAP: si lo cargan en otro socio, lo ve.
+  - **Entra solo si esos socios son de un mismo grupo económico**, sin contar
+    los socios sin grupo. Dos grupos o solo socios sin grupo no entran, y el
+    back-office lo marca. La regla vive en una sola clase,
+    `Maestros\Domain\Contactos\AlcanceDeNumero`, que consultan el contexto, el
+    alcance, la habilitación, el back-office y la conciliación.
+  - **La App muestra el nombre del grupo** como nombre de la persona
+    (`/mi-cuenta`).
+  - **Habilitado es tener credencial**: usuario activo en Keycloak más la
+    contraseña en la bóveda. `habilitada_el` ya no la lee nadie.
+  - **Todo número que no entra es indistinguible** al ingresar: no habilitado,
+    en dos grupos, de nadie. Responde `CODIGO_INVALIDO` y no recibe código.
 - **Un `Result` fallido confirma la transacción; solo la excepción deshace.**
   Un fallo es una salida deliberada del caso de uso y lo que escribió antes es
   parte de la decisión: el contador de intentos del desafío se persiste justo
@@ -214,10 +231,11 @@ la línea siguiente ya dice, sobra.
   igual después de darlo de baja. Los dobles de prueba tienen que modelar eso
   — uno que hiciera `unset()` afirma que el usuario desapareció y tapa el
   agujero.
-- **`identidad:conciliar` mira las dos direcciones**: quién está habilitado en
-  la réplica y no tiene acceso, y quién conserva credencial sin seguir
-  habilitado. La segunda es la que detecta una revocación a medias, porque
-  nada propaga solo que SAP deje de marcar a alguien.
+- **`identidad:conciliar` mira las dos direcciones**: credenciales de la
+  bóveda cuyo usuario no está activo en Keycloak, y usuarios activos sin
+  credencial guardada. Esa segunda es la que detecta una revocación a medias.
+  Además avisa las credenciales con id por contacto (anteriores al cambio) e
+  informa, sin contarlo, los números habilitados que hoy no entran.
 - **La búsqueda del back-office ignora mayúsculas y acentos.** La colación por
   defecto de Azure SQL (`SQL_Latin1_General_CP1_CI_AS`) distingue acentos, así
   que sin pedir `Latin1_General_CI_AI` en la comparación un operador que teclea
@@ -313,11 +331,11 @@ Para el login hace falta Keycloak, porque la credencial la emite el proveedor.
 
 ```sh
 docker compose up -d keycloak
-php artisan identidad:habilitar p-8f2b1c40
+php artisan identidad:habilitar 70741828
 ```
 
-El realm de `docker/keycloak/` ya trae el usuario `p-8f2b1c40`, que es el
-contacto de la semilla, con celular `70741828`.
+El realm de `docker/keycloak/` ya trae el usuario `n-59170741828`, que es el
+número del contacto de la semilla (`p-8f2b1c40`, celular `70741828`).
 
 La verificación de que `POST /auth/otp` no filtra por tiempo **no la hace
 ningún test**: hay que pedir el desafío para un número registrado y para uno
@@ -388,7 +406,7 @@ recién cuando esa persona no puede trabajar.
 docker compose up -d
 docker compose exec app php artisan migrate --force
 docker compose exec app php artisan maestros:importar database/semillas/maestros-ejemplo.json
-docker compose exec app php artisan identidad:habilitar p-8f2b1c40
+docker compose exec app php artisan identidad:habilitar 70741828
 ```
 
 El código del desafío sale del log del worker, no del app:
@@ -487,7 +505,7 @@ montado y taparía con el realm de desarrollo —secreto y contraseña incluidos
 al de producción que viaja dentro de la imagen. Se cancela con `volumes: !reset []`.
 ### El orden importa: integración antes de habilitar
 
-`composer test:integration` espera que `p-8f2b1c40` tenga en Keycloak la
+`composer test:integration` espera que `n-59170741828` tenga en Keycloak la
 contraseña `contrasena-de-desarrollo` que trae el realm importado. Pero
 `identidad:habilitar` **sobreescribe** esa contraseña con una aleatoria, y
 `identidad:deshabilitar` le pone `enabled = false`. Después de correr
@@ -553,12 +571,12 @@ curl -s localhost:8082/realms/master/.well-known/openid-configuration
 - Keycloak arranca con `start-dev` en `compose.yaml`, con base embebida que se
   pierde al recrear el contenedor. La imagen de `docker/keycloak/Dockerfile` es
   la que lo reemplaza en la nube; el `compose.yaml` local todavía no la usa.
-- **Parte B de la ingesta: la habilitación en el back-office.** Dar acceso
-  tiene que marcar `habilitada_el` y quitarlo, borrarla; la pantalla y
-  `identidad:conciliar` se ajustan a eso. Tiene que estar antes de que entren
-  personas reales por la ingesta, porque la ingesta no la escribe nunca.
-- **Borrar `vista_en_importacion_el`** en una entrega posterior: quedó en
-  desuso, pero el código que corre en Azure la leía al momento de la migración.
+- **Borrar `vista_en_importacion_el` y `habilitada_el`** en una entrega posterior:
+  quedaron en desuso, pero el código que corre en Azure todavía puede leerlas
+  al momento de la migración.
+- **Borrar `identidad:migrar-a-numeros`** (`app/Console/MigrarANumerosCommand.php`)
+  después de correrlo en Azure: pasa a sus números las credenciales con id
+  por contacto, y sirve una sola vez.
 - **La semilla en Azure** (8 socios de prueba, 267 propiedades con socios
   inventados, y tres personas con acceso y eco del código: `70741828`,
   `71112233` y `72112233`): decidir si se borra cuando lleguen los socios
@@ -567,7 +585,3 @@ curl -s localhost:8082/realms/master/.well-known/openid-configuration
   de prender WhatsApp, o el código le llega a quien tenga ese número.
 - **Prender `GATEWAY_SECRETO_EN_V1`** cuando el APIM mande `X-Gateway-Secret`
   también en `/v1`. Hasta entonces la App se puede llamar saltándose el APIM.
-- Una persona de contacto en socios de dos grupos son dos contactos de SAP con
-  el mismo celular: hoy queda **en conflicto** y no puede ingresar hasta que
-  SAP lo corrija. Si el caso existe de verdad, hay que diseñar una persona con
-  más de un socio.

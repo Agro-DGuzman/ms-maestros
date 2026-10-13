@@ -6,12 +6,13 @@ use Identidad\Application\Contracts\VerificadorDeToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Dobles\VerificadorFalso;
 use Tests\Soporte\PropiedadesDeEjemplo;
+use Tests\Soporte\ReplicaDeEjemplo;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->artisan('maestros:importar', ['archivo' => database_path('semillas/maestros-ejemplo.json')]);
-    $this->app->instance(VerificadorDeToken::class, new VerificadorFalso('p-8f2b1c40'));
+    $this->app->instance(VerificadorDeToken::class, new VerificadorFalso(ReplicaDeEjemplo::MONICA));
     PropiedadesDeEjemplo::sembrar();
 });
 
@@ -27,10 +28,24 @@ it('lista las propiedades activas del socio, ordenadas por nombre', function () 
     ])->and($respuesta->json('error'))->toBeNull();
 });
 
-it('un socio del grupo sin propiedades responde una lista vacia', function () {
+it('Monica no alcanza un socio de su grupo donde no es contacto', function () {
+    $this->getJson('/v1/socios/C-004872/propiedades', CON_TOKEN_DE_MONICA)
+        ->assertStatus(403)
+        ->assertJsonPath('error.code', ['ACCESO_DENEGADO']);
+});
+
+it('un socio donde es contacto sin propiedades responde una lista vacia', function () {
+    ReplicaDeEjemplo::otroContactoCon('+59170741828', 'p-9999', cardCode: 'C-004873');
+
     $this->getJson('/v1/socios/C-004873/propiedades', CON_TOKEN_DE_MONICA)
         ->assertStatus(200)
-        ->assertExactJson(['data' => ['items' => []], 'success' => true, 'error' => null]);
+        ->assertJsonPath('data.items', []);
+});
+
+it('un token con id por contacto no alcanza nada', function () {
+    $this->app->instance(VerificadorDeToken::class, new VerificadorFalso('p-8f2b1c40'));
+
+    $this->getJson('/v1/socios/C-004871/propiedades', CON_TOKEN_DE_MONICA)->assertStatus(403);
 });
 
 it('un socio de otro grupo responde 403', function () {

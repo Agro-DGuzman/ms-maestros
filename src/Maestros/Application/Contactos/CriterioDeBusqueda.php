@@ -12,14 +12,12 @@ final readonly class CriterioDeBusqueda
 
     private function __construct(
         public ?string $texto,
-        public FiltroDeEstado $estado,
         public int $pagina,
         public int $tamanoDePagina,
     ) {}
 
     public static function de(
         ?string $texto,
-        FiltroDeEstado $estado,
         int $pagina = 1,
         int $tamanoDePagina = 25,
     ): self {
@@ -37,7 +35,6 @@ final readonly class CriterioDeBusqueda
 
         return new self(
             texto: $limpio === '' ? null : $limpio,
-            estado: $estado,
             pagina: $pagina,
             tamanoDePagina: $tamanoDePagina,
         );

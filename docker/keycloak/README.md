@@ -7,7 +7,7 @@
 El *declarative user profile* de Keycloak (activo por defecto desde la 24) marca
 `email`, `firstName` y `lastName` como **requeridos** para todo usuario con rol
 `user`. Las identidades de este servicio no tienen ninguno de los tres: el
-`username` **es** el identificador de la persona (`p-8f2b1c40`), el socio nunca
+`username` **es** el identificador de la persona, que sale de su número (`n-59170741828`); el socio nunca
 conoce su credencial y no hay correo asociado.
 
 Con el perfil por defecto, un usuario creado así queda "incompleto" y Keycloak
@@ -36,7 +36,7 @@ ni buscar usuarios y la habilitación falla con `IDENTIDAD_NO_DISPONIBLE`.
 `agropartners-realm.produccion.json` es el que va a la nube. Se diferencia del
 de desarrollo en cuatro cosas, y ninguna es cosmética:
 
-- **No trae al usuario `p-8f2b1c40`.** Ese usuario existe para probar en local y
+- **No trae al usuario `n-59170741828`.** Ese usuario existe para probar en local y
   su contraseña está escrita en el archivo.
 - **El secreto del cliente es `${MS_MAESTROS_CLIENT_SECRET}`.** El import de
   Keycloak sustituye `${VARIABLE}` desde el entorno, así que el secreto real

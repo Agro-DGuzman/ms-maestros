@@ -64,7 +64,7 @@ it('lista los socios de un grupo y solo esos', function () {
     expect($codigos)->toBe(['C-004871', 'C-004872']);
 });
 
-it('encuentra una persona de contacto por su celular normalizado', function () {
+it('guarda el celular normalizado de la persona de contacto', function () {
     app(SocioRepository::class)->save(unSocio('C-004871', 'Sebastian Monasterio'));
 
     $repo = app(ContactoRepository::class);
@@ -77,9 +77,9 @@ it('encuentra una persona de contacto por su celular normalizado', function () {
         new DateTimeImmutable('2026-08-19T11:42:07Z'),
     ));
 
-    $persona = $repo->porCelular(Celular::desdeLocalBoliviano('70741828'));
+    $persona = $repo->find(IdDePersona::desde('p-8f2b1c40'));
 
-    expect($persona)->not->toBeNull()
+    expect($persona?->celular()?->e164())->toBe('+59170741828')
         ->and($persona->estaHabilitada())->toBeTrue()
         ->and($persona->codigoDeSocio()->value())->toBe('C-004871');
 });

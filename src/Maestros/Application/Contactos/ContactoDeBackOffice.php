@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Maestros\Application\Contactos;
 
-use DateTimeImmutable;
+use Maestros\Domain\Contactos\AlcanceDeNumero;
 
 /**
  * Una fila de la lista del back-office. Es un modelo de lectura: no valida
@@ -25,16 +25,16 @@ final readonly class ContactoDeBackOffice
         public string $cardCode,
         public string $razonSocial,
         public ?string $grupoEconomico,
-        public bool $estaHabilitada,
-        public ?DateTimeImmutable $habilitadaEl,
         /** `visible`, `inactivo` o `dado-de-baja`, contando también al socio. */
-        public string $estado = 'visible',
+        public string $estado,
         /**
-         * Tiene habilitación pero la App ya no la ve. No la deshabilita nadie
-         * desde acá: la pantalla avisa y una persona decide.
+         * El id de la persona que es este número, o `null` si el celular no
+         * sirve. Dar y quitar acceso actúan sobre él, no sobre el contacto.
          */
-        public bool $dadoDeBajaEnSap = false,
-        /** Otro contacto visible tiene el mismo celular: nadie puede entrar con él. */
-        public bool $celularEnConflicto = false,
+        public ?string $personaDelNumero,
+        /** Los otros contactos visibles con el mismo número: son la misma persona. */
+        public int $compartidoCon,
+        /** Si el número entra y por qué no; `null` cuando el celular no sirve. */
+        public ?AlcanceDeNumero $alcanceDelNumero,
     ) {}
 }

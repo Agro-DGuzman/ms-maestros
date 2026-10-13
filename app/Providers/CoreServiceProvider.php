@@ -33,12 +33,10 @@ use Identidad\Application\Habilitacion\DeshabilitarPersona\DeshabilitarPersonaHa
 use Identidad\Application\Habilitacion\HabilitarPersona\HabilitarPersona;
 use Identidad\Application\Habilitacion\HabilitarPersona\HabilitarPersonaHandler;
 use Illuminate\Support\ServiceProvider;
-use Maestros\Application\Contactos\BuscarPorCelular\BuscarPorCelular;
-use Maestros\Application\Contactos\BuscarPorCelular\BuscarPorCelularHandler;
+use Maestros\Application\Contactos\EvaluarNumero\EvaluarNumero;
+use Maestros\Application\Contactos\EvaluarNumero\EvaluarNumeroHandler;
 use Maestros\Application\Contactos\ListarContactos\ListarContactos;
 use Maestros\Application\Contactos\ListarContactos\ListarContactosHandler;
-use Maestros\Application\Contactos\ListarHabilitadas\ListarHabilitadas;
-use Maestros\Application\Contactos\ListarHabilitadas\ListarHabilitadasHandler;
 use Maestros\Application\Contactos\ObtenerContexto\ObtenerContexto;
 use Maestros\Application\Contactos\ObtenerContexto\ObtenerContextoHandler;
 use Maestros\Application\Ingesta\DarDeBajaSocio\DarDeBajaSocio;
@@ -54,7 +52,7 @@ final class CoreServiceProvider extends ServiceProvider
 {
     /** @var array<class-string, class-string> */
     public const HANDLERS = [
-        BuscarPorCelular::class => BuscarPorCelularHandler::class,
+        EvaluarNumero::class => EvaluarNumeroHandler::class,
         ActualizarEnlaces::class => ActualizarEnlacesHandler::class,
         CambiarEnlacesDeProducto::class => CambiarEnlacesDeProductoHandler::class,
         ConcederAcceso::class => ConcederAccesoHandler::class,
@@ -62,7 +60,6 @@ final class CoreServiceProvider extends ServiceProvider
         ListarAccesos::class => ListarAccesosHandler::class,
         ListarContactos::class => ListarContactosHandler::class,
         RevocarAcceso::class => RevocarAccesoHandler::class,
-        ListarHabilitadas::class => ListarHabilitadasHandler::class,
         ObtenerContexto::class => ObtenerContextoHandler::class,
         ListarPropiedades::class => ListarPropiedadesHandler::class,
         ReplicarSocio::class => ReplicarSocioHandler::class,

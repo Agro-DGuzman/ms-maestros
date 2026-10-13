@@ -6,19 +6,22 @@ use Identidad\Application\Contracts\VerificadorDeToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Dobles\VerificadorFalso;
 use Tests\Soporte\PropiedadesDeEjemplo;
+use Tests\Soporte\ReplicaDeEjemplo;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->artisan('maestros:importar', ['archivo' => database_path('semillas/maestros-ejemplo.json')]);
-    $this->app->instance(VerificadorDeToken::class, new VerificadorFalso('p-8f2b1c40'));
+    $this->app->instance(VerificadorDeToken::class, new VerificadorFalso(ReplicaDeEjemplo::MONICA));
+    // Mónica es contacto de C-004871 y, acá, también de C-004872.
+    ReplicaDeEjemplo::otroContactoCon('+59170741828', 'p-9999', cardCode: 'C-004872');
 });
 
 it('lista los socios que alcanza la persona del token', function () {
     $respuesta = $this->getJson('/v1/socios', ['Authorization' => 'Bearer token-bueno'])
         ->assertStatus(200);
 
-    expect($respuesta->json('data.items'))->toHaveCount(3)
+    expect($respuesta->json('data.items'))->toHaveCount(2)
         ->and($respuesta->json('data.items.0'))->toHaveKeys(['cardCode', 'razonSocial', 'iniciales', 'cantidadPropiedades'])
         ->and($respuesta->json('error'))->toBeNull();
 });

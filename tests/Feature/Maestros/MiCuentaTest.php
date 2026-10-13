@@ -5,23 +5,25 @@ declare(strict_types=1);
 use Identidad\Application\Contracts\VerificadorDeToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Dobles\VerificadorFalso;
+use Tests\Soporte\ReplicaDeEjemplo;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->artisan('maestros:importar', ['archivo' => database_path('semillas/maestros-ejemplo.json')]);
-    $this->app->instance(VerificadorDeToken::class, new VerificadorFalso('p-8f2b1c40'));
+    $this->app->instance(VerificadorDeToken::class, new VerificadorFalso(ReplicaDeEjemplo::MONICA));
 });
 
 it('devuelve el contexto de la persona del token', function () {
     $respuesta = $this->getJson('/v1/mi-cuenta', ['Authorization' => 'Bearer token-bueno'])
         ->assertStatus(200);
 
-    expect($respuesta->json('data.nombre'))->toBe('Monica Salvatierra')
-        ->and($respuesta->json('data.iniciales'))->toBe('MS')
+    // La App muestra el nombre del grupo, y la persona ve solo donde es contacto.
+    expect($respuesta->json('data.nombre'))->toBe('Grupo Monasterio')
+        ->and($respuesta->json('data.iniciales'))->toBe('GM')
         ->and($respuesta->json('data.celular'))->toBe('+591 707 41 828')
         ->and($respuesta->json('data.grupoEconomico.id'))->toBe('GRP-014')
-        ->and($respuesta->json('data.grupoEconomico.socios'))->toHaveCount(3)
+        ->and($respuesta->json('data.grupoEconomico.socios'))->toHaveCount(1)
         ->and($respuesta->json('error'))->toBeNull();
 });
 

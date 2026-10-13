@@ -6,6 +6,7 @@ use BackOffice\Domain\Operadores\IdDeOperador;
 use BackOffice\Domain\Operadores\Operador;
 use BackOffice\Domain\Operadores\Permiso;
 use BackOffice\Presentation\Http\SesionDeOperador;
+use Identidad\Application\Contracts\BovedaDeContrasenas;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Maestros\Domain\Contactos\Celular;
 use Maestros\Domain\Contactos\ContactoRepository;
@@ -25,8 +26,8 @@ uses(RefreshDatabase::class);
 /*
  * Con la ingesta, que alguien ya no esté en SAP es una baja explícita, no la
  * ausencia en la última corrida del importador. La pantalla muestra el estado
- * de todo contacto que la App ya no ve, y lo pinta en rojo solo cuando esa
- * persona todavía tiene acceso: ahí hay algo que hacer.
+ * de todo contacto que la App ya no ve, y lo pinta en rojo solo cuando su
+ * número todavía tiene acceso pero ya no puede entrar: ahí hay algo que hacer.
  */
 
 function personaDe(string $id, string $nombre, string $celular, ?string $habilitadaEl, ?string $bajaEl = null, bool $activa = true): PersonaDeContacto
@@ -58,9 +59,14 @@ beforeEach(function () {
 
     $contactos = app(ContactoRepository::class);
     $contactos->save(personaDe('p-001', 'Monica Salvatierra', '70000001', '2026-09-01T10:00:00Z'));
-    $contactos->save(personaDe('p-002', 'Jorge Pena', '67701468', '2026-09-01T10:00:00Z', bajaEl: '2026-10-05T12:00:00Z'));
+    $contactos->save(personaDe('p-002', 'Jorge Pena', '67701468', null, bajaEl: '2026-10-05T12:00:00Z'));
     $contactos->save(personaDe('p-003', 'Ana Roca', '71234567', null, bajaEl: '2026-10-05T12:00:00Z'));
-    $contactos->save(personaDe('p-004', 'Luis Paz', '71234568', '2026-09-01T10:00:00Z', activa: false));
+    $contactos->save(personaDe('p-004', 'Luis Paz', '71234568', null, activa: false));
+
+    // Jorge y Luis tenían acceso desde antes de que SAP los diera de baja.
+    foreach (['67701468', '71234568'] as $numero) {
+        app(BovedaDeContrasenas::class)->guardar(IdDePersona::deCelular(Celular::desdeLocalBoliviano($numero)), 'una-contrasena');
+    }
 
     SesionDeOperador::guardar(new Operador(
         IdDeOperador::desdeOid('oid-77'),
@@ -88,11 +94,11 @@ function pantallaDeContactos(): string
     return (string) test()->get('/admin/contactos')->assertOk()->getContent();
 }
 
-it('avisa en rojo sobre la habilitada que SAP dio de baja', function () {
+it('avisa en rojo sobre el numero con acceso que SAP dio de baja', function () {
     expect(filaDe(pantallaDeContactos(), 'Jorge Pena'))->toContain('rojo')->toContain('Dada de baja en SAP');
 });
 
-it('avisa en rojo sobre la habilitada que SAP marco inactiva', function () {
+it('avisa en rojo sobre el numero con acceso que SAP marco inactivo', function () {
     expect(filaDe(pantallaDeContactos(), 'Luis Paz'))->toContain('rojo')->toContain('Inactiva en SAP');
 });
 
@@ -107,10 +113,10 @@ it('no marca nada sobre la que sigue en SAP', function () {
     $fila = filaDe(pantallaDeContactos(), 'Monica Salvatierra');
 
     expect($fila)->not->toContain('en SAP')
-        ->and($fila)->not->toContain('Celular en conflicto');
+        ->and($fila)->not->toContain('no puede entrar');
 });
 
-it('marca a los dos contactos visibles que comparten celular', function () {
+it('dos contactos del mismo socio con el mismo celular no estan en conflicto', function () {
     app(ContactoRepository::class)->save(PersonaDeContacto::replica(
         IdDePersona::desde('p-005'), CodigoDeSocio::desde('C-004871'), 'Rosa Vaca',
         Celular::desdeLocalBoliviano('70000001'), null, new DateTimeImmutable('2026-09-15T12:00:00Z'),
@@ -118,16 +124,16 @@ it('marca a los dos contactos visibles que comparten celular', function () {
 
     $html = pantallaDeContactos();
 
-    expect(filaDe($html, 'Monica Salvatierra'))->toContain('Celular en conflicto')
-        ->and(filaDe($html, 'Rosa Vaca'))->toContain('Celular en conflicto');
+    expect(filaDe($html, 'Monica Salvatierra'))->toContain('Comparte el número con 1 contacto(s) más')
+        ->and(filaDe($html, 'Rosa Vaca'))->toContain('Comparte el número con 1 contacto(s) más')
+        ->and($html)->not->toContain('conflicto');
 });
 
-it('un celular compartido con alguien dado de baja no esta en conflicto', function () {
+it('un contacto dado de baja no cuenta para compartir el numero', function () {
     ContactoRecord::query()->where('id_de_persona', 'p-003')->update(['celular' => '+59170000001']);
 
-    expect(filaDe(pantallaDeContactos(), 'Monica Salvatierra'))->not->toContain('Celular en conflicto');
+    expect(filaDe(pantallaDeContactos(), 'Monica Salvatierra'))->not->toContain('Comparte el número');
 });
-
 it('ya no habla de la ultima importacion', function () {
     expect(pantallaDeContactos())->not->toContain('No vino en la última importación');
 });

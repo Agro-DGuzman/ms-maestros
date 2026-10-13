@@ -9,10 +9,12 @@ use Core\Contracts\EntityId;
 use Core\Domain\AggregateRoot;
 use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Maestros\Domain\Contactos\AlcanceDeNumero;
 use Maestros\Domain\Contactos\Celular;
 use Maestros\Domain\Contactos\ContactoRepository;
 use Maestros\Domain\Contactos\IdDePersona;
 use Maestros\Domain\Contactos\PersonaDeContacto;
+use Maestros\Domain\Grupos\IdDeGrupo;
 use Maestros\Domain\Socios\CodigoDeSocio;
 
 final class EloquentContactoRepository implements ContactoRepository
@@ -49,12 +51,23 @@ final class EloquentContactoRepository implements ContactoRepository
         ContactoRecord::query()->updateOrCreate(['id_de_persona' => $persona->idDePersona()->value()], $fila);
     }
 
-    public function porCelular(Celular $celular): ?PersonaDeContacto
+    public function alcanceDeNumero(Celular $celular): AlcanceDeNumero
     {
-        // Dos alcanzan para saber que no es una sola.
-        $encontradas = $this->visibles()->where('c.celular', $celular->e164())->limit(2)->get();
+        $filas = $this->visibles()
+            ->where('c.celular', $celular->e164())
+            ->select(['s.codigo_de_socio', 's.id_de_grupo'])
+            ->distinct()
+            ->orderBy('s.codigo_de_socio')
+            ->toBase()
+            ->get();
 
-        return $encontradas->count() === 1 ? $this->aDominio($encontradas->firstOrFail()) : null;
+        return AlcanceDeNumero::desde(array_values(array_map(
+            static fn (object $fila): array => [
+                'socio' => CodigoDeSocio::desde((string) $fila->codigo_de_socio),
+                'grupo' => is_string($fila->id_de_grupo) && $fila->id_de_grupo !== '' ? IdDeGrupo::desde($fila->id_de_grupo) : null,
+            ],
+            $filas->all(),
+        )));
     }
 
     public function visible(IdDePersona $id): ?PersonaDeContacto
@@ -83,19 +96,6 @@ final class EloquentContactoRepository implements ContactoRepository
         Visibilidad::exigir($consulta, 'c', 's');
 
         return $consulta;
-    }
-
-    /** @return list<PersonaDeContacto> */
-    public function habilitadas(): array
-    {
-        return array_values(
-            ContactoRecord::query()
-                ->whereNotNull('habilitada_el')
-                ->orderBy('id_de_persona')
-                ->get()
-                ->map(fn (ContactoRecord $r): PersonaDeContacto => $this->aDominio($r))
-                ->all(),
-        );
     }
 
     /** @param list<IdDePersona> $vistos */

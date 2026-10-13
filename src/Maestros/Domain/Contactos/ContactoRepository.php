@@ -11,23 +11,19 @@ use Maestros\Domain\Socios\CodigoDeSocio;
 interface ContactoRepository extends Repository
 {
     /**
-     * La persona visible con ese celular, si es exactamente una. Ninguna, o
-     * dos o más (un celular en conflicto), es null: el celular es la
-     * credencial, y si lo comparten no hay forma de saber quién entra.
-     */
-    public function porCelular(Celular $celular): ?PersonaDeContacto;
-
-    /**
      * Guarda lo que vino de SAP sin tocar `habilitada_el`: la habilitación es
      * del back-office. Una persona nueva queda sin habilitar.
      */
     public function replicar(PersonaDeContacto $persona): void;
 
+    /**
+     * Los socios donde este número es contacto visible, con su grupo: de ahí
+     * sale si la persona entra y qué ve.
+     */
+    public function alcanceDeNumero(Celular $celular): AlcanceDeNumero;
+
     /** Activa, sin baja y de un socio visible: lo único que cuenta para la App. */
     public function visible(IdDePersona $id): ?PersonaDeContacto;
-
-    /** @return list<PersonaDeContacto> */
-    public function habilitadas(): array;
 
     /**
      * Los contactos del socio que no vinieron en la última entrega ya no están

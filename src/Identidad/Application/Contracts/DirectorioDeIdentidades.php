@@ -25,4 +25,13 @@ interface DirectorioDeIdentidades
      * bueno a quien ya había perdido el acceso.
      */
     public function estaActivo(IdDePersona $persona): bool;
+
+    /**
+     * Las personas con usuario activo, para que la conciliación compare en las
+     * dos direcciones. `null` si el directorio no respondió: una lista vacía
+     * diría «nadie tiene acceso», que es justo lo contrario de no saber.
+     *
+     * @return list<IdDePersona>|null
+     */
+    public function activos(): ?array;
 }

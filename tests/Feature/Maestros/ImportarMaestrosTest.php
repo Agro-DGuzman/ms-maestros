@@ -17,8 +17,8 @@ it('importa el archivo de ejemplo', function () {
         ->assertExitCode(0);
 
     expect(app(SocioRepository::class)->porGrupo(IdDeGrupo::desde('GRP-014')))->toHaveCount(3)
-        ->and(app(ContactoRepository::class)->porCelular(Celular::desdeLocalBoliviano('70741828')))
-        ->not->toBeNull();
+        ->and(app(ContactoRepository::class)->alcanceDeNumero(Celular::desdeLocalBoliviano('70741828'))->entra())
+        ->toBeTrue();
 });
 
 it('se puede volver a correr sin duplicar', function () {

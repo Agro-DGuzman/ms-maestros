@@ -7,6 +7,7 @@ namespace Tests\Dobles;
 use Core\Contracts\EntityId;
 use Core\Domain\AggregateRoot;
 use DateTimeImmutable;
+use Maestros\Domain\Contactos\AlcanceDeNumero;
 use Maestros\Domain\Contactos\Celular;
 use Maestros\Domain\Contactos\ContactoRepository;
 use Maestros\Domain\Contactos\IdDePersona;
@@ -48,19 +49,14 @@ final class ContactosConLecturaVieja implements ContactoRepository
         $this->real->replicar($persona);
     }
 
-    public function porCelular(Celular $celular): ?PersonaDeContacto
+    public function alcanceDeNumero(Celular $celular): AlcanceDeNumero
     {
-        return $this->real->porCelular($celular);
+        return $this->real->alcanceDeNumero($celular);
     }
 
     public function visible(IdDePersona $id): ?PersonaDeContacto
     {
         return $this->real->visible($id);
-    }
-
-    public function habilitadas(): array
-    {
-        return $this->real->habilitadas();
     }
 
     public function darDeBajaLosQueNoVinieron(CodigoDeSocio $socio, array $vistos, DateTimeImmutable $momento): void

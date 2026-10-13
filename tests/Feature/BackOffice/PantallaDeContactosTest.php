@@ -60,6 +60,24 @@ beforeEach(function () {
     // del dominio, que es justo el caso que la pantalla tiene que mostrar.
     ContactoRecord::query()->where('id_de_persona', 'p-003')->update(['celular' => '12345']);
 
+    // Otro socio y otro contacto, para los casos de un número compartido.
+    $this->socio = function (string $cardCode, string $grupo, string $nombreDelGrupo) use ($marca): void {
+        app(GrupoRepository::class)->save(GrupoEconomico::replica(IdDeGrupo::desde($grupo), $nombreDelGrupo, $marca));
+        app(SocioRepository::class)->save(Socio::replica(CodigoDeSocio::desde($cardCode), RazonSocial::desde("Socio {$cardCode}"), IdDeGrupo::desde($grupo), $marca));
+    };
+    $this->contacto = function (string $id, string $cardCode, string $nombre, string $celular) use ($marca): void {
+        app(ContactoRepository::class)->save(PersonaDeContacto::replica(IdDePersona::desde($id), CodigoDeSocio::desde($cardCode), $nombre, Celular::desdeLocalBoliviano($celular), null, $marca));
+    };
+    $this->fila = function (string $html, string $nombre): string {
+        foreach (explode('<tr>', $html) as $parte) {
+            if (str_contains($parte, $nombre)) {
+                return $parte;
+            }
+        }
+
+        return '';
+    };
+
     $this->directorio = new DirectorioFalso;
     $this->app->instance(DirectorioDeIdentidades::class, $this->directorio);
 
@@ -89,49 +107,68 @@ it('filtra por texto', function () {
         ->assertDontSee('Monica Salvatierra');
 });
 
-it('filtra por estado', function () {
-    $this->get('/admin/contactos?estado=habilitadas')
-        ->assertSee('Monica Salvatierra')
-        ->assertDontSee('Ana Roca');
-});
-
-it('el boton responde a la credencial y no a lo que dice SAP', function () {
-    // Monica esta habilitada en SAP pero nunca le dimos acceso: el boton
-    // ofrece darselo, y la pantalla avisa que falta.
+it('no quedan el filtro ni la columna de habilitadas en SAP', function () {
     $this->get('/admin/contactos')
-        ->assertSee('Dar acceso')
-        ->assertSee('Falta darle acceso');
-
-    $this->post('/admin/contactos/p-001/habilitar')->assertRedirect(route('admin.contactos'));
-
-    // Ahora si tiene credencial: el boton se da vuelta.
-    $this->get('/admin/contactos')
-        ->assertSee('Quitar acceso')
-        ->assertDontSee('Falta darle acceso');
-
-    $this->post('/admin/contactos/p-001/deshabilitar')->assertRedirect(route('admin.contactos'));
-
-    $this->get('/admin/contactos')->assertSee('Dar acceso');
+        ->assertDontSee('Habilitadas en SAP')
+        ->assertDontSee('<th>En SAP</th>', false);
 });
 
-it('avisa cuando alguien conserva acceso sin respaldo en SAP', function () {
-    $persona = IdDePersona::desde('p-005');
+it('dar acceso habilita el numero y quitarlo lo quita', function () {
+    $this->get('/admin/contactos?q=Monica')->assertSee('Dar acceso');
 
-    app(ContactoRepository::class)->save(PersonaDeContacto::replica(
-        $persona,
-        CodigoDeSocio::desde('C-004871'),
-        'Sin Respaldo',
-        Celular::desdeLocalBoliviano('76000001'),
-        null,
-        new DateTimeImmutable('2026-09-15T12:00:00Z'),
-    ));
+    $this->post('/admin/contactos/n-59170741828/habilitar')->assertRedirect(route('admin.contactos'));
 
-    $this->post('/admin/contactos/p-005/habilitar');
+    $this->get('/admin/contactos?q=Monica')->assertSee('Quitar acceso');
 
-    $this->get('/admin/contactos?q=Respaldo')
-        ->assertSee('Conserva acceso sin respaldo en SAP');
+    $this->post('/admin/contactos/n-59170741828/deshabilitar')->assertRedirect(route('admin.contactos'));
+
+    $this->get('/admin/contactos?q=Monica')->assertSee('Dar acceso');
 });
 
+it('dar acceso en una fila habilita el numero y todas sus filas lo muestran', function () {
+    ($this->socio)('C-004872', 'GRP-014', 'Grupo Monasterio');
+    ($this->contacto)('p-002', 'C-004872', 'Monica Otra', '70741828');
+
+    $this->post('/admin/contactos/n-59170741828/habilitar');
+
+    $html = (string) $this->get('/admin/contactos?q=70741828')->getContent();
+
+    expect(substr_count($html, 'Quitar acceso'))->toBe(2)
+        ->and($html)->not->toContain('Dar acceso');
+});
+
+it('cada fila dice con cuantos comparte el numero', function () {
+    ($this->socio)('C-004872', 'GRP-014', 'Grupo Monasterio');
+    ($this->contacto)('p-002', 'C-004872', 'Monica Otra', '70741828');
+
+    $html = (string) $this->get('/admin/contactos?q=70741828')->getContent();
+
+    expect(($this->fila)($html, 'Monica Salvatierra'))->toContain('Comparte el número con 1 contacto(s) más')
+        ->and(($this->fila)($html, 'Monica Otra'))->toContain('Comparte el número con 1 contacto(s) más');
+});
+
+it('un numero en dos grupos se marca y no ofrece dar acceso', function () {
+    ($this->socio)('C-005210', 'GRP-021', 'Grupo Vargas');
+    ($this->contacto)('p-006', 'C-005210', 'Monica Vargas', '70741828');
+
+    $this->get('/admin/contactos?q=70741828')
+        ->assertSee('Contacto en socios de varios grupos: no puede entrar')
+        ->assertDontSee('Dar acceso');
+});
+
+it('la fila de un contacto dado de baja ofrece dar acceso si el numero sigue entrando', function () {
+    ($this->socio)('C-004872', 'GRP-014', 'Grupo Monasterio');
+    ($this->contacto)('p-002', 'C-004872', 'Monica Otra', '70741828');
+    ContactoRecord::query()->where('id_de_persona', 'p-001')->update(['dado_de_baja_el' => '2026-10-05 12:00:00']);
+
+    $html = (string) $this->get('/admin/contactos?q=70741828')->getContent();
+
+    expect(($this->fila)($html, 'Monica Salvatierra'))->toContain('Dar acceso');
+
+    $this->post('/admin/contactos/n-59170741828/habilitar');
+
+    expect($this->directorio->estaActivo(IdDePersona::desde('n-59170741828')))->toBeTrue();
+});
 it('no ofrece habilitar a quien no tiene celular valido', function () {
     $this->get('/admin/contactos')->assertSee('Sin celular válido en SAP', false);
 });
@@ -157,7 +194,7 @@ it('habilitar a quien si puede entrar asienta en la bitacora', function () {
         new DateTimeImmutable('2026-09-15T12:00:00Z'),
     ));
 
-    $this->post('/admin/contactos/p-004/habilitar')->assertRedirect(route('admin.contactos'));
+    $this->post('/admin/contactos/n-59176543210/habilitar')->assertRedirect(route('admin.contactos'));
 
     expect(AsientoRecord::query()->count())->toBe(1)
         ->and(AsientoRecord::query()->first()->accion)->toBe('concedio')

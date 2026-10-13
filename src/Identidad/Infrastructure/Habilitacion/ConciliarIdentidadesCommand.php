@@ -10,50 +10,68 @@ use Identidad\Application\Contracts\DirectorioDeIdentidades;
 use Illuminate\Console\Command;
 use Maestros\Domain\Contactos\IdDePersona;
 
-/** Detecta el estado parcial: habilitado acá y no allá, o al revés. */
+/**
+ * Habilitado es tener credencial: un usuario activo en el directorio y su
+ * contraseña en la bóveda, con el id del número. Se miran las dos direcciones,
+ * porque nada propaga solo una habilitación o una revocación a medias.
+ */
 final class ConciliarIdentidadesCommand extends Command
 {
     protected $signature = 'identidad:conciliar';
 
-    protected $description = 'Compara las personas habilitadas contra los usuarios del directorio';
+    protected $description = 'Compara los números con credencial contra los usuarios del directorio';
 
     public function handle(
         DirectorioDeContactos $contactos,
         DirectorioDeIdentidades $directorio,
         BovedaDeContrasenas $boveda,
     ): int {
-        $discrepancias = 0;
-        $habilitadas = $contactos->habilitadas();
+        $activos = $directorio->activos();
 
-        foreach ($habilitadas as $persona) {
-            if (! $directorio->estaActivo($persona)) {
-                $this->warn("Habilitada pero sin acceso en el directorio: {$persona->value()}");
+        // Sin la lista del directorio no se puede afirmar nada: decir «sin
+        // discrepancias» sería mentir.
+        if ($activos === null) {
+            $this->error('El directorio de identidades no respondió.');
+
+            return self::FAILURE;
+        }
+
+        $discrepancias = 0;
+        $conCredencial = $boveda->personas();
+
+        foreach ($conCredencial as $persona) {
+            $celular = $persona->celular();
+
+            if ($celular === null) {
+                $this->warn("Credencial con id por contacto, anterior al cambio a números: {$persona->value()}");
                 $discrepancias++;
 
                 continue;
             }
 
-            if ($boveda->leer($persona) === null) {
-                $this->warn("Sin contraseña guardada: {$persona->value()}");
+            if (! $directorio->estaActivo($persona)) {
+                $this->warn("Credencial guardada pero el usuario no está activo en el directorio: {$persona->value()}");
                 $discrepancias++;
+
+                continue;
+            }
+
+            // No es un error de credenciales: el acceso sigue a SAP, y SAP puede
+            // corregirlo solo. Se informa para que alguien decida.
+            $motivo = $contactos->motivoDeNoIngreso($celular);
+
+            if ($motivo !== null) {
+                $this->line("Habilitado pero hoy no ingresa ({$motivo->value}): {$persona->value()}");
             }
         }
 
-        // La otra dirección, que es la que detecta una revocación a medias: a
-        // esta persona le dimos acceso y la réplica ya no la da por habilitada.
-        // Nadie lo deshace solo, así que hay que verlo para ir a corregirlo.
-        $sigueHabilitada = array_map(
-            static fn (IdDePersona $p): string => $p->value(),
-            $habilitadas,
-        );
+        $guardadas = array_map(static fn (IdDePersona $p): string => $p->value(), $conCredencial);
 
-        foreach ($boveda->personas() as $persona) {
-            if (in_array($persona->value(), $sigueHabilitada, true)) {
-                continue;
+        foreach ($activos as $persona) {
+            if (! in_array($persona->value(), $guardadas, true)) {
+                $this->warn("Usuario activo en el directorio sin credencial guardada: {$persona->value()}");
+                $discrepancias++;
             }
-
-            $this->warn("Con credencial pero ya no habilitada en la réplica: {$persona->value()}");
-            $discrepancias++;
         }
 
         if ($discrepancias === 0) {
@@ -62,10 +80,11 @@ final class ConciliarIdentidadesCommand extends Command
             return self::SUCCESS;
         }
 
-        // No siempre se corrige igual: a quien le falta acceso se le da con
-        // `identidad:habilitar`, y a quien lo conserva sin estar habilitado
-        // se le quita con `identidad:deshabilitar`.
-        $this->error("{$discrepancias} discrepancia(s). Corregir con identidad:habilitar o identidad:deshabilitar.");
+        // No siempre se corrige igual: a un número que le falta la credencial
+        // se le vuelve a dar acceso, y a uno que la conserva sin estar
+        // habilitado se le quita con `identidad:deshabilitar`. Las credenciales
+        // por contacto las migra `identidad:migrar-a-numeros`.
+        $this->error("{$discrepancias} discrepancia(s).");
 
         return self::FAILURE;
     }

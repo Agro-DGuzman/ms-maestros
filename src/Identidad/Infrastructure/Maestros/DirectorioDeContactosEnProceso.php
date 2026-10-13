@@ -7,47 +7,26 @@ namespace Identidad\Infrastructure\Maestros;
 use Core\Contracts\Mediator;
 use Core\Results\ResultWithValue;
 use Identidad\Application\Contracts\DirectorioDeContactos;
-use Maestros\Application\Contactos\BuscarPorCelular\BuscarPorCelular;
-use Maestros\Application\Contactos\ListarHabilitadas\ListarHabilitadas;
+use Maestros\Application\Contactos\EvaluarNumero\EvaluarNumero;
 use Maestros\Application\Contactos\ObtenerContexto\ContextoDeContacto;
 use Maestros\Application\Contactos\ObtenerContexto\ObtenerContexto;
+use Maestros\Domain\Contactos\AlcanceDeNumero;
 use Maestros\Domain\Contactos\Celular;
 use Maestros\Domain\Contactos\IdDePersona;
+use Maestros\Domain\Contactos\MotivoDeNoIngreso;
 
 final readonly class DirectorioDeContactosEnProceso implements DirectorioDeContactos
 {
     public function __construct(private Mediator $mediator) {}
 
-    public function buscarPorCelular(Celular $celular): ?IdDePersona
+    public function motivoDeNoIngreso(Celular $celular): ?MotivoDeNoIngreso
     {
-        $resultado = $this->mediator->send(new BuscarPorCelular($celular));
-
-        if ($resultado->isFailure()) {
-            return null;
-        }
-
+        $resultado = $this->mediator->send(new EvaluarNumero($celular));
         assert($resultado instanceof ResultWithValue);
-        $persona = $resultado->value();
-        assert($persona instanceof IdDePersona);
+        $alcance = $resultado->value();
+        assert($alcance instanceof AlcanceDeNumero);
 
-        return $persona;
-    }
-
-    /** @return list<IdDePersona> */
-    public function habilitadas(): array
-    {
-        $resultado = $this->mediator->send(new ListarHabilitadas);
-
-        if ($resultado->isFailure()) {
-            return [];
-        }
-
-        assert($resultado instanceof ResultWithValue);
-
-        /** @var list<IdDePersona> $personas */
-        $personas = $resultado->value();
-
-        return $personas;
+        return $alcance->motivo();
     }
 
     public function contexto(IdDePersona $id): ?ContextoDeContacto
