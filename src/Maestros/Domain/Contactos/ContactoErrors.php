@@ -36,23 +36,6 @@ final class ContactoErrors
         return Error::validation('PERSONA_INVALIDA', 'El identificador de persona no puede estar vacío');
     }
 
-    public static function noVisible(string $id): Error
-    {
-        return Error::validation(
-            'CONTACTO_NO_VISIBLE',
-            'La persona {id} está inactiva o dada de baja en SAP.',
-            $id,
-        );
-    }
-
-    public static function celularEnConflicto(): Error
-    {
-        return Error::validation(
-            'CELULAR_EN_CONFLICTO',
-            'Otro contacto activo tiene el mismo celular: hay que corregirlo en SAP.',
-        );
-    }
-
     /** Al operador, que es quien intenta darle acceso: dice qué corregir y dónde. */
     public static function numeroNoIngresa(MotivoDeNoIngreso $motivo): Error
     {

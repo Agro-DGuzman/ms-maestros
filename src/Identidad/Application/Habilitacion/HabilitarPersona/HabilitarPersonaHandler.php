@@ -6,18 +6,20 @@ namespace Identidad\Application\Habilitacion\HabilitarPersona;
 
 use Core\Contracts\Request;
 use Core\Contracts\RequestHandler;
-use Core\Results\DomainException;
 use Core\Results\Result;
 use Identidad\Application\Contracts\BovedaDeContrasenas;
+use Identidad\Application\Contracts\DirectorioDeContactos;
 use Identidad\Application\Contracts\DirectorioDeIdentidades;
 use Maestros\Domain\Contactos\ContactoErrors;
-use Maestros\Domain\Contactos\ContactoRepository;
-use Maestros\Domain\Contactos\PersonaDeContacto;
 
+/**
+ * Lo que se habilita es un número: todos los contactos de SAP con ese celular
+ * son la misma persona. Habilitar es darle credencial; no hay otra marca.
+ */
 final readonly class HabilitarPersonaHandler implements RequestHandler
 {
     public function __construct(
-        private ContactoRepository $contactos,
+        private DirectorioDeContactos $contactos,
         private DirectorioDeIdentidades $directorio,
         private BovedaDeContrasenas $boveda,
     ) {}
@@ -26,36 +28,19 @@ final readonly class HabilitarPersonaHandler implements RequestHandler
     {
         assert($peticion instanceof HabilitarPersona);
 
-        // Cargar la persona reconstruye su celular, y el objeto de valor
-        // rechaza lo que no sirve. Sin atrapar eso, habilitar a alguien con un
-        // número inservible revienta con un stack en vez de decir qué hacer
-        // —y la regla tiene que ser la misma por pantalla que por consola.
-        try {
-            $persona = $this->contactos->find($peticion->persona);
-        } catch (DomainException) {
-            return Result::failure(ContactoErrors::celularNoUtilizable());
-        }
-
-        if (! $persona instanceof PersonaDeContacto) {
-            return Result::failure(
-                ContactoErrors::noEncontrado($peticion->persona->value()),
-            );
-        }
-
-        // Darle credencial a quien igual no podría entrar solo confunde: el
-        // operador cree que habilitó y la persona recibe «código inválido».
-        if (! $this->contactos->visible($peticion->persona) instanceof PersonaDeContacto) {
-            return Result::failure(ContactoErrors::noVisible($peticion->persona->value()));
-        }
-
-        $celular = $persona->celular();
+        $celular = $peticion->persona->celular();
 
         if ($celular === null) {
             return Result::failure(ContactoErrors::celularNoUtilizable());
         }
 
-        if (! $this->contactos->porCelular($celular)?->idDePersona()->equals($peticion->persona)) {
-            return Result::failure(ContactoErrors::celularEnConflicto());
+        // Darle credencial a un número que igual no podría entrar solo
+        // confunde: el operador cree que habilitó y la persona recibe «código
+        // inválido». Se le dice por qué, para que lo corrija en SAP.
+        $motivo = $this->contactos->motivoDeNoIngreso($celular);
+
+        if ($motivo !== null) {
+            return Result::failure(ContactoErrors::numeroNoIngresa($motivo));
         }
 
         $contrasena = bin2hex(random_bytes(16));   // 32 caracteres, nunca la ve nadie

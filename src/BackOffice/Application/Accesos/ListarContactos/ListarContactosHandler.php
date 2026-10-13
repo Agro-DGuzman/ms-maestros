@@ -53,7 +53,8 @@ final readonly class ListarContactosHandler implements RequestHandler
             items: array_values(array_map(
                 static fn (ContactoDeBackOffice $c): ContactoConAcceso => new ContactoConAcceso(
                     replica: $c,
-                    tieneCredencial: in_array($c->idDePersona, $conCredencial, true),
+                    // La credencial es del número, no de la fila.
+                    tieneCredencial: $c->personaDelNumero !== null && in_array($c->personaDelNumero, $conCredencial, true),
                 ),
                 $pagina->items,
             )),

@@ -18,7 +18,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Maestros\Application\Contactos\CriterioDeBusqueda;
-use Maestros\Application\Contactos\FiltroDeEstado;
 use RuntimeException;
 
 final readonly class AccesosController
@@ -28,11 +27,9 @@ final readonly class AccesosController
     public function index(Request $pedido): View
     {
         $texto = $pedido->query('q');
-        $estado = $pedido->query('estado', 'todas');
 
         $criterio = CriterioDeBusqueda::de(
             texto: is_string($texto) ? $texto : null,
-            estado: FiltroDeEstado::tryFrom(is_string($estado) ? $estado : '') ?? FiltroDeEstado::Todas,
             // La barra de direcciones es entrada del usuario: `?pagina=-3`
             // haría estallar el objeto de valor, que sigue validando para
             // quien lo construya desde código.

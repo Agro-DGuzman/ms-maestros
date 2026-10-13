@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Persistence\ComparacionSinAcentos;
 use Maestros\Application\Contactos\BuscadorDeContactos;
 use Maestros\Application\Contactos\CriterioDeBusqueda;
-use Maestros\Application\Contactos\FiltroDeEstado;
 
 /*
  * Estas pruebas afirman qué SQL sale por motor, y a propósito no usan
@@ -63,7 +62,7 @@ it('el buscador lleva la colacion a las dos columnas de texto', function () {
     $consulta->setAccessible(true);
 
     // Solo se arma la consulta; nunca se ejecuta contra SQL Server.
-    $sql = $consulta->invoke($buscador, CriterioDeBusqueda::de('chavez', FiltroDeEstado::Todas))->toSql();
+    $sql = $consulta->invoke($buscador, CriterioDeBusqueda::de('chavez'))->toSql();
 
     expect($sql)->toContain('c.nombre COLLATE Latin1_General_CI_AI')
         ->and($sql)->toContain('s.razon_social COLLATE Latin1_General_CI_AI')

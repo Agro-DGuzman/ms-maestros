@@ -5,11 +5,6 @@
     <form method="GET" action="{{ route('admin.contactos') }}" style="margin-bottom:16px;">
         <input type="search" name="q" value="{{ $criterio->texto }}"
                placeholder="Nombre, celular o socio" style="padding:8px; width:320px;">
-        <select name="estado" style="padding:8px;">
-            <option value="todas" @selected($criterio->estado->value === 'todas')>Todas</option>
-            <option value="habilitadas" @selected($criterio->estado->value === 'habilitadas')>Habilitadas en SAP</option>
-            <option value="no_habilitadas" @selected($criterio->estado->value === 'no_habilitadas')>No habilitadas en SAP</option>
-        </select>
         <button type="submit">Buscar</button>
     </form>
 
@@ -21,10 +16,9 @@
         <thead>
         <tr>
             <th>Persona</th><th>Celular</th><th>Socio</th><th>Grupo</th>
-            {{-- Dos columnas y no una: lo que SAP marca y si la persona puede
-                 entrar hoy son cosas distintas, y divergen. El boton actua
-                 sobre la segunda, que es la que el operador controla. --}}
-            <th>En SAP</th><th>Acceso a la App</th><th></th>
+            {{-- El acceso es del número: todas las filas con el mismo celular
+                 son la misma persona y muestran el mismo estado. --}}
+            <th>Acceso a la App</th><th></th>
         </tr>
         </thead>
         <tbody>
@@ -34,26 +28,23 @@
                 <td>
                     <strong>{{ $contacto->nombre }}</strong>
                     <span class="tenue">({{ $contacto->iniciales }})</span>
-                    {{-- En rojo solo si todavía tiene acceso: ahí hay algo que hacer. --}}
+                    {{-- En rojo solo si el número tiene acceso y ya no puede entrar: ahí hay algo que hacer. --}}
                     @if ($contacto->estado !== 'visible')
-                        <div class="{{ $contacto->dadoDeBajaEnSap ? 'rojo' : 'tenue' }}" style="font-size:12px;">{{ $contacto->estado === 'dado-de-baja' ? 'Dada de baja en SAP' : 'Inactiva en SAP' }}</div>
+                        <div class="{{ $fila->conservaAccesoSinPoderEntrar() ? 'rojo' : 'tenue' }}" style="font-size:12px;">{{ $contacto->estado === 'dado-de-baja' ? 'Dada de baja en SAP' : 'Inactiva en SAP' }}</div>
                     @endif
-                    @if ($contacto->celularEnConflicto)
-                        <div class="rojo" style="font-size:12px;">Celular en conflicto: otro contacto activo tiene el mismo</div>
+                    @if ($contacto->compartidoCon > 0)
+                        <div class="tenue" style="font-size:12px;">Comparte el número con {{ $contacto->compartidoCon }} contacto(s) más</div>
+                    @endif
+                    @if ($contacto->alcanceDelNumero?->motivo() === \Maestros\Domain\Contactos\MotivoDeNoIngreso::VariosGrupos)
+                        <div class="rojo" style="font-size:12px;">Contacto en socios de varios grupos: no puede entrar</div>
+                    @elseif ($contacto->alcanceDelNumero?->motivo() === \Maestros\Domain\Contactos\MotivoDeNoIngreso::SoloSinGrupo)
+                        <div class="rojo" style="font-size:12px;">Solo en socios sin grupo: no puede entrar</div>
                     @endif
                 </td>
                 {{-- Completo, sin enmascarar (B12). --}}
                 <td>{{ $contacto->celular ?? '—' }}</td>
                 <td>{{ $contacto->razonSocial }}</td>
                 <td>{{ $contacto->grupoEconomico ?? '—' }}</td>
-                <td>
-                    {{ $contacto->estaHabilitada ? 'Habilitada' : 'No habilitada' }}
-                    @if ($fila->faltaDarleAcceso())
-                        <div class="rojo" style="font-size:12px;">Falta darle acceso</div>
-                    @elseif ($fila->conservaAccesoSinRespaldo())
-                        <div class="rojo" style="font-size:12px;">Conserva acceso sin respaldo en SAP</div>
-                    @endif
-                </td>
                 <td>
                     @if ($fila->tieneCredencial)
                         <strong>Sí</strong>
@@ -65,25 +56,27 @@
                     @if (! $contacto->celularEsValido)
                         <span class="rojo">Sin celular válido en SAP</span>
                     @elseif ($fila->tieneCredencial)
-                        <form method="POST" action="{{ route('admin.deshabilitar', $contacto->idDePersona) }}">
+                        <form method="POST" action="{{ route('admin.deshabilitar', $contacto->personaDelNumero) }}">
                             @csrf
                             <input type="hidden" name="volver_a" value="{{ request()->fullUrl() }}">
                             <button type="submit">Quitar acceso</button>
                         </form>
-                    @else
-                        <form method="POST" action="{{ route('admin.habilitar', $contacto->idDePersona) }}">
+                    @elseif ($fila->puedeDarAcceso())
+                        <form method="POST" action="{{ route('admin.habilitar', $contacto->personaDelNumero) }}">
                             @csrf
                             <input type="hidden" name="volver_a" value="{{ request()->fullUrl() }}">
                             <button type="submit">Dar acceso</button>
                         </form>
                     @endif
-                    <div style="margin-top:4px;">
-                        <a href="{{ route('admin.historial', $contacto->idDePersona) }}">Historial</a>
-                    </div>
+                    @if ($contacto->personaDelNumero !== null)
+                        <div style="margin-top:4px;">
+                            <a href="{{ route('admin.historial', $contacto->personaDelNumero) }}">Historial</a>
+                        </div>
+                    @endif
                 </td>
             </tr>
         @empty
-            <tr><td colspan="7">No hay personas que coincidan con la búsqueda.</td></tr>
+            <tr><td colspan="6">No hay personas que coincidan con la búsqueda.</td></tr>
         @endforelse
         </tbody>
     </table>

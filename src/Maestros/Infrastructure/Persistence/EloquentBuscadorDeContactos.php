@@ -12,14 +12,18 @@ use Illuminate\Support\Facades\DB;
 use Maestros\Application\Contactos\BuscadorDeContactos;
 use Maestros\Application\Contactos\ContactoDeBackOffice;
 use Maestros\Application\Contactos\CriterioDeBusqueda;
-use Maestros\Application\Contactos\FiltroDeEstado;
 use Maestros\Application\Contactos\PaginaDeContactos;
+use Maestros\Domain\Contactos\AlcanceDeNumero;
 use Maestros\Domain\Contactos\Celular;
+use Maestros\Domain\Contactos\ContactoRepository;
+use Maestros\Domain\Contactos\IdDePersona;
 use Maestros\Domain\Socios\RazonSocial;
 
 final class EloquentBuscadorDeContactos implements BuscadorDeContactos
 {
     use ComparacionSinAcentos;
+
+    public function __construct(private ContactoRepository $contactos) {}
 
     public function buscar(CriterioDeBusqueda $criterio): PaginaDeContactos
     {
@@ -32,9 +36,19 @@ final class EloquentBuscadorDeContactos implements BuscadorDeContactos
             ->limit($criterio->tamanoDePagina)
             ->get();
 
+        // Una vez por número y no por fila: varias filas pueden ser la misma
+        // persona, y la regla de si entra vive en un solo lugar.
+        $alcances = [];
+        foreach ($filas as $fila) {
+            $celular = $this->celularValido($this->textoOpcional((array) $fila, 'celular'));
+            if ($celular !== null) {
+                $alcances[$celular->e164()] ??= $this->contactos->alcanceDeNumero($celular);
+            }
+        }
+
         return new PaginaDeContactos(
             items: array_values(array_map(
-                fn (object $fila): ContactoDeBackOffice => $this->aFila((array) $fila),
+                fn (object $fila): ContactoDeBackOffice => $this->aFila((array) $fila, $alcances),
                 $filas->all(),
             )),
             total: $total,
@@ -51,13 +65,13 @@ final class EloquentBuscadorDeContactos implements BuscadorDeContactos
             // todavía no trajo, y esa fila igual tiene que listarse.
             ->leftJoin($this->tabla('grupos').' as g', 'g.id_de_grupo', '=', 's.id_de_grupo')
             ->select([
-                'c.id_de_persona', 'c.nombre', 'c.celular', 'c.habilitada_el',
+                'c.id_de_persona', 'c.nombre', 'c.celular',
                 'c.activo', 'c.dado_de_baja_el', 's.activo as socio_activo', 's.dado_de_baja_el as socio_dado_de_baja_el',
                 's.codigo_de_socio', 's.razon_social',
                 'g.nombre as grupo_nombre',
             ])
-            // Cuántos contactos visibles tienen este celular: dos o más es un
-            // conflicto, y el ingreso trata ese número como desconocido.
+            // Cuántos contactos visibles tienen este celular: son la misma
+            // persona, y la pantalla lo dice en cada fila.
             ->selectSub(function (Builder $q): void {
                 $q->from($this->tabla('contactos').' as c2')
                     ->join($this->tabla('socios').' as s2', 's2.codigo_de_socio', '=', 'c2.codigo_de_socio')
@@ -66,12 +80,6 @@ final class EloquentBuscadorDeContactos implements BuscadorDeContactos
 
                 Visibilidad::exigir($q, 'c2', 's2');
             }, 'compartido');
-
-        $consulta = match ($criterio->estado) {
-            FiltroDeEstado::Habilitadas => $consulta->whereNotNull('c.habilitada_el'),
-            FiltroDeEstado::NoHabilitadas => $consulta->whereNull('c.habilitada_el'),
-            FiltroDeEstado::Todas => $consulta,
-        };
 
         if ($criterio->texto !== null) {
             // El patrón va en minúsculas desde PHP: en SQLite la comparación es
@@ -104,11 +112,15 @@ final class EloquentBuscadorDeContactos implements BuscadorDeContactos
     }
 
     /** @param array<string, mixed> $fila */
-    private function aFila(array $fila): ContactoDeBackOffice
+    /**
+     * @param  array<string, mixed>  $fila
+     * @param  array<string, AlcanceDeNumero>  $alcances  por celular en E.164
+     */
+    private function aFila(array $fila, array $alcances): ContactoDeBackOffice
     {
         $celular = $this->textoOpcional($fila, 'celular');
+        $numero = $this->celularValido($celular);
         $nombre = $this->texto($fila, 'nombre');
-        $habilitadaEl = $this->momento($fila, 'habilitada_el');
         $estado = $this->estado($fila);
 
         return new ContactoDeBackOffice(
@@ -118,17 +130,15 @@ final class EloquentBuscadorDeContactos implements BuscadorDeContactos
             // dejar de coincidir con el nombre que abrevia.
             iniciales: (string) RazonSocial::desde($nombre)->iniciales(),
             celular: $celular,
-            celularEsValido: $celular !== null && $this->celularEsValido($celular),
+            celularEsValido: $numero !== null,
             cardCode: $this->texto($fila, 'codigo_de_socio'),
             razonSocial: $this->texto($fila, 'razon_social'),
             grupoEconomico: $this->textoOpcional($fila, 'grupo_nombre'),
-            estaHabilitada: $habilitadaEl !== null,
-            habilitadaEl: $habilitadaEl,
             estado: $estado,
-            // Solo se avisa sobre quien tiene acceso: que SAP dé de baja a alguien
-            // que nunca pudo entrar no le cambia nada a nadie.
-            dadoDeBajaEnSap: $habilitadaEl !== null && $estado !== 'visible',
-            celularEnConflicto: $estado === 'visible' && $this->entero($fila, 'compartido') > 1,
+            personaDelNumero: $numero === null ? null : IdDePersona::deCelular($numero)->value(),
+            // `compartido` cuenta los visibles con este número, esta fila incluida si lo es.
+            compartidoCon: max(0, $this->entero($fila, 'compartido') - ($estado === 'visible' ? 1 : 0)),
+            alcanceDelNumero: $numero === null ? null : ($alcances[$numero->e164()] ?? null),
         );
     }
 
@@ -188,14 +198,16 @@ final class EloquentBuscadorDeContactos implements BuscadorDeContactos
         return is_numeric($valor) ? (int) $valor : (is_bool($valor) ? (int) $valor : 0);
     }
 
-    private function celularEsValido(string $celular): bool
+    private function celularValido(?string $celular): ?Celular
     {
-        try {
-            Celular::desdeLocalBoliviano($celular);
+        if ($celular === null) {
+            return null;
+        }
 
-            return true;
+        try {
+            return Celular::desdeLocalBoliviano($celular);
         } catch (DomainException) {
-            return false;
+            return null;
         }
     }
 

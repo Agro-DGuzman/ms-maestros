@@ -8,100 +8,83 @@ use Identidad\Application\Contracts\DirectorioDeIdentidades;
 use Identidad\Application\Habilitacion\HabilitarPersona\HabilitarPersona;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Maestros\Domain\Contactos\IdDePersona;
-use Maestros\Infrastructure\Persistence\ContactoRecord;
 use Tests\Dobles\DirectorioFalso;
 use Tests\Soporte\ReplicaDeEjemplo;
 
 uses(RefreshDatabase::class);
 
+// En la semilla, el +59170741828 es Mónica (p-8f2b1c40), contacto de C-004871,
+// del grupo GRP-014. Lo que se habilita es el número.
 beforeEach(function () {
     $this->artisan('maestros:importar', ['archivo' => database_path('semillas/maestros-ejemplo.json')]);
     $this->directorio = new DirectorioFalso;
     $this->app->instance(DirectorioDeIdentidades::class, $this->directorio);
+    $this->habilitar = fn (string $id) => app(Mediator::class)->send(new HabilitarPersona(IdDePersona::desde($id)));
 });
 
-it('crea el usuario en el directorio y guarda la contrasena cifrada', function () {
-    $persona = IdDePersona::desde('p-8f2b1c40');
+it('habilitar un numero crea la credencial con el id del numero', function () {
+    expect(($this->habilitar)(ReplicaDeEjemplo::MONICA)->isSuccess)->toBeTrue()
+        ->and($this->directorio->estaActivo(IdDePersona::desde(ReplicaDeEjemplo::MONICA)))->toBeTrue();
 
-    expect(app(Mediator::class)->send(new HabilitarPersona($persona))->isSuccess)->toBeTrue()
-        ->and($this->directorio->estaActivo($persona))->toBeTrue();
-
-    $guardada = app(BovedaDeContrasenas::class)->leer($persona);
+    $guardada = app(BovedaDeContrasenas::class)->leer(IdDePersona::desde(ReplicaDeEjemplo::MONICA));
 
     expect($guardada)->toBeString()
         ->and(strlen((string) $guardada))->toBeGreaterThanOrEqual(24)
-        ->and($guardada)->toBe($this->directorio->usuarios['p-8f2b1c40']);
+        ->and($guardada)->toBe($this->directorio->usuarios[ReplicaDeEjemplo::MONICA]);
 });
 
 it('no guarda contrasena si el directorio falla', function () {
     $this->directorio->caido = true;
-    $persona = IdDePersona::desde('p-8f2b1c40');
 
-    $resultado = app(Mediator::class)->send(new HabilitarPersona($persona));
+    $resultado = ($this->habilitar)(ReplicaDeEjemplo::MONICA);
 
     expect($resultado->isFailure())->toBeTrue()
         ->and($resultado->error->code)->toBe('IDENTIDAD_NO_DISPONIBLE')
-        ->and(app(BovedaDeContrasenas::class)->leer($persona))->toBeNull();
+        ->and(app(BovedaDeContrasenas::class)->leer(IdDePersona::desde(ReplicaDeEjemplo::MONICA)))->toBeNull();
 });
 
-it('no habilita a quien no tiene un celular con el que pueda entrar', function () {
-    // La columna es NOT NULL y el objeto de valor valida al leer, asi que un
-    // celular inservible solo llega si alguien escribio la fila por fuera del
-    // dominio. Cuando pasa, el operador tiene que leer que hacer, no un stack.
-    ContactoRecord::query()->where('id_de_persona', 'p-8f2b1c40')->update(['celular' => '12345']);
+it('habilita un numero que comparten contactos de socios del mismo grupo', function () {
+    ReplicaDeEjemplo::otroContactoCon('+59170741828', 'p-9999', cardCode: 'C-004872');
 
-    $resultado = app(Mediator::class)->send(new HabilitarPersona(IdDePersona::desde('p-8f2b1c40')));
-
-    expect($resultado->isFailure())->toBeTrue()
-        ->and($resultado->error->code)->toBe('CELULAR_INVALIDO')
-        ->and($resultado->error->description)->toContain('SAP')
-        ->and($resultado->error->description)->toContain('importar');
+    expect(($this->habilitar)(ReplicaDeEjemplo::MONICA)->isSuccess)->toBeTrue();
 });
 
-it('no crea el usuario en el directorio si el celular no sirve', function () {
-    ContactoRecord::query()->where('id_de_persona', 'p-8f2b1c40')->update(['celular' => '12345']);
-
-    app(Mediator::class)->send(new HabilitarPersona(IdDePersona::desde('p-8f2b1c40')));
-
-    expect($this->directorio->usuarios)->toBe([])
-        ->and(app(BovedaDeContrasenas::class)->leer(IdDePersona::desde('p-8f2b1c40')))->toBeNull();
-});
-
-it('rechaza habilitar a alguien que no existe en la replica', function () {
-    $resultado = app(Mediator::class)->send(new HabilitarPersona(IdDePersona::desde('p-fantasma')));
-
-    expect($resultado->isFailure())->toBeTrue()
-        ->and($resultado->error->code)->toBe('CONTACTO_NO_ENCONTRADO');
-});
-
-it('no habilita a una persona dada de baja en SAP', function () {
-    ReplicaDeEjemplo::personaDadaDeBaja('p-8f2b1c40');
-
-    $resultado = app(Mediator::class)->send(new HabilitarPersona(IdDePersona::desde('p-8f2b1c40')));
-
-    expect($resultado->isFailure())->toBeTrue()
-        ->and($resultado->error->code)->toBe('CONTACTO_NO_VISIBLE')
-        ->and($this->directorio->usuarios)->toBe([]);
-});
-
-it('no habilita a quien comparte el celular con otro contacto activo', function () {
-    // Darle credencial no le serviría: el ingreso trata ese número como
-    // desconocido hasta que SAP lo corrija.
+it('no habilita un numero en socios de dos grupos', function () {
     ReplicaDeEjemplo::otroContactoCon('+59170741828');
 
-    $resultado = app(Mediator::class)->send(new HabilitarPersona(IdDePersona::desde('p-8f2b1c40')));
+    $resultado = ($this->habilitar)(ReplicaDeEjemplo::MONICA);
 
-    expect($resultado->isFailure())->toBeTrue()
-        ->and($resultado->error->code)->toBe('CELULAR_EN_CONFLICTO')
+    expect($resultado->error->code)->toBe('NUMERO_EN_VARIOS_GRUPOS')
         ->and($this->directorio->usuarios)->toBe([]);
 });
 
-it('no habilita a quien no tiene celular', function () {
-    ContactoRecord::query()->where('id_de_persona', 'p-8f2b1c40')->update(['celular' => null]);
+it('no habilita un numero que solo es contacto de socios sin grupo', function () {
+    ReplicaDeEjemplo::sinGrupo('C-004871');
 
-    $resultado = app(Mediator::class)->send(new HabilitarPersona(IdDePersona::desde('p-8f2b1c40')));
-
-    expect($resultado->isFailure())->toBeTrue()
-        ->and($resultado->error->code)->toBe('CELULAR_INVALIDO')
+    expect(($this->habilitar)(ReplicaDeEjemplo::MONICA)->error->code)->toBe('NUMERO_SOLO_SIN_GRUPO')
         ->and($this->directorio->usuarios)->toBe([]);
+});
+
+it('no habilita un numero sin contactos visibles', function () {
+    ReplicaDeEjemplo::personaDadaDeBaja('p-8f2b1c40');
+
+    expect(($this->habilitar)(ReplicaDeEjemplo::MONICA)->error->code)->toBe('NUMERO_SIN_CONTACTOS')
+        ->and($this->directorio->usuarios)->toBe([]);
+});
+
+it('no habilita un id por contacto', function () {
+    expect(($this->habilitar)('p-8f2b1c40')->error->code)->toBe('CELULAR_INVALIDO')
+        ->and($this->directorio->usuarios)->toBe([]);
+});
+
+it('el comando recibe el celular', function () {
+    $this->artisan('identidad:habilitar', ['celular' => '70741828'])->assertExitCode(0);
+
+    expect($this->directorio->estaActivo(IdDePersona::desde(ReplicaDeEjemplo::MONICA)))->toBeTrue();
+});
+
+it('el comando rechaza lo que no es un celular movil', function () {
+    $this->artisan('identidad:habilitar', ['celular' => '12345'])->assertExitCode(1);
+
+    expect($this->directorio->usuarios)->toBe([]);
 });
