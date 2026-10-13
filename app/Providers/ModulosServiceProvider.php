@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Console\MigrarANumerosCommand;
 use Identidad\Application\Auth\IniciarSesion\IniciarSesionHandler;
 use Identidad\Application\Auth\SolicitarDesafio\SolicitarDesafioHandler;
 use Identidad\Application\Contracts\BovedaDeContrasenas;
@@ -210,6 +211,7 @@ final class ModulosServiceProvider extends ServiceProvider
                 HabilitarPersonaCommand::class,
                 DeshabilitarPersonaCommand::class,
                 ConciliarIdentidadesCommand::class,
+                MigrarANumerosCommand::class,
             ]);
         }
     }

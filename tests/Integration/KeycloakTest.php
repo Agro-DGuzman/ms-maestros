@@ -12,7 +12,7 @@ use Illuminate\Http\Client\Factory as Http;
 use Maestros\Domain\Contactos\IdDePersona;
 use Psr\Log\NullLogger;
 
-/** La contraseña que el realm importado le pone a `p-8f2b1c40`. */
+/** La contraseña que el realm importado le pone a `n-59170741828`, el número de Mónica. */
 const CONTRASENA_DEL_REALM = 'contrasena-de-desarrollo';
 
 /**
@@ -44,7 +44,7 @@ function emisorReal(): KeycloakEmisorDeToken
  */
 function tokenDelRealm(KeycloakEmisorDeToken $emisor): ResultWithValue
 {
-    $resultado = $emisor->emitirPara(IdDePersona::desde('p-8f2b1c40'), CONTRASENA_DEL_REALM);
+    $resultado = $emisor->emitirPara(IdDePersona::desde('n-59170741828'), CONTRASENA_DEL_REALM);
 
     expect($resultado->isSuccess)->toBeTrue(PISTA_DEL_REALM);
 
@@ -73,7 +73,7 @@ it('renueva y despues revoca', function () {
 });
 
 it('rechaza una contrasena equivocada sin filtrar por que', function () {
-    $resultado = emisorReal()->emitirPara(IdDePersona::desde('p-8f2b1c40'), 'equivocada');
+    $resultado = emisorReal()->emitirPara(IdDePersona::desde('n-59170741828'), 'equivocada');
 
     expect($resultado->isFailure())->toBeTrue()
         ->and($resultado->error->code)->toBe('IDENTIDAD_NO_DISPONIBLE');

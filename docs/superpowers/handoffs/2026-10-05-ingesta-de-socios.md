@@ -55,18 +55,11 @@ docker compose exec app php artisan migrate --force
 
 Cada uno: test en rojo primero, después el código.
 
-1. **Parte B: la habilitación escribe `habilitada_el`.** Es diseño: spec antes
-   de código. Hoy solo el importador escribe esa columna, y la ingesta no la
-   toca nunca, así que con datos de la ingesta:
-   - el filtro «Habilitadas» del back-office queda vacío;
-   - `identidad:conciliar` (`ConciliarIdentidadesCommand`, vía `habilitadas()`)
-     reporta a **toda persona con acceso** como «credencial sin habilitación»;
-   - la marca roja de «dada de baja en SAP» no se enciende nunca.
-   
-   `HabilitarPersonaHandler` ya no exige `habilitada_el`. Lo que falta: conceder
-   la marca, revocar la borra. La pregunta abierta es cómo Identidad le pide a
-   Maestros esa escritura sin romper la regla del puerto `DirectorioDeContactos`.
-   Tiene que estar antes de que entren personas reales por la ingesta.
+1. ~~**Parte B: la habilitación escribe `habilitada_el`.**~~ **Reemplazada** por
+   «la persona es el número»
+   (`docs/superpowers/specs/2026-10-13-persona-por-numero-design.md`): la
+   habilitación es del número y es tener credencial; `habilitada_el` ya no la
+   lee nadie.
 2. **El refetch del JWKS vacía el caché antes de traer el nuevo**
    (`app/Ingesta/VerificadorEntra.php`, `claves()`). Si Entra falla en ese
    momento, todo token válido da 503. Traer primero y reemplazar solo si salió
