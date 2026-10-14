@@ -15,7 +15,8 @@ return [
 
         // En /v1 se prende recién cuando el APIM manda la cabecera también
         // ahí; prenderlo antes deja a la App afuera.
-        'en_v1' => (bool) env('GATEWAY_SECRETO_EN_V1', false),
+        // filter_var y no un cast: con (bool), «no» u «off» se leían como true.
+        'en_v1' => filter_var(env('GATEWAY_SECRETO_EN_V1', false), FILTER_VALIDATE_BOOL),
     ],
 
     'entra' => [

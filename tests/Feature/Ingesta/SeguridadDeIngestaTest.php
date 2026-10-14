@@ -108,6 +108,22 @@ it('una clave nueva hace pedir de nuevo el JWKS, pero no mas de una vez cada 5 m
     Http::assertSentCount(2);
 });
 
+it('si Entra se cae al buscar una clave nueva, las que ya tenia siguen valiendo', function () {
+    pedirIngesta(cabecerasDeIngesta())->assertStatus(201);
+
+    // Llega un token con una clave que el caché no tiene, justo cuando Entra no
+    // responde: ese pedido no se puede verificar, pero no tiene que borrar lo
+    // que ya se sabía.
+    TokenDeEntra::caido();
+
+    pedirIngesta(cabecerasDeIngesta([
+        'Authorization' => 'Bearer '.TokenDeEntra::valido(kid: 'clave-2'),
+        'Idempotency-Key' => str_repeat('b', 32),
+    ]))->assertStatus(503);
+
+    pedirIngesta(cabecerasDeIngesta(['Idempotency-Key' => str_repeat('c', 32)]))->assertStatus(201);
+});
+
 it('si no puede obtener las claves de Entra responde 503', function () {
     TokenDeEntra::caido();
 

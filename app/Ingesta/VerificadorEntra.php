@@ -104,16 +104,30 @@ final readonly class VerificadorEntra
         $llave = "ingesta:entra:jwks:{$tenant}";
 
         if ($refrescar) {
-            $this->cache->forget($llave);
             $this->cache->put("ingesta:entra:refetch:{$tenant}", true, now()->addMinutes(self::MINUTOS_ENTRE_REFETCH));
+        } else {
+            $guardado = $this->cache->get($llave);
+
+            if (is_array($guardado)) {
+                return $guardado;
+            }
         }
 
-        $guardado = $this->cache->get($llave);
+        $jwks = $this->pedirJwks($tenant);
 
-        if (is_array($guardado)) {
-            return $guardado;
+        // Lo que no se pudo pedir no se cachea, y tampoco borra lo que ya se
+        // tenía: si Entra se cae justo al buscar una clave nueva, los tokens
+        // firmados con las claves conocidas tienen que seguir verificando.
+        if ($jwks !== null) {
+            $this->cache->put($llave, $jwks, now()->addMinutes(self::MINUTOS_DE_CACHE));
         }
 
+        return $jwks;
+    }
+
+    /** @return array<mixed>|null */
+    private function pedirJwks(string $tenant): ?array
+    {
         try {
             $respuesta = $this->http
                 ->timeout(Config::integer('ingesta.entra.timeout', 10))
@@ -127,9 +141,6 @@ final readonly class VerificadorEntra
         if (! $respuesta->successful() || ! is_array($cuerpo) || ! is_array($cuerpo['keys'] ?? null)) {
             return null;
         }
-
-        // Un JWKS que no se pudo pedir no se cachea: el próximo pedido reintenta.
-        $this->cache->put($llave, $cuerpo, now()->addMinutes(self::MINUTOS_DE_CACHE));
 
         return $cuerpo;
     }
