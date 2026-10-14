@@ -18,16 +18,16 @@ final class ContactoErrors
     }
 
     /**
-     * Mismo código que `celularInvalido`, otro destinatario: aquel le habla al
-     * socio que tecleó mal su número; este al operador, que no puede corregir
-     * nada desde la pantalla. Por eso el mensaje dice qué hacer y dónde.
+     * Al operador: el acceso se da por número, y un id que no es de un número
+     * llega desde una pantalla abierta antes del cambio. No hay nada que
+     * corregir en SAP.
      */
-    public static function celularNoUtilizable(): Error
+    public static function noEsUnNumero(string $id): Error
     {
         return Error::validation(
-            'CELULAR_INVALIDO',
-            'Esta persona no tiene un celular con el que pueda entrar a la App. '.
-            'Corregilo en SAP y volvé a importar.',
+            'PERSONA_INVALIDA',
+            'El acceso se da por número de celular, y {id} no es uno. Si viene de la pantalla de Contactos, recargala e intentá de nuevo.',
+            $id,
         );
     }
 

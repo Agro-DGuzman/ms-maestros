@@ -53,28 +53,41 @@ final class EloquentContactoRepository implements ContactoRepository
 
     public function alcanceDeNumero(Celular $celular): AlcanceDeNumero
     {
+        return $this->alcancesDeNumeros([$celular])[$celular->e164()];
+    }
+
+    /**
+     * @param  list<Celular>  $celulares
+     * @return array<string, AlcanceDeNumero>
+     */
+    public function alcancesDeNumeros(array $celulares): array
+    {
+        $numeros = array_values(array_unique(array_map(static fn (Celular $c): string => $c->e164(), $celulares)));
+
+        if ($numeros === []) {
+            return [];
+        }
+
         $filas = $this->visibles()
-            ->where('c.celular', $celular->e164())
-            ->select(['s.codigo_de_socio', 's.id_de_grupo'])
+            ->whereIn('c.celular', $numeros)
+            ->select(['c.celular', 's.codigo_de_socio', 's.id_de_grupo'])
             ->distinct()
+            ->orderBy('c.celular')
             ->orderBy('s.codigo_de_socio')
             ->toBase()
             ->get();
 
-        return AlcanceDeNumero::desde(array_values(array_map(
-            static fn (object $fila): array => [
+        $vinculos = array_fill_keys($numeros, []);
+
+        foreach ($filas as $fila) {
+            $vinculos[(string) $fila->celular][] = [
                 'socio' => CodigoDeSocio::desde((string) $fila->codigo_de_socio),
                 'grupo' => is_string($fila->id_de_grupo) && $fila->id_de_grupo !== '' ? IdDeGrupo::desde($fila->id_de_grupo) : null,
-            ],
-            $filas->all(),
-        )));
-    }
+            ];
+        }
 
-    public function visible(IdDePersona $id): ?PersonaDeContacto
-    {
-        $record = $this->visibles()->where('c.id_de_persona', $id->value())->first();
-
-        return $record === null ? null : $this->aDominio($record);
+        // Un número sin contactos visibles también tiene alcance: el que no entra.
+        return array_map(static fn (array $v): AlcanceDeNumero => AlcanceDeNumero::desde($v), $vinculos);
     }
 
     /**

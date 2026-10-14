@@ -31,7 +31,7 @@ final readonly class HabilitarPersonaHandler implements RequestHandler
         $celular = $peticion->persona->celular();
 
         if ($celular === null) {
-            return Result::failure(ContactoErrors::celularNoUtilizable());
+            return Result::failure(ContactoErrors::noEsUnNumero($peticion->persona->value()));
         }
 
         // Darle credencial a un número que igual no podría entrar solo

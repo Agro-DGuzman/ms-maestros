@@ -8,10 +8,10 @@ use Illuminate\Contracts\Database\Query\Builder;
 
 /**
  * La única definición en SQL de «lo que la App ve» de un contacto: activo, sin
- * baja, y de un socio activo y sin baja. La usan el repositorio (alcance,
- * contexto, ingreso, renovación) y la pantalla de Contactos (el conflicto de
- * celular): si divergieran, el back-office marcaría un conflicto que el
- * ingreso no ve, o al revés.
+ * baja, y de un socio activo y sin baja. La usan el repositorio (el alcance
+ * de un número, del que cuelgan el ingreso, el contexto y la renovación) y la
+ * pantalla de Contactos (con cuántos comparte un número): si divergieran, el
+ * back-office contaría contactos que el ingreso no ve, o al revés.
  */
 final class Visibilidad
 {

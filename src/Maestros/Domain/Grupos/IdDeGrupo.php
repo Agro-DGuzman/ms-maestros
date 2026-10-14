@@ -8,7 +8,7 @@ use Core\Contracts\EntityId;
 use Core\Results\DomainException;
 use Core\Results\Error;
 
-/** Viene de `OCRG`. Maestros lo replica y no lo edita (ADR 0003). */
+/** `@GRUPOECO_SEGMENT.Code` en SAP, no `OCRG` (D10). Maestros lo replica y no lo edita. */
 final readonly class IdDeGrupo implements EntityId
 {
     private function __construct(private string $id) {}

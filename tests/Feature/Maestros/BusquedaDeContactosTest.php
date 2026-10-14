@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Core\Contracts\Mediator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Maestros\Application\Contactos\CriterioDeBusqueda;
 use Maestros\Application\Contactos\ListarContactos\ListarContactos;
 use Maestros\Application\Contactos\PaginaDeContactos;
@@ -138,4 +139,19 @@ it('el celular replicado se reporta como valido', function () {
 
     expect($fila->celular)->toBe('+59170741828')
         ->and($fila->celularEsValido)->toBeTrue();
+});
+
+it('resuelve si entra cada numero de la pagina en una sola consulta', function () {
+    // Una consulta por número escala con el tamaño de la página; una sola, no.
+    DB::enableQueryLog();
+
+    $pagina = listar(null);
+
+    $consultas = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    expect($pagina->items)->toHaveCount(3)
+        ->and(array_map(static fn ($c): bool => $c->alcanceDelNumero?->entra() === true, $pagina->items))->toBe([true, true, true])
+        // El total, la página y los alcances de todos sus números.
+        ->and($consultas)->toBe(3);
 });

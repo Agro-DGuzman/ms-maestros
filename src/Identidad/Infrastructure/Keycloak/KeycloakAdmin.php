@@ -12,6 +12,8 @@ use Maestros\Domain\Contactos\IdDePersona;
 
 final readonly class KeycloakAdmin implements DirectorioDeIdentidades
 {
+    private const int USUARIOS_POR_PAGINA = 1000;
+
     public function __construct(
         private Http $http,
         private string $baseUrl,
@@ -114,32 +116,43 @@ final readonly class KeycloakAdmin implements DirectorioDeIdentidades
             return null;
         }
 
-        try {
-            // Una página alcanza para el piloto. El realm también tiene la
-            // cuenta de servicio del cliente: solo cuentan los ids de persona.
-            $respuesta = $this->http->withToken($token)->timeout($this->timeout)
-                ->get($this->admin('users'), ['enabled' => 'true', 'briefRepresentation' => 'true', 'max' => 1000]);
-        } catch (ConnectionException) {
-            return null;
-        }
-
-        $usuarios = $respuesta->json();
-
-        if (! $respuesta->successful() || ! is_array($usuarios)) {
-            return null;
-        }
-
         $personas = [];
 
-        foreach ($usuarios as $usuario) {
-            $nombre = is_array($usuario) ? ($usuario['username'] ?? null) : null;
+        for ($desde = 0; ; $desde += self::USUARIOS_POR_PAGINA) {
+            try {
+                $respuesta = $this->http->withToken($token)->timeout($this->timeout)->get($this->admin('users'), [
+                    'enabled' => 'true',
+                    'briefRepresentation' => 'true',
+                    'first' => $desde,
+                    'max' => self::USUARIOS_POR_PAGINA,
+                ]);
+            } catch (ConnectionException) {
+                return null;
+            }
 
-            if (is_string($nombre) && preg_match('/^[np]-/', $nombre) === 1) {
-                $personas[] = IdDePersona::desde($nombre);
+            $usuarios = $respuesta->json();
+
+            // Una página que falla deja la lista a medias: mejor no saber que
+            // creer que el resto no tiene acceso.
+            if (! $respuesta->successful() || ! is_array($usuarios)) {
+                return null;
+            }
+
+            foreach ($usuarios as $usuario) {
+                $nombre = is_array($usuario) ? ($usuario['username'] ?? null) : null;
+
+                // El filtro del servidor no alcanza: si alguna vez no se
+                // aplica, todo usuario revocado aparecería como activo. El
+                // realm también tiene la cuenta de servicio del cliente.
+                if (is_string($nombre) && preg_match('/^[np]-/', $nombre) === 1 && ($usuario['enabled'] ?? false) === true) {
+                    $personas[] = IdDePersona::desde($nombre);
+                }
+            }
+
+            if (count($usuarios) < self::USUARIOS_POR_PAGINA) {
+                return $personas;
             }
         }
-
-        return $personas;
     }
 
     private function buscar(string $token, IdDePersona $persona): ?string

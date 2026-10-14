@@ -10,7 +10,6 @@ use DateTimeImmutable;
 use Maestros\Domain\Contactos\AlcanceDeNumero;
 use Maestros\Domain\Contactos\Celular;
 use Maestros\Domain\Contactos\ContactoRepository;
-use Maestros\Domain\Contactos\IdDePersona;
 use Maestros\Domain\Contactos\PersonaDeContacto;
 use Maestros\Domain\Socios\CodigoDeSocio;
 use Maestros\Infrastructure\Persistence\EloquentContactoRepository;
@@ -54,9 +53,13 @@ final class ContactosConLecturaVieja implements ContactoRepository
         return $this->real->alcanceDeNumero($celular);
     }
 
-    public function visible(IdDePersona $id): ?PersonaDeContacto
+    /**
+     * @param  list<Celular>  $celulares
+     * @return array<string, AlcanceDeNumero>
+     */
+    public function alcancesDeNumeros(array $celulares): array
     {
-        return $this->real->visible($id);
+        return $this->real->alcancesDeNumeros($celulares);
     }
 
     public function darDeBajaLosQueNoVinieron(CodigoDeSocio $socio, array $vistos, DateTimeImmutable $momento): void
