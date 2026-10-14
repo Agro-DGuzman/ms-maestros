@@ -157,3 +157,25 @@ it('una vigencia con desfase horario se guarda en UTC y la replica no retrocede'
     expect($socio?->razon_social)->toBe('Agro Prueba SRL')
         ->and($socio?->vigente_desde->format('Y-m-d H:i:s'))->toBe('2026-10-05 12:00:00');
 });
+
+it('DELETE sin Idempotency-Key responde 400 como lo declara el contrato', function () {
+    $respuesta = test()->deleteJson('/ingesta/v1/socios/C-004871', [], Ingesta::cabeceras(sin: ['Idempotency-Key']));
+
+    cumpleElContratoDeIngesta($respuesta, 'DELETE', '/socios/{cardCode}')->assertStatus(400);
+});
+
+it('sin la configuracion de Entra cada operacion responde 500 como lo declara el contrato', function (string $metodo, string $uri, string $ruta) {
+    // Falta INGESTA_ENTRA_TENANT_ID: es un error nuestro, no del Sincronizador,
+    // y el contrato tiene que decirle qué esperar.
+    config(['ingesta.entra.tenant' => '']);
+
+    $respuesta = test()->json($metodo, $uri, $metodo === 'DELETE' ? [] : Ingesta::cuerpo(), Ingesta::cabeceras());
+
+    cumpleElContratoDeIngesta($respuesta, $metodo, $ruta)
+        ->assertStatus(500)
+        ->assertJsonPath('error.code', ['CONFIGURACION_INCOMPLETA']);
+})->with([
+    'POST' => ['POST', '/ingesta/v1/socios', '/socios'],
+    'PUT' => ['PUT', '/ingesta/v1/socios/C-900001', '/socios/{cardCode}'],
+    'DELETE' => ['DELETE', '/ingesta/v1/socios/C-900001', '/socios/{cardCode}'],
+]);
