@@ -92,5 +92,25 @@ it('no cierra sesiones si el directorio falla', function () {
 });
 
 it('el comando recibe el celular y devuelve 0 al deshabilitar', function () {
-    $this->artisan('identidad:deshabilitar', ['celular' => '70741828'])->assertExitCode(0);
+    $this->artisan('identidad:deshabilitar', ['persona' => '70741828'])->assertExitCode(0);
+});
+
+it('el comando acepta un id por contacto, para limpiar restos anteriores a los numeros', function () {
+    $this->directorio->crearOActualizar(IdDePersona::desde('p-a1b2c306'), 'una-contrasena');
+
+    $this->artisan('identidad:deshabilitar', ['persona' => 'p-a1b2c306'])->assertExitCode(0);
+
+    expect($this->directorio->estaActivo(IdDePersona::desde('p-a1b2c306')))->toBeFalse();
+});
+
+it('el comando acepta el id de un numero', function () {
+    $this->directorio->crearOActualizar(IdDePersona::desde('n-59170741828'), 'una-contrasena');
+
+    $this->artisan('identidad:deshabilitar', ['persona' => 'n-59170741828'])->assertExitCode(0);
+
+    expect($this->directorio->estaActivo(IdDePersona::desde('n-59170741828')))->toBeFalse();
+});
+
+it('el comando rechaza lo que no es un celular ni un id de persona', function () {
+    $this->artisan('identidad:deshabilitar', ['persona' => 'service-account-ms-maestros'])->assertExitCode(1);
 });

@@ -81,10 +81,9 @@ final class ConciliarIdentidadesCommand extends Command
         }
 
         // No siempre se corrige igual: a un número que le falta la credencial
-        // se le vuelve a dar acceso, y a uno que la conserva sin estar
-        // habilitado se le quita con `identidad:deshabilitar`. Las credenciales
-        // por contacto las migra `identidad:migrar-a-numeros`.
-        $this->error("{$discrepancias} discrepancia(s).");
+        // se le vuelve a dar acceso, y lo que sobra (un usuario sin credencial,
+        // una credencial por contacto) se quita por su id.
+        $this->error("{$discrepancias} discrepancia(s). Corregir con identidad:habilitar <celular> o identidad:deshabilitar <celular o id>.");
 
         return self::FAILURE;
     }
