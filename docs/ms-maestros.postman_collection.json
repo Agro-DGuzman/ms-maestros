@@ -12,7 +12,10 @@
     { "key": "token", "value": "" },
     { "key": "refreshToken", "value": "" },
     { "key": "itemCode", "value": "" },
-    { "key": "cardCode", "value": "" }
+    { "key": "cardCode", "value": "" },
+    { "key": "gatewaySecret", "value": "" },
+    { "key": "tokenEntra", "value": "" },
+    { "key": "cardCodeIngesta", "value": "C-900001" }
   ],
   "item": [
     {
@@ -599,6 +602,282 @@
               "  pm.response.to.have.status(200);",
               "  pm.expect(b.data.items.length).to.equal(4);",
               "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16. Ingesta (Sincronizador)",
+      "description": "Lo que usa el Sincronizador SAP para escribir la réplica (contrato: `contrato/ingesta-api-v1.yaml`).\n\n**Dónde funciona.** Por el APIM (`https://agropartners-apim.azure-api.net`) solo desde la IP del Sincronizador. Directo contra un ms-maestros, hace falta el `gatewaySecret` y un token de Entra real en `tokenEntra`, que se pide con el certificado del Sincronizador desde el droplet. Todos menos 16d necesitan ese token: sin él, el pedido corta en 401 antes de llegar a lo que prueba. Para probar en local sin Entra, usar `tests/Manual/probar-ingesta.php`.\n\n**La clave de idempotencia la genera el script de la carpeta**, nueva en cada pedido. Repetir un pedido con la misma clave devuelve la respuesta guardada, aunque el cuerpo haya cambiado.\n\n**`vigenteDesde` es la hora actual** (`{{$isoTimestamp}}`), para que cada envío sea más nuevo que el anterior: uno más viejo responde éxito y no cambia nada.",
+      "item": [
+        {
+          "name": "16a. Crear socio (POST)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Gateway-Secret",
+                "value": "{{gatewaySecret}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenEntra}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"cardCode\": \"{{cardCodeIngesta}}\",\n    \"razonSocial\": \"Agro Prueba SRL\",\n    \"tipoSap\": \"C\",\n    \"activo\": true,\n    \"grupoEconomico\": {\n        \"codigo\": \"GRP-900\",\n        \"nombre\": \"Grupo Prueba\",\n        \"segmento\": \"Agroindustrial\"\n    },\n    \"contactos\": [\n        {\n            \"codigoDeContacto\": \"1523\",\n            \"nombre\": \"Mónica Prueba\",\n            \"celular\": \"75000001\",\n            \"activo\": true\n        }\n    ],\n    \"vigenteDesde\": \"{{$isoTimestamp}}\",\n    \"origen\": {\n        \"esquema\": \"AGRO_P6\",\n        \"eventoId\": 1\n    }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ingesta/v1/socios",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingesta",
+                "v1",
+                "socios"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201, o 409 si el socio ya existe', () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));",
+                  "pm.test('el sobre tiene data, success y error', () => pm.expect(Object.keys(pm.response.json()).sort()).to.eql(['data', 'error', 'success']));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16b. Reemplazar socio (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Gateway-Secret",
+                "value": "{{gatewaySecret}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenEntra}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"cardCode\": \"{{cardCodeIngesta}}\",\n    \"razonSocial\": \"Agro Prueba SRL\",\n    \"tipoSap\": \"C\",\n    \"activo\": true,\n    \"grupoEconomico\": {\n        \"codigo\": \"GRP-900\",\n        \"nombre\": \"Grupo Prueba\",\n        \"segmento\": \"Agroindustrial\"\n    },\n    \"contactos\": [\n        {\n            \"codigoDeContacto\": \"1523\",\n            \"nombre\": \"Mónica Prueba\",\n            \"celular\": \"75000001\",\n            \"activo\": true\n        }\n    ],\n    \"vigenteDesde\": \"{{$isoTimestamp}}\",\n    \"origen\": {\n        \"esquema\": \"AGRO_P6\",\n        \"eventoId\": 1\n    }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ingesta/v1/socios/{{cardCodeIngesta}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingesta",
+                "v1",
+                "socios",
+                "{{cardCodeIngesta}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('el sobre tiene data, success y error', () => pm.expect(Object.keys(pm.response.json()).sort()).to.eql(['data', 'error', 'success']));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16c. Dar de baja socio (DELETE)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Gateway-Secret",
+                "value": "{{gatewaySecret}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenEntra}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ingesta/v1/socios/{{cardCodeIngesta}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingesta",
+                "v1",
+                "socios",
+                "{{cardCodeIngesta}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204, o 404 si ya no estaba (el Sincronizador lo toma como éxito)', () => pm.expect(pm.response.code).to.be.oneOf([204, 404]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16d. Sin secreto del gateway (espera 403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenEntra}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"cardCode\": \"{{cardCodeIngesta}}\",\n    \"razonSocial\": \"Agro Prueba SRL\",\n    \"tipoSap\": \"C\",\n    \"activo\": true,\n    \"grupoEconomico\": {\n        \"codigo\": \"GRP-900\",\n        \"nombre\": \"Grupo Prueba\",\n        \"segmento\": \"Agroindustrial\"\n    },\n    \"contactos\": [\n        {\n            \"codigoDeContacto\": \"1523\",\n            \"nombre\": \"Mónica Prueba\",\n            \"celular\": \"75000001\",\n            \"activo\": true\n        }\n    ],\n    \"vigenteDesde\": \"{{$isoTimestamp}}\",\n    \"origen\": {\n        \"esquema\": \"AGRO_P6\",\n        \"eventoId\": 1\n    }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ingesta/v1/socios",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingesta",
+                "v1",
+                "socios"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 403 ACCESO_DENEGADO', () => { pm.response.to.have.status(403); pm.expect(pm.response.json().error.code).to.eql(['ACCESO_DENEGADO']); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16e. Sin Idempotency-Key (espera 400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Gateway-Secret",
+                "value": "{{gatewaySecret}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenEntra}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"cardCode\": \"{{cardCodeIngesta}}\",\n    \"razonSocial\": \"Agro Prueba SRL\",\n    \"tipoSap\": \"C\",\n    \"activo\": true,\n    \"grupoEconomico\": {\n        \"codigo\": \"GRP-900\",\n        \"nombre\": \"Grupo Prueba\",\n        \"segmento\": \"Agroindustrial\"\n    },\n    \"contactos\": [\n        {\n            \"codigoDeContacto\": \"1523\",\n            \"nombre\": \"Mónica Prueba\",\n            \"celular\": \"75000001\",\n            \"activo\": true\n        }\n    ],\n    \"vigenteDesde\": \"{{$isoTimestamp}}\",\n    \"origen\": {\n        \"esquema\": \"AGRO_P6\",\n        \"eventoId\": 1\n    }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ingesta/v1/socios",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingesta",
+                "v1",
+                "socios"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 400 con el campo Idempotency-Key', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().error.structuredMessage[0].campo).to.eql('Idempotency-Key'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// La API exige 32 hexadecimales en minúscula: un UUID sin guiones.",
+              "pm.variables.set('idempotencyKey', pm.variables.replaceIn('{{$guid}}').replace(/-/g, '').toLowerCase());"
             ]
           }
         }

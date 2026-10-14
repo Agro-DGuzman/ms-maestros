@@ -66,6 +66,8 @@ paths:
           $ref: '#/components/responses/SocioYaExiste'
         '422':
           $ref: '#/components/responses/DatosInvalidos'
+        '500':
+          $ref: '#/components/responses/ConfiguracionIncompleta'
         '503':
           $ref: '#/components/responses/EntraNoDisponible'
   /socios/{cardCode}:
@@ -103,6 +105,8 @@ paths:
           $ref: '#/components/responses/SocioNoEncontrado'
         '422':
           $ref: '#/components/responses/DatosInvalidos'
+        '500':
+          $ref: '#/components/responses/ConfiguracionIncompleta'
         '503':
           $ref: '#/components/responses/EntraNoDisponible'
     delete:
@@ -115,12 +119,16 @@ paths:
       responses:
         '204':
           description: Dado de baja.
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
         '401':
           $ref: '#/components/responses/TokenInvalido'
         '403':
           $ref: '#/components/responses/SinGateway'
         '404':
           $ref: '#/components/responses/SocioNoEncontrado'
+        '500':
+          $ref: '#/components/responses/ConfiguracionIncompleta'
         '503':
           $ref: '#/components/responses/EntraNoDisponible'
 components:
@@ -333,6 +341,12 @@ components:
             $ref: '#/components/schemas/RespuestaError'
     SinGateway:
       description: La llamada no trae el `X-Gateway-Secret` del APIM (`ACCESO_DENEGADO`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    ConfiguracionIncompleta:
+      description: Falta configurar la validación del token de ingesta en ms-maestros (`CONFIGURACION_INCOMPLETA`). Es un error del servicio, no del pedido; se corrige del lado de ms-maestros.
       content:
         application/json:
           schema:
