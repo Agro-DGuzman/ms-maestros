@@ -574,9 +574,6 @@ curl -s localhost:8082/realms/master/.well-known/openid-configuration
 - **Borrar `vista_en_importacion_el` y `habilitada_el`** en una entrega posterior:
   quedaron en desuso, pero el código que corre en Azure todavía puede leerlas
   al momento de la migración.
-- **Borrar `identidad:migrar-a-numeros`** (`app/Console/MigrarANumerosCommand.php`)
-  después de correrlo en Azure: pasa a sus números las credenciales con id
-  por contacto, y sirve una sola vez.
 - **La semilla en Azure** (8 socios de prueba, 267 propiedades con socios
   inventados, y tres personas con acceso y eco del código: `70741828`,
   `71112233` y `72112233`): decidir si se borra cuando lleguen los socios

@@ -75,3 +75,11 @@ it('falla si el directorio no responde', function () {
         ->expectsOutputToContain('El directorio de identidades no respondió')
         ->assertExitCode(1);
 });
+
+it('con discrepancias dice como corregirlas', function () {
+    $this->directorio->crearOActualizar(IdDePersona::desde('p-a1b2c306'), 'una-contrasena');
+
+    $this->artisan('identidad:conciliar')
+        ->expectsOutputToContain('identidad:deshabilitar <celular o id>')
+        ->assertExitCode(1);
+});
