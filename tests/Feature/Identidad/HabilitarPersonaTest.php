@@ -72,8 +72,13 @@ it('no habilita un numero sin contactos visibles', function () {
         ->and($this->directorio->usuarios)->toBe([]);
 });
 
-it('no habilita un id por contacto', function () {
-    expect(($this->habilitar)('p-8f2b1c40')->error->code)->toBe('CELULAR_INVALIDO')
+it('no habilita un id por contacto, y le dice al operador que recargue la pantalla', function () {
+    // Llega desde una pantalla abierta antes de que el acceso pasara a ser por
+    // número: el problema no está en SAP sino en la página vieja.
+    $error = ($this->habilitar)('p-8f2b1c40')->error;
+
+    expect($error->code)->toBe('PERSONA_INVALIDA')
+        ->and($error->description)->toContain('recarg')
         ->and($this->directorio->usuarios)->toBe([]);
 });
 

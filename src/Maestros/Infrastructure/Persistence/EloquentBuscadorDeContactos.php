@@ -36,15 +36,16 @@ final class EloquentBuscadorDeContactos implements BuscadorDeContactos
             ->limit($criterio->tamanoDePagina)
             ->get();
 
-        // Una vez por número y no por fila: varias filas pueden ser la misma
-        // persona, y la regla de si entra vive en un solo lugar.
-        $alcances = [];
+        // Todos los números de la página en una consulta: varias filas pueden
+        // ser la misma persona, y la regla de si entra vive en un solo lugar.
+        $celulares = [];
         foreach ($filas as $fila) {
             $celular = $this->celularValido($this->textoOpcional((array) $fila, 'celular'));
             if ($celular !== null) {
-                $alcances[$celular->e164()] ??= $this->contactos->alcanceDeNumero($celular);
+                $celulares[] = $celular;
             }
         }
+        $alcances = $this->contactos->alcancesDeNumeros($celulares);
 
         return new PaginaDeContactos(
             items: array_values(array_map(
@@ -111,7 +112,6 @@ final class EloquentBuscadorDeContactos implements BuscadorDeContactos
         return str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $texto);
     }
 
-    /** @param array<string, mixed> $fila */
     /**
      * @param  array<string, mixed>  $fila
      * @param  array<string, AlcanceDeNumero>  $alcances  por celular en E.164

@@ -12,6 +12,7 @@ use Maestros\Domain\Socios\CodigoDeSocio;
 use Maestros\Domain\Socios\RazonSocial;
 use Maestros\Domain\Socios\Socio;
 use Maestros\Domain\Socios\SocioRepository;
+use Maestros\Infrastructure\Persistence\SocioRecord;
 
 uses(RefreshDatabase::class);
 
@@ -43,25 +44,11 @@ it('save reemplaza en vez de duplicar', function () {
 
     expect($repo->find(CodigoDeSocio::desde('C-004871'))->razonSocial()->texto())
         ->toBe('Sebastian Monasterio SRL')
-        ->and($repo->porGrupo(IdDeGrupo::desde('GRP-014')))->toHaveCount(1);
+        ->and(SocioRecord::query()->where('codigo_de_socio', 'C-004871')->count())->toBe(1);
 });
 
 it('devuelve null cuando el socio no existe', function () {
     expect(app(SocioRepository::class)->find(CodigoDeSocio::desde('C-999')))->toBeNull();
-});
-
-it('lista los socios de un grupo y solo esos', function () {
-    $repo = app(SocioRepository::class);
-    $repo->save(unSocio('C-004871', 'Sebastian Monasterio'));
-    $repo->save(unSocio('C-004872', 'Fernando Monasterio'));
-    $repo->save(unSocio('C-005000', 'Otro Productor', 'GRP-020'));
-
-    $codigos = array_map(
-        fn (Socio $s): string => $s->codigoDeSocio()->value(),
-        $repo->porGrupo(IdDeGrupo::desde('GRP-014')),
-    );
-
-    expect($codigos)->toBe(['C-004871', 'C-004872']);
 });
 
 it('guarda el celular normalizado de la persona de contacto', function () {

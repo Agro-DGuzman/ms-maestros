@@ -6,9 +6,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Maestros\Domain\Contactos\Celular;
 use Maestros\Domain\Contactos\ContactoRepository;
 use Maestros\Domain\Contactos\IdDePersona;
-use Maestros\Domain\Grupos\IdDeGrupo;
 use Maestros\Domain\Socios\CodigoDeSocio;
 use Maestros\Domain\Socios\SocioRepository;
+use Maestros\Infrastructure\Persistence\SocioRecord;
 
 uses(RefreshDatabase::class);
 
@@ -16,7 +16,7 @@ it('importa el archivo de ejemplo', function () {
     $this->artisan('maestros:importar', ['archivo' => database_path('semillas/maestros-ejemplo.json')])
         ->assertExitCode(0);
 
-    expect(app(SocioRepository::class)->porGrupo(IdDeGrupo::desde('GRP-014')))->toHaveCount(3)
+    expect(SocioRecord::query()->where('id_de_grupo', 'GRP-014')->count())->toBe(3)
         ->and(app(ContactoRepository::class)->alcanceDeNumero(Celular::desdeLocalBoliviano('70741828'))->entra())
         ->toBeTrue();
 });
@@ -27,7 +27,7 @@ it('se puede volver a correr sin duplicar', function () {
     $this->artisan('maestros:importar', ['archivo' => $archivo])->assertExitCode(0);
     $this->artisan('maestros:importar', ['archivo' => $archivo])->assertExitCode(0);
 
-    expect(app(SocioRepository::class)->porGrupo(IdDeGrupo::desde('GRP-014')))->toHaveCount(3);
+    expect(SocioRecord::query()->where('id_de_grupo', 'GRP-014')->count())->toBe(3);
 });
 
 it('falla con codigo 1 si el archivo no existe', function () {

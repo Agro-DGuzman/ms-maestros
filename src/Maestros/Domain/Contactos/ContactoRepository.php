@@ -22,8 +22,14 @@ interface ContactoRepository extends Repository
      */
     public function alcanceDeNumero(Celular $celular): AlcanceDeNumero;
 
-    /** Activa, sin baja y de un socio visible: lo único que cuenta para la App. */
-    public function visible(IdDePersona $id): ?PersonaDeContacto;
+    /**
+     * Lo mismo para varios números en una sola consulta, para una pantalla
+     * que lista muchos.
+     *
+     * @param  list<Celular>  $celulares
+     * @return array<string, AlcanceDeNumero> por celular en E.164
+     */
+    public function alcancesDeNumeros(array $celulares): array;
 
     /**
      * Los contactos del socio que no vinieron en la última entrega ya no están

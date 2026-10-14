@@ -38,7 +38,7 @@ final class EnviarDesafioJob implements ShouldQueue
         // La consulta vive acá y no en el handler: es lo que hacía que el
         // endpoint tardara distinto según si el número existía. Solo recibe el
         // código un número que puede entrar: habilitado y en un solo grupo.
-        if ($boveda->leer($persona) === null || $directorio->contexto($persona) === null) {
+        if ($directorio->motivoDeNoIngreso($celular) !== null || $boveda->leer($persona) === null) {
             return;
         }
 
