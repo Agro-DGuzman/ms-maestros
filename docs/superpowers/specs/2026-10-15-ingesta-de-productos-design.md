@@ -38,6 +38,8 @@ esto, el catálogo de la App sigue a SAP en segundos, igual que los socios.
 | P6 | **Los demás textos se muestran tal como vienen de SAP**, mayúsculas incluidas. Si molestan, se corrigen en SAP | Usuario | Corregirlos en ms-maestros rompe siglas (SC, SENASAG) |
 | P7 | **ms-maestros guarda todo artículo que le llega**, y la App muestra los activos, sin baja y con categoría. Qué artículos manda es decisión de SAP y del Sincronizador | Mía, no objetada | ms-maestros no tiene cómo saber qué es «de catálogo» en SAP |
 | P8 | **Al terminar la carga inicial, los productos que nunca llegaron de SAP se dan de baja** con un comando, a mano y con confirmación | Usuario (la baja) · mía (el comando) | ms-maestros no puede saber cuándo terminó la carga |
+| P9 | **Un dato vacío de SAP no borra nada.** La ingesta escribe solo los campos que traen valor; uno ausente, `null`, vacío o una lista vacía deja la columna como estaba | Usuario | Conservar la ficha cargada desde la web hasta conciliar los datos más adelante |
+| P10 | **Los 14 productos de la web con varias presentaciones bajo un código** (Alvo, Abamex Plus, Charter 240 EC, Concert, Invictus y nueve más) conservan sus enlaces en la presentación que SAP tenga con ese código. **El área carga a mano los de las demás presentaciones**, unas 20 | Usuario | Son pocos, y el back-office ya filtra los productos sin imagen |
 
 ## Alcance
 
@@ -87,8 +89,11 @@ ms-maestros, no la confianza en el cuerpo.
 | `vigenteDesde` | fecha y hora | sí | `vigente_desde` |
 | `origen` | `OrigenIngesta` (el de los socios) | sí | `origen_esquema`, `origen_evento_id` |
 
-Un texto opcional vacío o con solo espacios se guarda como `null`, y todos se
-recortan. *(Mía: los campos de usuario de SAP suelen llegar como cadena vacía.)*
+Todos los textos se recortan. Un campo opcional ausente, `null`, vacío o con
+solo espacios **no cambia** su columna (P9): no se escribe `null` encima de un
+valor. Lo mismo vale para `categoria: null`, `registro: null` y `cultivos: []`.
+Los campos de usuario de SAP suelen llegar como cadena vacía, y así no borran
+la ficha que vino de la web.
 
 **Status.** La seguridad y la clave cortan en el mismo orden y con los mismos
 códigos que en los socios (403, 401, 503, 500, 400 por `Idempotency-Key`).
@@ -125,10 +130,13 @@ No cambia nada.
 | `wp_id`, `creado_en` | Nadie nuevo |
 | `actualizado_en` | Quien escriba |
 
-**La categoría pasa a ser de SAP**, como asignación: un `PUT` con
-`categoria: null` deja al producto sin categoría y fuera de la App, aunque el
-área se la hubiera puesto a mano. Lo que no toca SAP es el **nombre** de una
-categoría que ya existe.
+**«La escribe la ingesta» quiere decir que la escribe cuando trae valor** (P9).
+Por eso un dato que alguien borre en SAP sigue en la App hasta la conciliación;
+es la consecuencia aceptada de no borrar nada.
+
+**La categoría pasa a ser de SAP**, como asignación: un `PUT` con otra
+categoría mueve el producto, y uno con `categoria: null` no la cambia. Lo que
+SAP no toca nunca es el **nombre** de una categoría que ya existe.
 
 ## 3. El modelo y la escritura
 
@@ -153,8 +161,10 @@ decide antes de escribir, porque un `Result` fallido confirma la transacción:
    responde 200. La regla es la de los socios: truncada al segundo, empatar es
    no reemplazar. Un producto sin `vigente_desde` (de la web) acepta cualquier
    cuerpo.
-3. **Categoría:** si viene y su código no existe, se crea con el nombre del
-   cuerpo; si existe, no se toca. Dos productos que crean a la vez la misma
+3. **Categoría:** el código se recorta y se pasa a minúsculas, como los seis
+   de hoy. *(Mía: SQL Server compara sin distinguir mayúsculas y SQLite sí;
+   así un `INSECTICIDAS` se comporta igual en los dos motores.)* Si su código
+   no existe, se crea con el nombre del cuerpo; si existe, no se toca. Dos productos que crean a la vez la misma
    categoría nueva no pueden fallar: el segundo tolera la violación de unicidad
    y sigue. Hay que comprobar contra SQL Server que la transacción sigue
    usable después de capturar esa violación. Si no lo es, la categoría se
@@ -162,14 +172,16 @@ decide antes de escribir, porque un `Result` fallido confirma la transacción:
    creada sin producto no molesta: `/categorias` muestra solo las que tienen
    productos visibles.
 4. **Producto:** se crea o se actualiza por `codigo_articulo`, solo con las
-   columnas de la ingesta (sección 2), con `dado_de_baja_el` vacío (así
-   reactiva) y el origen del cuerpo.
+   columnas de la ingesta (sección 2) que traen valor, con `dado_de_baja_el`
+   vacío (así reactiva) y el origen del cuerpo. `nombre`, `activo`, la
+   vigencia y el origen siempre se escriben, porque son obligatorios.
 5. **Formulación:** se arma como `«{formulacionDescripcion} ({formulacionCodigo})»`
    —«SUSPENSION CONCENTRADA (SC)»—, con el mismo formato que ya usa el
-   catálogo. Con uno solo de los dos, ese; sin ninguno, `null`.
-6. **Cultivos:** se reemplaza la lista entera. Los repetidos se dejan una sola
-   vez, comparando sin distinguir mayúsculas, porque la clave primaria de
-   `producto_cultivo` en SQL Server tampoco distingue.
+   catálogo. Con uno solo de los dos, ese; sin ninguno, no se toca.
+6. **Cultivos:** una lista con al menos un cultivo reemplaza la entera; una
+   vacía no la toca. Los repetidos se dejan una sola vez, comparando sin
+   distinguir mayúsculas, porque la clave primaria de `producto_cultivo` en
+   SQL Server tampoco distingue.
 
 **`DarDeBajaProducto(itemCode)`**, para el `DELETE`:
 - Si no existe o ya está dado de baja → 404.
@@ -232,6 +244,8 @@ confirma que terminó la carga inicial. *(El nombre y la forma son míos.)*
   - un cuerpo con `descripcion` e `imagenUrl` no cambia esas columnas;
   - un producto de la web con enlaces y descripción conserva ambos al recibir
     su primer `PUT`;
+  - un cuerpo con campos ausentes, `null`, vacíos, `categoria: null`,
+    `registro: null` y `cultivos: []` no borra la ficha que había (P9);
   - un nombre de categoría existente no cambia;
   - un `PUT` viejo no reactiva un producto dado de baja.
 - **Lo que ve la App:** inactivo, dado de baja y sin categoría no salen;
@@ -256,6 +270,13 @@ confirma que terminó la carga inicial. *(El nombre y la forma son míos.)*
   `frozenFor`, de `validFor` o de los dos, como en el socio?
 - **Qué artículos van a mandar** (P7): ¿todos los de venta, o solo los que
   tienen categoría en SAP?
+- **Los códigos de categoría.** El ejemplo manda `insecticidas`, el mismo
+  código de hoy, pero el contrato de la App dice que la categoría deriva del
+  grupo de artículos (`OITB`), que en SAP es un número. Confirmar que el
+  Sincronizador traduce a los seis códigos actuales (`insecticidas`,
+  `herbicidas`, `fungicidas`, `fertilizantes`, `biologicos`, `coadyuvantes`).
+  Un código distinto crea una categoría nueva con el nombre de SAP, y las de
+  hoy quedan vacías y desaparecen de `/categorias`.
 - **De dónde sale la ficha en SAP** (cultivos, dosis, registro). Si vive en
   tablas de usuario, editarla tiene que generar un evento del artículo; si no,
   el cambio llega recién con el próximo cambio de `OITM`.
@@ -266,10 +287,16 @@ confirma que terminó la carga inicial. *(El nombre y la forma son míos.)*
 - **`registro.entidad`:** solo SENASAG, INIAF u «otro»; otro valor es 400.
 - **El `eventoId: 0` del ejemplo** dice que no salió del registro de eventos.
   Los envíos reales tienen que traer el `EVENTO_ID`.
-- **Cuál es el código del Alvo de 0,25 L y cuál el del 1 L.** El catálogo dice
-  que el 10180 es «0.25 L / 1 L» y SAP dice que es el de 5 L. Al prender la
-  ingesta, la imagen y la hoja de seguridad cargadas en el 10180 quedan en el
-  de 5 L.
+- **Los códigos de las presentaciones de los 14 productos de P10.** El
+  catálogo dice que el 10180 es «0.25 L / 1 L» y SAP dice que es el de 5 L. Al
+  prender la ingesta, la imagen y la hoja de seguridad cargadas en el 10180
+  quedan en el de 5 L, y el área tiene que saber qué códigos cargar.
+
+## Más adelante
+
+- **Conciliar la ficha** (P9). Hasta entonces, un dato que SAP no tiene se
+  sigue mostrando con el valor de la web, y uno que alguien borre en SAP no se
+  borra en la App.
 
 ## Avisos
 
@@ -279,7 +306,7 @@ confirma que terminó la carga inicial. *(El nombre y la forma son míos.)*
   en mayúsculas; presentaciones nuevas sin imagen al principio.
 - **El área que carga el catálogo:** la descripción pasa a cargarse desde el
   back-office, y cada presentación nueva necesita sus enlaces y su
-  descripción.
+  descripción. Al principio son unas 20, de los 14 productos de P10.
 
 ## Lo que queda escrito
 
@@ -291,6 +318,7 @@ a:
 - Pasa por `vigenteDesde`, con la misma regla que los socios, y la baja es
   lógica.
 - La categoría se asigna desde SAP y su nombre no se pisa.
+- Un dato vacío de SAP no borra nada, hasta conciliar la ficha.
 
 Además, la línea de la ingesta suma las dos rutas de productos.
 
