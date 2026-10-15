@@ -1,0 +1,301 @@
+# Ingesta de productos desde SAP · diseño
+
+**Fecha:** 15 de octubre de 2026
+**Cambia:** la regla de `CLAUDE.md` «el catálogo de productos no es réplica de
+SAP». Pasa a ser réplica **en parte**: SAP manda la ficha y Agropartners
+conserva la descripción y los cuatro enlaces.
+**Se apoya en:** `2026-10-05-ingesta-de-socios-design.md`, del que copia la
+seguridad, la idempotencia y la regla de vigencia.
+
+## Para qué
+
+Hoy el catálogo se cargó a mano desde la web: 90 productos, con fichas
+incompletas (formulación y dosis en blanco en la mayoría) y un solo código por
+producto aunque tenga varias presentaciones. SAP tiene la ficha de cada
+artículo, y el Sincronizador ya sabe llevar cambios de SAP a ms-maestros. Con
+esto, el catálogo de la App sigue a SAP en segundos, igual que los socios.
+
+**Éxito:**
+- Un artículo que cambia en SAP se ve cambiado en `GET /productos/{itemCode}`
+  en el mismo tiempo que hoy tarda un socio.
+- Lo que el área cargó desde el back-office (descripción, imagen, ficha
+  técnica, hoja de seguridad, registro sanitario) **nunca** lo pisa un envío
+  de SAP.
+- Un artículo inactivo en SAP desaparece de la App, y vuelve con su ficha y
+  sus enlaces intactos cuando SAP lo reactiva.
+- Terminada la carga inicial, la App no muestra ningún producto que no haya
+  llegado de SAP.
+
+## Decisiones
+
+| # | Decisión | Quién | Por qué |
+|---|---|---|---|
+| P1 | **Cada artículo de SAP es un producto**, identificado por su `ItemCode` (`codigo_articulo`). Una tarjeta por presentación: «ALVO - 5 L» y «ALVO - 1 L» son dos productos | Usuario | Es lo que manda el Sincronizador, y el contrato de la App no cambia (`presentacion` es un solo texto) |
+| P2 | **La dosis es texto** y se guarda y muestra tal cual. No se asocia a ningún cultivo | Usuario | Nada asegura qué dosis corresponde a qué cultivo |
+| P3 | **`activo` va en el `PUT`** y cubre lo que va y vuelve. **El `DELETE` es la baja lógica**, con la vigencia fijada en su momento, igual que en los socios | Usuario | Un artículo inactivo un tiempo tiene que volver sin perder lo que cargó el área |
+| P4 | **La categoría se toma por código.** Si el código ya existe, su nombre no se toca; si es nuevo, se crea con el nombre que manda SAP | Usuario | Que «INSECTICIDAS» no pise el «Insecticidas» que hoy muestra el chip |
+| P5 | **La descripción es solo del back-office.** El Sincronizador no la manda | Usuario | La de SAP repetía ingrediente y presentación |
+| P6 | **Los demás textos se muestran tal como vienen de SAP**, mayúsculas incluidas. Si molestan, se corrigen en SAP | Usuario | Corregirlos en ms-maestros rompe siglas (SC, SENASAG) |
+| P7 | **ms-maestros guarda todo artículo que le llega**, y la App muestra los activos, sin baja y con categoría. Qué artículos manda es decisión de SAP y del Sincronizador | Mía, no objetada | ms-maestros no tiene cómo saber qué es «de catálogo» en SAP |
+| P8 | **Al terminar la carga inicial, los productos que nunca llegaron de SAP se dan de baja** con un comando, a mano y con confirmación | Usuario (la baja) · mía (el comando) | ms-maestros no puede saber cuándo terminó la carga |
+
+## Alcance
+
+**Adentro:**
+- `PUT /ingesta/v1/productos/{itemCode}` y `DELETE /ingesta/v1/productos/{itemCode}`,
+  con la seguridad y la idempotencia de `/ingesta`, y su lugar en la copia
+  enmendada del contrato.
+- Las columnas nuevas del producto: vigencia, baja y origen.
+- El campo descripción en el formulario de `/admin/productos`, con su asiento
+  en la bitácora del catálogo.
+- El comando de la transición.
+
+**Afuera:**
+- Agrupar presentaciones en un producto comercial (descartado en P1).
+- Que la ingesta escriba la descripción, la imagen o los documentos, aunque
+  vengan en el cuerpo.
+- Editar categorías desde el back-office. Una categoría nueva que crea SAP
+  queda con el nombre de SAP hasta que alguien lo corrija en la base.
+- Precios, stock o cualquier dato comercial del artículo.
+- Lo que tiene que hacer el Sincronizador del lado de SAP: registrar eventos de
+  `OITM` y de donde viva la ficha, y la carga inicial.
+
+## 1. El contrato y las respuestas
+
+Se agregan las dos operaciones a `contrato/ingesta-api-v1.yaml` (la copia
+enmendada) y las mismas al archivo oficial del equipo del Sincronizador. El
+rol es el mismo, `Ingesta.Maestros.Escribir`: mismo llamador, mismo servicio.
+
+**Cuerpo (`ProductoIngesta`).** Lo que no figura acá se **ignora**, igual que
+`origen.tipo` en los socios. En particular, si llegan `descripcion`,
+`imagenUrl` o cualquier enlace, no se escriben: la garantía de P5 la cumple
+ms-maestros, no la confianza en el cuerpo.
+
+| Campo | Tipo | Obligatorio | Va a |
+|---|---|---|---|
+| `itemCode` | texto, 1 a 50 | sí | `codigo_articulo` |
+| `nombre` | texto, 1 a 255 | sí | `nombre` |
+| `activo` | booleano | sí | `activo` |
+| `categoria` | `{ codigo (1–50), nombre (1–255) }` o `null` | sí, anulable | `codigo_categoria` (y `maestros.categoria` si es nueva) |
+| `presentacion` | texto ≤ 255 o `null` | no | `presentacion` |
+| `ingredienteActivo` | texto ≤ 500 o `null` | no | `ingrediente_activo` |
+| `formulacionCodigo` | texto ≤ 20 o `null` | no | `formulacion`, armada (sección 3) |
+| `formulacionDescripcion` | texto ≤ 200 o `null` | no | ídem |
+| `dosisReferencial` | texto ≤ 500 o `null` | no | `dosis_referencial` |
+| `cultivos` | lista de textos de 1 a 255, puede ser vacía | sí | `producto_cultivo` |
+| `registro` | `{ entidad: SENASAG \| INIAF \| otro, numero (1–100) }` o `null` | no | `registro_entidad`, `registro_numero` |
+| `vigenteDesde` | fecha y hora | sí | `vigente_desde` |
+| `origen` | `OrigenIngesta` (el de los socios) | sí | `origen_esquema`, `origen_evento_id` |
+
+Un texto opcional vacío o con solo espacios se guarda como `null`, y todos se
+recortan. *(Mía: los campos de usuario de SAP suelen llegar como cadena vacía.)*
+
+**Status.** La seguridad y la clave cortan en el mismo orden y con los mismos
+códigos que en los socios (403, 401, 503, 500, 400 por `Idempotency-Key`).
+Después:
+
+| Situación | Status | Código |
+|---|---|---|
+| Cuerpo mal formado: campo faltante, tipo o largo inválido, `registro.entidad` fuera de la lista | 400 | Un `FieldError` por campo |
+| `PUT` con el `itemCode` del cuerpo distinto del de la ruta | 422 | `ITEMCODE_NO_COINCIDE` |
+| `PUT` aplicado, creado o ignorado por viejo | 200 | `data: { itemCode }` |
+| `DELETE` de un producto que no existe o ya está dado de baja | 404 | `PRODUCTO_NO_ENCONTRADO` |
+| `DELETE` aplicado | 204 | sin cuerpo |
+
+**El `PUT` crea o reemplaza.** No hay `POST`: el artículo puede existir ya en
+ms-maestros sin haber llegado nunca de SAP (los 90 de la web), y el baile
+`POST` → 409 → `PUT` de los socios no aporta nada acá. Un `PUT` sobre un
+producto dado de baja lo reactiva si es más nuevo que la baja. *(Mía. Si el
+Sincronizador prefiere el trío de los socios por uniformidad, el cambio es
+chico: queda en «Abierto».)*
+
+`MapaDeErroresHttp` suma `ITEMCODE_NO_COINCIDE` → 422 y
+`PRODUCTO_NO_ENCONTRADO` → 404.
+
+**Idempotencia:** el mismo middleware, por la terna `(clave, método, ruta)`.
+No cambia nada.
+
+## 2. Quién escribe cada columna
+
+| Columna de `maestros.producto` | La escribe |
+|---|---|
+| `codigo_articulo`, `nombre`, `presentacion`, `codigo_categoria`, `ingrediente_activo`, `formulacion`, `dosis_referencial`, `registro_entidad`, `registro_numero`, `activo`, cultivos | La ingesta |
+| `vigente_desde`, `dado_de_baja_el`, `origen_esquema`, `origen_evento_id` (nuevas) | La ingesta y el comando de la transición |
+| `descripcion`, `imagen_url`, `ficha_tecnica_url`, `hoja_seguridad_url`, `registro_sanitario_url` | **Solo el back-office** |
+| `wp_id`, `creado_en` | Nadie nuevo |
+| `actualizado_en` | Quien escriba |
+
+**La categoría pasa a ser de SAP**, como asignación: un `PUT` con
+`categoria: null` deja al producto sin categoría y fuera de la App, aunque el
+área se la hubiera puesto a mano. Lo que no toca SAP es el **nombre** de una
+categoría que ya existe.
+
+## 3. El modelo y la escritura
+
+**Columnas nuevas** en `maestros.producto`, todas anulables, para que las filas
+de hoy queden como están: `vigente_desde DATETIME2`, `dado_de_baja_el
+DATETIME2`, `origen_esquema NVARCHAR(20)` y `origen_evento_id BIGINT`. Un
+producto con `origen_esquema` vacío **nunca llegó de SAP**.
+
+La estructura en SQL Server sigue viviendo en
+`database/sql/maestros-productos.sql`, y la copia de SQLite con Blueprint se
+cambia a la par (regla de `CLAUDE.md`). El script es idempotente, así que las
+columnas se agregan solo si faltan.
+
+**`ReplicarProducto(cuerpo)`**, para el `PUT`, en `Maestros/Application/Ingesta/`
+con `RequiereTransaccion` y `EscrituraDeMaquina`. Todo lo que puede fallar se
+decide antes de escribir, porque un `Result` fallido confirma la transacción:
+
+1. **Validar sin escribir:** el `itemCode` del cuerpo coincide con el de la
+   ruta (422).
+2. **Vigencia:** si el producto existe y su `vigente_desde` es igual o
+   posterior al cuerpo, se ignora el cuerpo entero (categoría incluida) y se
+   responde 200. La regla es la de los socios: truncada al segundo, empatar es
+   no reemplazar. Un producto sin `vigente_desde` (de la web) acepta cualquier
+   cuerpo.
+3. **Categoría:** si viene y su código no existe, se crea con el nombre del
+   cuerpo; si existe, no se toca. Dos productos que crean a la vez la misma
+   categoría nueva no pueden fallar: el segundo tolera la violación de unicidad
+   y sigue. Hay que comprobar contra SQL Server que la transacción sigue
+   usable después de capturar esa violación. Si no lo es, la categoría se
+   crea con una inserción que no falla si ya existe. Una categoría que queda
+   creada sin producto no molesta: `/categorias` muestra solo las que tienen
+   productos visibles.
+4. **Producto:** se crea o se actualiza por `codigo_articulo`, solo con las
+   columnas de la ingesta (sección 2), con `dado_de_baja_el` vacío (así
+   reactiva) y el origen del cuerpo.
+5. **Formulación:** se arma como `«{formulacionDescripcion} ({formulacionCodigo})»`
+   —«SUSPENSION CONCENTRADA (SC)»—, con el mismo formato que ya usa el
+   catálogo. Con uno solo de los dos, ese; sin ninguno, `null`.
+6. **Cultivos:** se reemplaza la lista entera. Los repetidos se dejan una sola
+   vez, comparando sin distinguir mayúsculas, porque la clave primaria de
+   `producto_cultivo` en SQL Server tampoco distingue.
+
+**`DarDeBajaProducto(itemCode)`**, para el `DELETE`:
+- Si no existe o ya está dado de baja → 404.
+- Si no, `dado_de_baja_el` y `vigente_desde` pasan a ser **el momento de la
+  baja**, así un envío leído en SAP antes de la baja no lo resucita. La ficha,
+  la descripción y los enlaces quedan como estaban.
+
+**Log:** una línea por pedido, como en los socios: `itemCode`, operación,
+resultado (`aplicado`, `ignorado-por-viejo`, `dado-de-baja`) y `eventoId`.
+
+## 4. Lo que ve la App
+
+La única definición, `EloquentCatalogoDeProductos::visibles()`, suma
+`dado_de_baja_el` vacío a lo que ya exige (activo, con código y con una
+categoría que existe). Nada más cambia en `/productos`, `/productos/{itemCode}`,
+sus documentos ni `/categorias`.
+
+Consecuencias que la App va a ver, sin cambio de contrato:
+- Más tarjetas, una por presentación, con nombres como «ALVO - 5 L».
+- Textos en mayúsculas.
+- Una presentación nueva sale sin imagen, sin documentos y sin descripción
+  hasta que el área los cargue. La API ya omite la descripción vacía.
+- Una categoría nueva de SAP aparece en `/categorias` con el nombre de SAP.
+
+## 5. El back-office
+
+- **Formulario de `/admin/productos/{id}`:** suma la descripción, un texto de
+  hasta 1000 caracteres (el largo de `valor_anterior` y `valor_nuevo` de la
+  bitácora, que así no cambia). Vacía es `null`. *(El largo es mío.)*
+- **Bitácora:** un cambio de descripción se asienta en
+  `backoffice.cambios_de_catalogo` con `campo = 'descripcion'` y el valor
+  anterior leído de la base, como los enlaces.
+- **Por qué no se ve** (`ProductoAdministrable::porQueNoSeVe()`), en este
+  orden: «Dado de baja en SAP.», «Inactivo en SAP.», «No tiene código de
+  artículo.», «No tiene categoría.». Tiene que seguir siendo la misma regla
+  que `visibles()`.
+- **Aviso informativo**, que no oculta nada: «Todavía no llegó de SAP» en los
+  productos sin origen. *(Mío: es lo que el operador necesita ver antes de
+  correr el comando de la sección 6.)*
+- El back-office sigue sin poder cambiar `activo`.
+
+## 6. La transición
+
+Un comando, `maestros:productos-sin-sap`:
+- **Sin opciones,** lista los productos sin origen y sin baja: código, nombre
+  y si hoy se ven en la App. No escribe nada.
+- **Con `--dar-de-baja`,** les fija `dado_de_baja_el` y `vigente_desde` en el
+  momento actual, igual que un `DELETE`, y dice cuántos fueron. Si después SAP
+  manda uno de esos artículos con vigencia posterior, vuelve.
+
+Se corre desde la consola del Container App cuando el equipo del Sincronizador
+confirma que terminó la carga inicial. *(El nombre y la forma son míos.)*
+
+## 7. Pruebas y despliegue
+
+**Pruebas:**
+- **Contrato:** las dos operaciones nuevas existen y cada status valida contra
+  su esquema, con las pruebas de contrato de la ingesta que ya existen.
+- **Escritura:** una por paso de la sección 3, y en particular:
+  - un cuerpo con `descripcion` e `imagenUrl` no cambia esas columnas;
+  - un producto de la web con enlaces y descripción conserva ambos al recibir
+    su primer `PUT`;
+  - un nombre de categoría existente no cambia;
+  - un `PUT` viejo no reactiva un producto dado de baja.
+- **Lo que ve la App:** inactivo, dado de baja y sin categoría no salen;
+  reactivado vuelve con sus enlaces.
+- **Back-office:** el campo descripción, su asiento y los motivos nuevos.
+- **Comando:** lista sin escribir; con la opción, da de baja solo a los que no
+  tienen origen.
+- **Contra SQL Server local:** la migración y las consultas nuevas, porque la
+  batería corre sobre SQLite.
+
+**Despliegue, en orden:**
+1. **Migración en Azure antes del push**, desde la imagen local, como las de
+   la réplica: la consulta de la App va a leer `dado_de_baja_el`.
+2. **Push.**
+3. **El Sincronizador empieza a mandar productos** y hace la carga inicial.
+4. **El comando**, primero sin opciones para revisar la lista, y después con
+   `--dar-de-baja`.
+
+## Abierto: para el equipo del Sincronizador y de SAP
+
+- **`activo`:** no viene en el ejemplo que mandaron, y hace falta (P3). ¿De
+  `frozenFor`, de `validFor` o de los dos, como en el socio?
+- **Qué artículos van a mandar** (P7): ¿todos los de venta, o solo los que
+  tienen categoría en SAP?
+- **De dónde sale la ficha en SAP** (cultivos, dosis, registro). Si vive en
+  tablas de usuario, editarla tiene que generar un evento del artículo; si no,
+  el cambio llega recién con el próximo cambio de `OITM`.
+- **`PUT` que crea, o el trío `POST`/`PUT`/`DELETE` de los socios.** Este
+  diseño propone el `PUT` que crea.
+- **¿Hay `ItemCode` con `/`?** La ruta no lo admitiría, igual que el
+  `cardCode`.
+- **`registro.entidad`:** solo SENASAG, INIAF u «otro»; otro valor es 400.
+- **El `eventoId: 0` del ejemplo** dice que no salió del registro de eventos.
+  Los envíos reales tienen que traer el `EVENTO_ID`.
+- **Cuál es el código del Alvo de 0,25 L y cuál el del 1 L.** El catálogo dice
+  que el 10180 es «0.25 L / 1 L» y SAP dice que es el de 5 L. Al prender la
+  ingesta, la imagen y la hoja de seguridad cargadas en el 10180 quedan en el
+  de 5 L.
+
+## Avisos
+
+- **Equipo del Sincronizador:** las dos operaciones, el cuerpo, `activo`
+  obligatorio y que la descripción y los enlaces se ignoran.
+- **Equipo de la App:** más tarjetas, una por presentación; nombres y textos
+  en mayúsculas; presentaciones nuevas sin imagen al principio.
+- **El área que carga el catálogo:** la descripción pasa a cargarse desde el
+  back-office, y cada presentación nueva necesita sus enlaces y su
+  descripción.
+
+## Lo que queda escrito
+
+`CLAUDE.md`, en «Contratos que no se negocian», el párrafo del catálogo cambia
+a:
+- El catálogo es réplica de SAP en parte: la ingesta escribe la ficha, y la
+  descripción y los cuatro enlaces son solo del back-office.
+- Cada artículo de SAP es un producto.
+- Pasa por `vigenteDesde`, con la misma regla que los socios, y la baja es
+  lógica.
+- La categoría se asigna desde SAP y su nombre no se pisa.
+
+Además, la línea de la ingesta suma las dos rutas de productos.
+
+## Lo que queda al implementador
+
+- Cómo se reparte el controlador: uno nuevo o el de los socios.
+- Si `esMasNuevo` se comparte entre los dos casos de uso o se repite.
+- El texto exacto de los mensajes de error.
