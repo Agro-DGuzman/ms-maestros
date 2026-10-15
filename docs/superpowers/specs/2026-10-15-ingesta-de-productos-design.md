@@ -32,7 +32,7 @@ esto, el catálogo de la App sigue a SAP en segundos, igual que los socios.
 |---|---|---|---|
 | P1 | **Cada artículo de SAP es un producto**, identificado por su `ItemCode` (`codigo_articulo`). Una tarjeta por presentación: «ALVO - 5 L» y «ALVO - 1 L» son dos productos | Usuario | Es lo que manda el Sincronizador, y el contrato de la App no cambia (`presentacion` es un solo texto) |
 | P2 | **La dosis es texto** y se guarda y muestra tal cual. No se asocia a ningún cultivo | Usuario | Nada asegura qué dosis corresponde a qué cultivo |
-| P3 | **`activo` va en el `PUT`** y cubre lo que va y vuelve. **El `DELETE` es la baja lógica**, con la vigencia fijada en su momento, igual que en los socios | Usuario | Un artículo inactivo un tiempo tiene que volver sin perder lo que cargó el área |
+| P3 | **`activo` va en el cuerpo** y cubre lo que va y vuelve. **El `DELETE` es la baja lógica**, con la vigencia fijada en su momento, igual que en los socios | Usuario | Un artículo inactivo un tiempo tiene que volver sin perder lo que cargó el área |
 | P4 | **La categoría se toma por código.** Si el código ya existe, su nombre no se toca; si es nuevo, se crea con el nombre que manda SAP | Usuario | Que «INSECTICIDAS» no pise el «Insecticidas» que hoy muestra el chip |
 | P5 | **La descripción es solo del back-office.** El Sincronizador no la manda | Usuario | La de SAP repetía ingrediente y presentación |
 | P6 | **Los demás textos se muestran tal como vienen de SAP**, mayúsculas incluidas. Si molestan, se corrigen en SAP | Usuario | Corregirlos en ms-maestros rompe siglas (SC, SENASAG) |
@@ -40,11 +40,12 @@ esto, el catálogo de la App sigue a SAP en segundos, igual que los socios.
 | P8 | **Al terminar la carga inicial, los productos que nunca llegaron de SAP se dan de baja** con un comando, a mano y con confirmación | Usuario (la baja) · mía (el comando) | ms-maestros no puede saber cuándo terminó la carga |
 | P9 | **Un dato vacío de SAP no borra nada.** La ingesta escribe solo los campos que traen valor; uno ausente, `null`, vacío o una lista vacía deja la columna como estaba | Usuario | Conservar la ficha cargada desde la web hasta conciliar los datos más adelante |
 | P10 | **Los 14 productos de la web con varias presentaciones bajo un código** (Alvo, Abamex Plus, Charter 240 EC, Concert, Invictus y nueve más) conservan sus enlaces en la presentación que SAP tenga con ese código. **El área carga a mano los de las demás presentaciones**, unas 20 | Usuario | Son pocos, y el back-office ya filtra los productos sin imagen |
+| P11 | **Las tres operaciones de los socios:** `POST` para agregar un producto nuevo, `PUT` para reemplazar y `DELETE` para la baja | Usuario | Tiene que haber una operación para agregar productos nuevos, y el Sincronizador ya hace `POST` → 409 → `PUT` con los socios |
 
 ## Alcance
 
 **Adentro:**
-- `PUT /ingesta/v1/productos/{itemCode}` y `DELETE /ingesta/v1/productos/{itemCode}`,
+- `POST /ingesta/v1/productos`, y `PUT` y `DELETE /ingesta/v1/productos/{itemCode}`,
   con la seguridad y la idempotencia de `/ingesta`, y su lugar en la copia
   enmendada del contrato.
 - Las columnas nuevas del producto: vigencia, baja y origen.
@@ -64,7 +65,7 @@ esto, el catálogo de la App sigue a SAP en segundos, igual que los socios.
 
 ## 1. El contrato y las respuestas
 
-Se agregan las dos operaciones a `contrato/ingesta-api-v1.yaml` (la copia
+Se agregan las tres operaciones a `contrato/ingesta-api-v1.yaml` (la copia
 enmendada) y las mismas al archivo oficial del equipo del Sincronizador. El
 rol es el mismo, `Ingesta.Maestros.Escribir`: mismo llamador, mismo servicio.
 
@@ -102,20 +103,23 @@ Después:
 | Situación | Status | Código |
 |---|---|---|
 | Cuerpo mal formado: campo faltante, tipo o largo inválido, `registro.entidad` fuera de la lista | 400 | Un `FieldError` por campo |
+| `POST` de un producto que existe y no está dado de baja | 409 | `PRODUCTO_YA_EXISTE` |
+| `POST` aplicado o ignorado por viejo | 201 | `data: { itemCode }` |
 | `PUT` con el `itemCode` del cuerpo distinto del de la ruta | 422 | `ITEMCODE_NO_COINCIDE` |
-| `PUT` aplicado, creado o ignorado por viejo | 200 | `data: { itemCode }` |
+| `PUT` de un producto que no existe o está dado de baja | 404 | `PRODUCTO_NO_ENCONTRADO` |
+| `PUT` aplicado o ignorado por viejo | 200 | `data: { itemCode }` |
 | `DELETE` de un producto que no existe o ya está dado de baja | 404 | `PRODUCTO_NO_ENCONTRADO` |
 | `DELETE` aplicado | 204 | sin cuerpo |
 
-**El `PUT` crea o reemplaza.** No hay `POST`: el artículo puede existir ya en
-ms-maestros sin haber llegado nunca de SAP (los 90 de la web), y el baile
-`POST` → 409 → `PUT` de los socios no aporta nada acá. Un `PUT` sobre un
-producto dado de baja lo reactiva si es más nuevo que la baja. *(Mía. Si el
-Sincronizador prefiere el trío de los socios por uniformidad, el cambio es
-chico: queda en «Abierto».)*
+**Las tres operaciones de los socios (P11).** El `POST` agrega un producto
+nuevo, el `PUT` reemplaza uno que existe, y el Sincronizador ya sabe
+reintentar como `PUT` un `POST` que dio 409. Así entran también los 90 de la
+web: existen sin haber llegado nunca de SAP, su primer `POST` da 409 y el
+`PUT` los reemplaza. Un producto dado de baja vuelve con un `POST` más nuevo
+que la baja, igual que un socio.
 
-`MapaDeErroresHttp` suma `ITEMCODE_NO_COINCIDE` → 422 y
-`PRODUCTO_NO_ENCONTRADO` → 404.
+`MapaDeErroresHttp` suma `PRODUCTO_YA_EXISTE` → 409, `ITEMCODE_NO_COINCIDE` →
+422 y `PRODUCTO_NO_ENCONTRADO` → 404.
 
 **Idempotencia:** el mismo middleware, por la terna `(clave, método, ruta)`.
 No cambia nada.
@@ -134,7 +138,7 @@ No cambia nada.
 Por eso un dato que alguien borre en SAP sigue en la App hasta la conciliación;
 es la consecuencia aceptada de no borrar nada.
 
-**La categoría pasa a ser de SAP**, como asignación: un `PUT` con otra
+**La categoría pasa a ser de SAP**, como asignación: un envío con otra
 categoría mueve el producto, y uno con `categoria: null` no la cambia. Lo que
 SAP no toca nunca es el **nombre** de una categoría que ya existe.
 
@@ -150,15 +154,19 @@ La estructura en SQL Server sigue viviendo en
 cambia a la par (regla de `CLAUDE.md`). El script es idempotente, así que las
 columnas se agregan solo si faltan.
 
-**`ReplicarProducto(cuerpo)`**, para el `PUT`, en `Maestros/Application/Ingesta/`
-con `RequiereTransaccion` y `EscrituraDeMaquina`. Todo lo que puede fallar se
-decide antes de escribir, porque un `Result` fallido confirma la transacción:
+**`ReplicarProducto(cuerpo, operación)`**, para el `POST` (crear) y el `PUT`
+(reemplazar), en `Maestros/Application/Ingesta/` con `RequiereTransaccion` y
+`EscrituraDeMaquina`, con la misma `OperacionDeIngesta` que los socios. Todo lo
+que puede fallar se decide antes de escribir, porque un `Result` fallido
+confirma la transacción:
 
-1. **Validar sin escribir:** el `itemCode` del cuerpo coincide con el de la
-   ruta (422).
+1. **Validar sin escribir**, en el orden de `ReplicarSocioHandler`:
+   - en el `PUT`, el `itemCode` del cuerpo coincide con el de la ruta (422);
+   - en el `POST`, el producto no existe o está dado de baja (si no, 409);
+   - en el `PUT`, el producto existe y no está dado de baja (si no, 404).
 2. **Vigencia:** si el producto existe y su `vigente_desde` es igual o
    posterior al cuerpo, se ignora el cuerpo entero (categoría incluida) y se
-   responde 200. La regla es la de los socios: truncada al segundo, empatar es
+   responde como si se hubiera aplicado (201 o 200). La regla es la de los socios: truncada al segundo, empatar es
    no reemplazar. Un producto sin `vigente_desde` (de la web) acepta cualquier
    cuerpo.
 3. **Categoría:** el código se recorta y se pasa a minúsculas, como los seis
@@ -173,7 +181,7 @@ decide antes de escribir, porque un `Result` fallido confirma la transacción:
    productos visibles.
 4. **Producto:** se crea o se actualiza por `codigo_articulo`, solo con las
    columnas de la ingesta (sección 2) que traen valor, con `dado_de_baja_el`
-   vacío (así reactiva) y el origen del cuerpo. `nombre`, `activo`, la
+   vacío (así un `POST` reactiva) y el origen del cuerpo. `nombre`, `activo`, la
    vigencia y el origen siempre se escriben, porque son obligatorios.
 5. **Formulación:** se arma como `«{formulacionDescripcion} ({formulacionCodigo})»`
    —«SUSPENSION CONCENTRADA (SC)»—, con el mismo formato que ya usa el
@@ -238,16 +246,18 @@ confirma que terminó la carga inicial. *(El nombre y la forma son míos.)*
 ## 7. Pruebas y despliegue
 
 **Pruebas:**
-- **Contrato:** las dos operaciones nuevas existen y cada status valida contra
+- **Contrato:** las tres operaciones nuevas existen y cada status valida contra
   su esquema, con las pruebas de contrato de la ingesta que ya existen.
 - **Escritura:** una por paso de la sección 3, y en particular:
   - un cuerpo con `descripcion` e `imagenUrl` no cambia esas columnas;
   - un producto de la web con enlaces y descripción conserva ambos al recibir
-    su primer `PUT`;
+    su primer `PUT`, después del 409 del `POST`;
   - un cuerpo con campos ausentes, `null`, vacíos, `categoria: null`,
     `registro: null` y `cultivos: []` no borra la ficha que había (P9);
   - un nombre de categoría existente no cambia;
-  - un `PUT` viejo no reactiva un producto dado de baja.
+  - un `POST` de un producto que existe da 409, y un `PUT` de uno que no
+    existe da 404;
+  - un `POST` viejo no reactiva un producto dado de baja.
 - **Lo que ve la App:** inactivo, dado de baja y sin categoría no salen;
   reactivado vuelve con sus enlaces.
 - **Back-office:** el campo descripción, su asiento y los motivos nuevos.
@@ -280,8 +290,6 @@ confirma que terminó la carga inicial. *(El nombre y la forma son míos.)*
 - **De dónde sale la ficha en SAP** (cultivos, dosis, registro). Si vive en
   tablas de usuario, editarla tiene que generar un evento del artículo; si no,
   el cambio llega recién con el próximo cambio de `OITM`.
-- **`PUT` que crea, o el trío `POST`/`PUT`/`DELETE` de los socios.** Este
-  diseño propone el `PUT` que crea.
 - **¿Hay `ItemCode` con `/`?** La ruta no lo admitiría, igual que el
   `cardCode`.
 - **`registro.entidad`:** solo SENASAG, INIAF u «otro»; otro valor es 400.
@@ -300,7 +308,7 @@ confirma que terminó la carga inicial. *(El nombre y la forma son míos.)*
 
 ## Avisos
 
-- **Equipo del Sincronizador:** las dos operaciones, el cuerpo, `activo`
+- **Equipo del Sincronizador:** las tres operaciones, el cuerpo, `activo`
   obligatorio y que la descripción y los enlaces se ignoran.
 - **Equipo de la App:** más tarjetas, una por presentación; nombres y textos
   en mayúsculas; presentaciones nuevas sin imagen al principio.
@@ -320,7 +328,7 @@ a:
 - La categoría se asigna desde SAP y su nombre no se pisa.
 - Un dato vacío de SAP no borra nada, hasta conciliar la ficha.
 
-Además, la línea de la ingesta suma las dos rutas de productos.
+Además, la línea de la ingesta suma las tres operaciones de productos.
 
 ## Lo que queda al implementador
 
