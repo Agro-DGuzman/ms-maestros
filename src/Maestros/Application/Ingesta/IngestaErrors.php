@@ -21,4 +21,24 @@ final class IngestaErrors
             'El cardCode del cuerpo no coincide con el de la ruta',
         );
     }
+
+    /** El Sincronizador lo reintenta en el acto como PUT. */
+    public static function productoYaExiste(string $itemCode): Error
+    {
+        return Error::conflict('PRODUCTO_YA_EXISTE', 'El producto {itemCode} ya existe', $itemCode);
+    }
+
+    /** En un PUT el Sincronizador reintenta como POST; en un DELETE lo toma como éxito. */
+    public static function productoNoEncontrado(string $itemCode): Error
+    {
+        return Error::notFound('PRODUCTO_NO_ENCONTRADO', 'No hay un producto {itemCode}', $itemCode);
+    }
+
+    public static function itemCodeNoCoincide(): Error
+    {
+        return Error::validation(
+            'ITEMCODE_NO_COINCIDE',
+            'El itemCode del cuerpo no coincide con el de la ruta',
+        );
+    }
 }

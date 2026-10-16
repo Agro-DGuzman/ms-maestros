@@ -9,11 +9,11 @@ use Core\Contracts\RequestHandler;
 use Core\Results\DomainException;
 use Core\Results\Result;
 use Core\Results\ResultWithValue;
-use DateTimeImmutable;
 use Maestros\Application\Ingesta\IngestaErrors;
 use Maestros\Application\Ingesta\OperacionDeIngesta;
 use Maestros\Application\Ingesta\ResultadoDeIngesta;
 use Maestros\Application\Ingesta\SocioIngresado;
+use Maestros\Application\Ingesta\Vigencia;
 use Maestros\Domain\Contactos\Celular;
 use Maestros\Domain\Contactos\ContactoRepository;
 use Maestros\Domain\Contactos\IdDePersona;
@@ -70,7 +70,7 @@ final readonly class ReplicarSocioHandler implements RequestHandler
         // su vigencia en el momento en que se hizo), y la vigencia va antes que
         // el tipo: un envío viejo de cuando era un lead no puede dar de baja a
         // quien SAP ya convirtió en cliente.
-        if ($existente instanceof Socio && ! self::esMasNuevo($cuerpo->vigenteDesde, $existente->vigenteDesde())) {
+        if ($existente instanceof Socio && ! Vigencia::esMasNuevo($cuerpo->vigenteDesde, $existente->vigenteDesde())) {
             return ResultWithValue::of(ResultadoDeIngesta::IgnoradoPorViejo);
         }
 
@@ -136,21 +136,11 @@ final readonly class ReplicarSocioHandler implements RequestHandler
 
         $guardado = $this->grupos->find($id);
 
-        if ($guardado instanceof GrupoEconomico && ! self::esMasNuevo($cuerpo->vigenteDesde, $guardado->vigenteDesde())) {
+        if ($guardado instanceof GrupoEconomico && ! Vigencia::esMasNuevo($cuerpo->vigenteDesde, $guardado->vigenteDesde())) {
             return;
         }
 
         $this->grupos->save(GrupoEconomico::replica($id, $cuerpo->grupo->nombre, $cuerpo->vigenteDesde, $cuerpo->grupo->segmento));
-    }
-
-    /**
-     * Lo guardado está truncado al segundo: el cuerpo se trunca igual, y
-     * empatar es no reemplazar. Sin eso, un envío viejo dentro del mismo
-     * segundo parecería más nuevo.
-     */
-    private static function esMasNuevo(DateTimeImmutable $cuerpo, DateTimeImmutable $guardado): bool
-    {
-        return $cuerpo->getTimestamp() > $guardado->getTimestamp();
     }
 
     /** Un celular que no es un móvil boliviano no rechaza al socio: el contacto queda sin celular. */
