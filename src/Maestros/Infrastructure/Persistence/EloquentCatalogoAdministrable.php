@@ -82,6 +82,7 @@ final class EloquentCatalogoAdministrable implements CatalogoAdministrable
             ->leftJoin($this->tabla('categoria').' as c', 'c.codigo', '=', 'p.codigo_categoria')
             ->select([
                 'p.id_producto', 'p.codigo_articulo', 'p.nombre', 'p.activo',
+                'p.dado_de_baja_el', 'p.origen_esquema',
                 'p.imagen_url', 'p.ficha_tecnica_url', 'p.hoja_seguridad_url', 'p.registro_sanitario_url',
                 'c.nombre as categoria_nombre',
             ]);
@@ -102,6 +103,8 @@ final class EloquentCatalogoAdministrable implements CatalogoAdministrable
             nombre: $this->textoOpcional($fila, 'nombre') ?? '',
             categoria: $this->textoOpcional($fila, 'categoria_nombre'),
             activo: (bool) ($fila['activo'] ?? false),
+            dadoDeBaja: ($fila['dado_de_baja_el'] ?? null) !== null,
+            llegoDeSap: $this->textoOpcional($fila, 'origen_esquema') !== null,
             enlaces: new EnlacesDeProducto(
                 $this->textoOpcional($fila, 'imagen_url'),
                 $this->textoOpcional($fila, 'ficha_tecnica_url'),

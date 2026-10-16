@@ -14,6 +14,9 @@
         @else
             <span class="rojo">No se ve en la App: {{ $producto->porQueNoSeVe() }}</span>
         @endif
+        @if (! $producto->llegoDeSap)
+            · <span class="tenue">Todavía no llegó de SAP</span>
+        @endif
     </p>
 
     {{-- Sigue a lo que se teclea, para ver si una URL carga antes de guardarla:

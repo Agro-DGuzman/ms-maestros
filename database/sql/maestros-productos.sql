@@ -117,3 +117,24 @@ CREATE TABLE maestros.producto_cultivo (
     CONSTRAINT PK_producto_cultivo PRIMARY KEY (id_producto, cultivo)
 );
 GO
+
+/* ---------- La ingesta desde SAP --------------------------------------- */
+-- El catálogo pasa a ser réplica en parte: SAP manda la ficha y estas cuatro
+-- columnas dicen de cuándo es, si está dado de baja y de dónde vino. Todas
+-- anulables, así las filas que cargó la web quedan como están, y un
+-- `origen_esquema` vacío significa que ese producto nunca llegó de SAP.
+--
+-- DATETIMEOFFSET, como las vigencias de los socios: es lo que lee el mismo
+-- trait FechaEnUtc.
+IF COL_LENGTH('maestros.producto', 'vigente_desde') IS NULL
+ALTER TABLE maestros.producto ADD vigente_desde DATETIMEOFFSET NULL;
+
+IF COL_LENGTH('maestros.producto', 'dado_de_baja_el') IS NULL
+ALTER TABLE maestros.producto ADD dado_de_baja_el DATETIMEOFFSET NULL;
+
+IF COL_LENGTH('maestros.producto', 'origen_esquema') IS NULL
+ALTER TABLE maestros.producto ADD origen_esquema NVARCHAR(20) NULL;
+
+IF COL_LENGTH('maestros.producto', 'origen_evento_id') IS NULL
+ALTER TABLE maestros.producto ADD origen_evento_id BIGINT NULL;
+GO

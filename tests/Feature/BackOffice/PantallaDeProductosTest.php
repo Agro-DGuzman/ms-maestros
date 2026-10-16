@@ -161,3 +161,13 @@ it('el encabezado muestra solo las secciones permitidas', function () {
         ->assertSee(route('admin.productos'), false)
         ->assertDontSee(route('admin.contactos'), false);
 });
+
+// El aviso no oculta nada: es lo que el operador necesita ver antes de correr
+// el comando que da de baja lo que nunca llegó de SAP.
+it('avisa cuando un producto todavia no llego de SAP', function () {
+    $this->get("/admin/productos/{$this->gliforte}")->assertSee('Todavía no llegó de SAP');
+
+    DB::table(CatalogoDeEjemplo::tabla('producto'))->where('id_producto', $this->gliforte)->update(['origen_esquema' => 'AGRO_P6']);
+
+    $this->get("/admin/productos/{$this->gliforte}")->assertDontSee('Todavía no llegó de SAP');
+});

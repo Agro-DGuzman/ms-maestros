@@ -111,6 +111,7 @@ final class EloquentCatalogoDeProductos implements CatalogoDeProductos
         return DB::table($this->tabla('producto').' as p')
             ->join($this->tabla('categoria').' as c', 'c.codigo', '=', 'p.codigo_categoria')
             ->where('p.activo', true)
+            ->whereNull('p.dado_de_baja_el')
             ->whereNotNull('p.codigo_articulo')
             ->select([
                 'p.id_producto', 'p.codigo_articulo', 'p.nombre', 'p.presentacion', 'p.imagen_url',
