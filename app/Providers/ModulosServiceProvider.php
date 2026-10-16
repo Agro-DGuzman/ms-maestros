@@ -48,6 +48,7 @@ use Maestros\Domain\Contactos\ContactoRepository;
 use Maestros\Domain\Grupos\GrupoRepository;
 use Maestros\Domain\Socios\SocioRepository;
 use Maestros\Infrastructure\Alcance\ResolutorPorNumero;
+use Maestros\Infrastructure\Catalogo\ProductosSinSapCommand;
 use Maestros\Infrastructure\Configuracion\ConfiguracionDesdeEntorno;
 use Maestros\Infrastructure\Importacion\ImportarMaestrosCommand;
 use Maestros\Infrastructure\Persistence\EloquentBuscadorDeContactos;
@@ -210,6 +211,7 @@ final class ModulosServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 ImportarMaestrosCommand::class,
+                ProductosSinSapCommand::class,
                 HabilitarPersonaCommand::class,
                 DeshabilitarPersonaCommand::class,
                 ConciliarIdentidadesCommand::class,

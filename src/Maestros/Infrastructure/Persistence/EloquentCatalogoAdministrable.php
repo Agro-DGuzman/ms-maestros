@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Maestros\Infrastructure\Persistence;
 
 use App\Persistence\ComparacionSinAcentos;
+use App\Persistence\FechaEnUtc;
+use DateTimeImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Maestros\Application\Productos\CatalogoAdministrable;
@@ -19,6 +21,7 @@ use Maestros\Application\Productos\ProductoAdministrable;
 final class EloquentCatalogoAdministrable implements CatalogoAdministrable
 {
     use ComparacionSinAcentos;
+    use FechaEnUtc;
 
     public function listar(?string $texto, FiltroDeEnlaces $filtro): array
     {
@@ -79,6 +82,15 @@ final class EloquentCatalogoAdministrable implements CatalogoAdministrable
     {
         DB::table($this->tabla('producto'))->where('id_producto', $id)->update([
             'descripcion' => $descripcion,
+            'actualizado_en' => now(),
+        ]);
+    }
+
+    public function darDeBaja(int $id, DateTimeImmutable $momento): void
+    {
+        DB::table($this->tabla('producto'))->where('id_producto', $id)->update([
+            'dado_de_baja_el' => self::enUtc($momento),
+            'vigente_desde' => self::enUtc($momento),
             'actualizado_en' => now(),
         ]);
     }
