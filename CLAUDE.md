@@ -86,13 +86,21 @@ la línea siguiente ya dice, sobra.
   500 `CONFIGURACION_INCOMPLETA`, nunca una lista vacía, que le diría al socio
   que no hay dónde pagar. Se interpretan al usarse, no al arrancar, para que
   una variable mal escrita rompa solo su endpoint.
-- **El catálogo de productos no es réplica de SAP.** Lo mantiene Agropartners
-  —primero con un script, después desde una web de administración—, así que
-  no pasa por `vigenteDesde` ni por el importador. Su estructura en SQL Server
+- **El catálogo de productos es réplica de SAP en parte.** La ingesta escribe la
+  ficha; **la descripción y los cuatro enlaces son solo del back-office** y
+  ningún envío de SAP los toca. **Cada artículo de SAP es un producto**
+  (`ItemCode` → `codigo_articulo`), así que «ALVO - 5 L» y «ALVO - 1 L» son dos
+  tarjetas. Pasa por `vigenteDesde` con la regla de los socios y la baja es
+  lógica (`dado_de_baja_el`), de modo que un artículo inactivo un tiempo vuelve
+  con su ficha y sus enlaces intactos. **La categoría se asigna desde SAP** por
+  código, y el nombre de una que ya existe no se pisa nunca. **Un dato vacío de
+  SAP no borra nada**: la ingesta escribe solo lo que trae valor, hasta que se
+  concilie la ficha, porque los campos de usuario de `OITM` suelen llegar en
+  blanco y borrarían lo que cargó la web. Su estructura en SQL Server
   es `database/sql/maestros-productos.sql`, el mismo script con el que se
   cargan los datos; la migración lo ejecuta, y en SQLite arma una copia con
   Blueprint **sin los CHECK**: si se cambia uno, se cambia el otro. Para la App
-  un producto existe solo si está activo, tiene `codigo_articulo` (el
+  un producto existe solo si está activo, sin baja, tiene `codigo_articulo` (el
   `itemCode` del contrato) y tiene categoría; lo demás puede cargarse de a poco
   sin aparecer. Cada documento es una columna de URL, porque el contrato
   admite tres tipos fijos. **Las categorías, en cambio, son datos**: el `enum`
@@ -100,10 +108,12 @@ la línea siguiente ya dice, sobra.
   (fungicidas, biológicos, coadyuvantes), así que ni la tabla ni el código las
   limitan. `/categorias` muestra solo las que tienen productos visibles, y
   filtrar `/productos` por una que existe pero está vacía no es un error.
-- **Los cuatro enlaces del catálogo los administra el back-office**, no SAP:
-  `imagen_url`, `ficha_tecnica_url`, `hoja_seguridad_url` y
-  `registro_sanitario_url`, desde `/admin/productos`. Una sincronización futura
-  con SAP **no puede escribir esas columnas**, o pisa lo que cargó el área.
+- **La descripción y los cuatro enlaces del catálogo los administra el
+  back-office**, no SAP: `descripcion`, `imagen_url`, `ficha_tecnica_url`,
+  `hoja_seguridad_url` y `registro_sanitario_url`, desde `/admin/productos`. La
+  ingesta **no nombra esas columnas en ningún `update`**, y el controlador no
+  las lee del cuerpo ni para descartarlas: si llegan en un envío, no hay camino
+  por el que puedan pisar lo que cargó el área.
   Cada cambio queda en `backoffice.cambios_de_catalogo` (append-only), con el
   valor anterior leído de la base y no del formulario. La regla de una URL
   válida vive en `Maestros\Domain\Productos\Enlace` —https, ruta codificada,
@@ -152,7 +162,9 @@ la línea siguiente ya dice, sobra.
 - **Una réplica nunca retrocede:** antes de escribir, comparar `vigenteDesde`
   contra lo guardado con `debeReemplazarA()`.
 - **En Azure la réplica se escribe por la ingesta**, no con el importador:
-  `POST /ingesta/v1/socios` y `PUT`/`DELETE /ingesta/v1/socios/{cardCode}`,
+  `POST /ingesta/v1/socios` y `PUT`/`DELETE /ingesta/v1/socios/{cardCode}`, y
+  lo mismo para el catálogo con `POST /ingesta/v1/productos` y
+  `PUT`/`DELETE /ingesta/v1/productos/{itemCode}`,
   contra `contrato/ingesta-api-v1.yaml` (copia enmendada, en OpenAPI 3.1 para
   validar los nulos; el archivo oficial lo tiene el equipo del Sincronizador).
   `maestros:importar` queda para local y para los tests.
@@ -177,8 +189,13 @@ la línea siguiente ya dice, sobra.
   - Las peticiones de la ingesta son `EscrituraDeMaquina`: no hay persona y no
     hay alcance. `AlcanceTest` exige que solo las de `Maestros\Application\Ingesta`
     lleven el marcador.
-  - **Las migraciones que cambian la réplica van antes del push**, igual que las
-    de propiedades.
+  - **Las migraciones que cambian la réplica o el catálogo van antes del push**,
+    igual que las de propiedades: la consulta de la App lee las columnas nuevas,
+    así que una revisión nueva sin ellas responde 500.
+  - **Terminada la carga inicial del catálogo**, `maestros:productos-sin-sap`
+    lista los productos que nunca llegaron de SAP y, con `--dar-de-baja`, los da
+    de baja. Se corre desde la consola del Container App, y a mano a propósito:
+    ms-maestros no puede saber cuándo terminó esa carga.
 - **La persona es el número** (`docs/superpowers/specs/2026-10-13-persona-por-numero-design.md`).
   Se habilita un celular, y todos los contactos visibles de SAP con ese número
   son la misma persona. Su id es `n-` y el E.164 sin el `+`
