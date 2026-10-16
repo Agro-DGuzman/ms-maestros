@@ -1,6 +1,7 @@
 # Ingesta de productos desde SAP · diseño
 
-**Fecha:** 15 de octubre de 2026
+**Fecha:** 15 de octubre de 2026 · **actualizado el 16** con las respuestas
+del equipo del Sincronizador
 **Cambia:** la regla de `CLAUDE.md` «el catálogo de productos no es réplica de
 SAP». Pasa a ser réplica **en parte**: SAP manda la ficha y Agropartners
 conserva la descripción y los cuatro enlaces.
@@ -32,15 +33,65 @@ esto, el catálogo de la App sigue a SAP en segundos, igual que los socios.
 |---|---|---|---|
 | P1 | **Cada artículo de SAP es un producto**, identificado por su `ItemCode` (`codigo_articulo`). Una tarjeta por presentación: «ALVO - 5 L» y «ALVO - 1 L» son dos productos | Usuario | Es lo que manda el Sincronizador, y el contrato de la App no cambia (`presentacion` es un solo texto) |
 | P2 | **La dosis es texto** y se guarda y muestra tal cual. No se asocia a ningún cultivo | Usuario | Nada asegura qué dosis corresponde a qué cultivo |
-| P3 | **`activo` va en el cuerpo** y cubre lo que va y vuelve. **El `DELETE` es la baja lógica**, con la vigencia fijada en su momento, igual que en los socios | Usuario | Un artículo inactivo un tiempo tiene que volver sin perder lo que cargó el área |
+| P3 | **`activo` va en el cuerpo** y cubre lo que va y vuelve: un artículo inactivo llega como `PUT` con `activo: false`. **El `DELETE` es la baja lógica**, con la vigencia fijada en su momento, igual que en los socios | Usuario | Un artículo inactivo un tiempo tiene que volver sin perder lo que cargó el área |
 | P4 | **La categoría se toma por código.** Si el código ya existe, su nombre no se toca; si es nuevo, se crea con el nombre que manda SAP | Usuario | Que «INSECTICIDAS» no pise el «Insecticidas» que hoy muestra el chip |
 | P5 | **La descripción es solo del back-office.** El Sincronizador no la manda | Usuario | La de SAP repetía ingrediente y presentación |
 | P6 | **Los demás textos se muestran tal como vienen de SAP**, mayúsculas incluidas. Si molestan, se corrigen en SAP | Usuario | Corregirlos en ms-maestros rompe siglas (SC, SENASAG) |
-| P7 | **ms-maestros guarda todo artículo que le llega**, y la App muestra los activos, sin baja y con categoría. Qué artículos manda es decisión de SAP y del Sincronizador | Mía, no objetada | ms-maestros no tiene cómo saber qué es «de catálogo» en SAP |
+| P7 | **ms-maestros guarda todo artículo que le llega**, y la App muestra los activos, sin baja y con categoría. Qué artículos manda es decisión de SAP y del Sincronizador (sección «Lo que manda el Sincronizador») | Mía, no objetada | ms-maestros no tiene cómo saber qué es «de catálogo» en SAP |
 | P8 | **Al terminar la carga inicial, los productos que nunca llegaron de SAP se dan de baja** con un comando, a mano y con confirmación | Usuario (la baja) · mía (el comando) | ms-maestros no puede saber cuándo terminó la carga |
 | P9 | **Un dato vacío de SAP no borra nada.** La ingesta escribe solo los campos que traen valor; uno ausente, `null`, vacío o una lista vacía deja la columna como estaba | Usuario | Conservar la ficha cargada desde la web hasta conciliar los datos más adelante |
 | P10 | **Los 14 productos de la web con varias presentaciones bajo un código** (Alvo, Abamex Plus, Charter 240 EC, Concert, Invictus y nueve más) conservan sus enlaces en la presentación que SAP tenga con ese código. **El área carga a mano los de las demás presentaciones**, unas 20 | Usuario | Son pocos, y el back-office ya filtra los productos sin imagen |
-| P11 | **Las tres operaciones de los socios:** `POST` para agregar un producto nuevo, `PUT` para reemplazar y `DELETE` para la baja | Usuario | Tiene que haber una operación para agregar productos nuevos, y el Sincronizador ya hace `POST` → 409 → `PUT` con los socios |
+| P11 | **Las tres operaciones de los socios:** `POST` para agregar un producto nuevo, `PUT` para reemplazar y `DELETE` para la baja | Usuario | Tiene que haber una operación para agregar productos nuevos, y el Sincronizador ya hace `POST` → 409 → `PUT` con los socios. Es también la ruta que el Sincronizador supuso |
+
+## Lo que manda el Sincronizador
+
+Respuestas del equipo del Sincronizador, 16 de octubre. Son datos de SAP, no
+decisiones de este diseño.
+
+- **Qué artículos.** Todo artículo de venta (`SellItem = 'Y'`) cuyo grupo
+  pertenece a la unidad de negocio AGR, FERT o SEM (`OITB.U_LBA_NR1`), esté
+  activo o no. Hoy son **231**: 202 AGR, 6 FERT y 23 SEM, de los que 226 están
+  activos. Un artículo que deja de cumplir el criterio (deja de ser de venta,
+  cambia de grupo o se borra) recibe un `DELETE`.
+- **`activo`** es `validFor = 'Y'` y `frozenFor = 'N'`, la misma regla que el
+  socio. En `AGRO_P6` los dos campos se mueven juntos y ningún artículo usa
+  vigencia por fechas.
+- **El código de categoría** es el nombre del grupo (`OITB.ItmsGrpNam`) sin
+  tildes, en minúsculas y con guiones. No usan el número `ItmsGrpCod` porque
+  SAP lo numera distinto en cada empresa. Los seis códigos de hoy coinciden
+  exactamente, así que ninguna categoría actual queda vacía.
+- **La ficha** sale de campos de usuario de `OITM`: ingredientes y
+  concentraciones (`U_ING_ACT1–10`, `U_CONCENT_ING1–10`), cultivos y dosis
+  (`U_CULTIVO1–8`, `U_DOSIS1–8`), registro (`U_NRO_REG1`), formulación
+  (`U_TIPO_FORM`) y presentación (`U_CANT_PRES` + `U_UNI_MED_PRES`). Editarla
+  es actualizar el artículo, así que genera su evento.
+- **`registro.entidad`** es siempre SENASAG: el campo de SAP es el número de
+  registro SENASAG. Solo los AGR tienen registro (121 de 202); FERT y SEM
+  viajan con `registro: null`. No mandan el segundo registro ni las fechas de
+  vencimiento; si hacen falta, hay que pedirlos.
+- **`eventoId`** es el `U_EVENTO_ID` que asigna SAP desde la secuencia
+  `AGRO_EVENTO_SALIDA_S`, el mayor del grupo. El `0` del ejemplo salió del
+  modo de prueba `VerProducto`, que arma un cuerpo sin evento.
+- **Ningún `ItemCode` tiene `/`.** Los 553 de `OITM` usan letras, números,
+  punto, guion o guion bajo. Igual el Sincronizador codifica la ruta, pero
+  Laravel decodifica antes de comparar con la ruta, así que un `/` codificado
+  tampoco entraría: no hace falta cambiar nada mientras no existan.
+- **Las presentaciones.** Cada una es un artículo con su `ItemCode`, y el
+  error estaba en el catálogo de la web, no en SAP. El Alvo es `10180` (5 L),
+  `10198` (1 L) y `10199` (0.25 L). Para los demás productos de P10,
+  `sql/catalogo-productos.sql` del repositorio del Sincronizador lista los 231
+  con el código, el nombre y la presentación tal como se envían.
+
+**Tres cambios en SAP no generan evento del artículo** y llegan recién con el
+próximo cambio de cada artículo: el nombre de un grupo, la unidad de negocio de
+un grupo y la descripción de una formulación (`UFD1`). Se acepta, igual que con
+`@GRUPOECO_SEGMENT` en los socios. Dos consecuencias:
+- **Renombrar un grupo cambia su código**, porque el código sale del nombre.
+  Los productos pasan a una categoría nueva de a uno, a medida que cambian, y
+  mientras tanto el catálogo queda repartido entre las dos. Hay que avisar al
+  área de SAP que renombrar un grupo tiene ese efecto.
+- **Un grupo que cambia de unidad de negocio** sigue visible hasta que cada
+  artículo cambie y el Sincronizador le mande el `DELETE`.
 
 ## Alcance
 
@@ -78,7 +129,7 @@ ms-maestros, no la confianza en el cuerpo.
 |---|---|---|---|
 | `itemCode` | texto, 1 a 50 | sí | `codigo_articulo` |
 | `nombre` | texto, 1 a 255 | sí | `nombre` |
-| `activo` | booleano | sí | `activo` |
+| `activo` | booleano: `validFor = 'Y'` y `frozenFor = 'N'` | sí | `activo` |
 | `categoria` | `{ codigo (1–50), nombre (1–255) }` o `null` | sí, anulable | `codigo_categoria` (y `maestros.categoria` si es nueva) |
 | `presentacion` | texto ≤ 255 o `null` | no | `presentacion` |
 | `ingredienteActivo` | texto ≤ 500 o `null` | no | `ingrediente_activo` |
@@ -213,6 +264,8 @@ Consecuencias que la App va a ver, sin cambio de contrato:
 - Una presentación nueva sale sin imagen, sin documentos y sin descripción
   hasta que el área los cargue. La API ya omite la descripción vacía.
 - Una categoría nueva de SAP aparece en `/categorias` con el nombre de SAP.
+  Con los datos de hoy serían tres (ver «Abierto»).
+- Los productos de semillas (unidad SEM) entran al catálogo por primera vez.
 
 ## 5. El back-office
 
@@ -270,35 +323,37 @@ confirma que terminó la carga inicial. *(El nombre y la forma son míos.)*
 1. **Migración en Azure antes del push**, desde la imagen local, como las de
    la réplica: la consulta de la App va a leer `dado_de_baja_el`.
 2. **Push.**
-3. **El Sincronizador empieza a mandar productos** y hace la carga inicial.
-4. **El comando**, primero sin opciones para revisar la lista, y después con
+3. **Del lado de SAP**, lo que hoy falta para que haya eventos de artículos:
+   las filas 4-A, 4-U y 4-D en `@AGRO_MAPEO` y `sql/AGRO_REGISTRAR_EVENTO.sql`.
+   En `AGRO_PRD` faltan además el campo `U_EVENTO_ID`, la secuencia y el
+   procedimiento, que ya funcionan en `AGRO_P6`.
+4. **El Sincronizador empieza a mandar productos** y hace la carga inicial.
+5. **El comando**, primero sin opciones para revisar la lista, y después con
    `--dar-de-baja`.
 
-## Abierto: para el equipo del Sincronizador y de SAP
+## Abierto
 
-- **`activo`:** no viene en el ejemplo que mandaron, y hace falta (P3). ¿De
-  `frozenFor`, de `validFor` o de los dos, como en el socio?
-- **Qué artículos van a mandar** (P7): ¿todos los de venta, o solo los que
-  tienen categoría en SAP?
-- **Los códigos de categoría.** El ejemplo manda `insecticidas`, el mismo
-  código de hoy, pero el contrato de la App dice que la categoría deriva del
-  grupo de artículos (`OITB`), que en SAP es un número. Confirmar que el
-  Sincronizador traduce a los seis códigos actuales (`insecticidas`,
-  `herbicidas`, `fungicidas`, `fertilizantes`, `biologicos`, `coadyuvantes`).
-  Un código distinto crea una categoría nueva con el nombre de SAP, y las de
-  hoy quedan vacías y desaparecen de `/categorias`.
-- **De dónde sale la ficha en SAP** (cultivos, dosis, registro). Si vive en
-  tablas de usuario, editarla tiene que generar un evento del artículo; si no,
-  el cambio llega recién con el próximo cambio de `OITM`.
-- **¿Hay `ItemCode` con `/`?** La ruta no lo admitiría, igual que el
-  `cardCode`.
-- **`registro.entidad`:** solo SENASAG, INIAF u «otro»; otro valor es 400.
-- **El `eventoId: 0` del ejemplo** dice que no salió del registro de eventos.
-  Los envíos reales tienen que traer el `EVENTO_ID`.
-- **Los códigos de las presentaciones de los 14 productos de P10.** El
-  catálogo dice que el 10180 es «0.25 L / 1 L» y SAP dice que es el de 5 L. Al
-  prender la ingesta, la imagen y la hoja de seguridad cargadas en el 10180
-  quedan en el de 5 L, y el área tiene que saber qué códigos cargar.
+- **Las tres categorías nuevas.** Con los datos de hoy, la ingesta crearía tres
+  categorías que no existen:
+
+  | Grupo en SAP | Código | Artículos |
+  |---|---|---|
+  | TRATAMIENTO DE SEMILLAS | `tratamiento-de-semillas` | 28 |
+  | FERTILIZANTES DE BASE | `fertilizantes-de-base` | 6 |
+  | SEMILLAS | `semillas` | 23 |
+
+  Falta decidir si aparecen en la App como categorías propias o se muestran
+  dentro de una existente (por ejemplo, `fertilizantes-de-base` dentro de
+  `fertilizantes`). Si son propias, conviene cargarlas antes en
+  `database/sql/maestros-productos-categorias.sql` con su nombre bien escrito:
+  por P4 la ingesta no pisa un nombre que ya existe, y si no se cargan antes,
+  el chip dice «TRATAMIENTO DE SEMILLAS».
+- **Las presentaciones de los 14 productos de P10.** El área tiene que cargar
+  los enlaces de las que faltan; la lista con los códigos está en
+  `sql/catalogo-productos.sql` del Sincronizador. En el Alvo, la imagen y la
+  hoja de seguridad del `10180` quedan en el de 5 L, y faltan el `10198` (1 L)
+  y el `10199` (0.25 L). Como la web decía que el 10180 era «0.25 L / 1 L», hay
+  que revisar que la imagen no muestre otro envase.
 
 ## Más adelante
 
@@ -308,8 +363,12 @@ confirma que terminó la carga inicial. *(El nombre y la forma son míos.)*
 
 ## Avisos
 
-- **Equipo del Sincronizador:** las tres operaciones, el cuerpo, `activo`
-  obligatorio y que la descripción y los enlaces se ignoran.
+- **Equipo del Sincronizador:** la ruta que supusieron es la correcta
+  (`POST /ingesta/v1/productos`, `PUT` y `DELETE /ingesta/v1/productos/{itemCode}`),
+  y entra al contrato de ingesta con el cuerpo de la sección 1. `activo` es
+  obligatorio, y la descripción y los enlaces se ignoran si llegan.
+- **Quien administra SAP:** renombrar un grupo de artículos cambia el código
+  de su categoría en la App (sección «Lo que manda el Sincronizador»).
 - **Equipo de la App:** más tarjetas, una por presentación; nombres y textos
   en mayúsculas; presentaciones nuevas sin imagen al principio.
 - **El área que carga el catálogo:** la descripción pasa a cargarse desde el
