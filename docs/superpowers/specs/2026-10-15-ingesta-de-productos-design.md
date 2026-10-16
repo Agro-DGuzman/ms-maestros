@@ -264,7 +264,7 @@ Consecuencias que la App va a ver, sin cambio de contrato:
 - Una presentación nueva sale sin imagen, sin documentos y sin descripción
   hasta que el área los cargue. La API ya omite la descripción vacía.
 - Una categoría nueva de SAP aparece en `/categorias` con el nombre de SAP.
-  Con los datos de hoy serían tres (ver «Abierto»).
+  Con los datos de hoy son tres (ver «Las tres categorías nuevas»).
 - Los productos de semillas (unidad SEM) entran al catálogo por primera vez.
 
 ## 5. El back-office
@@ -331,23 +331,23 @@ confirma que terminó la carga inicial. *(El nombre y la forma son míos.)*
 5. **El comando**, primero sin opciones para revisar la lista, y después con
    `--dar-de-baja`.
 
-## Abierto
+## Las tres categorías nuevas
 
-- **Las tres categorías nuevas.** Con los datos de hoy, la ingesta crearía tres
-  categorías que no existen:
+Con los datos de hoy, la ingesta crea tres categorías que no existen. **Entran
+como categorías propias, con el nombre que manda SAP** (decisión del usuario,
+16 de octubre): el nombre y si alguna se muestra dentro de otra se arreglan
+más adelante.
 
-  | Grupo en SAP | Código | Artículos |
-  |---|---|---|
-  | TRATAMIENTO DE SEMILLAS | `tratamiento-de-semillas` | 28 |
-  | FERTILIZANTES DE BASE | `fertilizantes-de-base` | 6 |
-  | SEMILLAS | `semillas` | 23 |
+| Grupo en SAP | Código | Artículos |
+|---|---|---|
+| TRATAMIENTO DE SEMILLAS | `tratamiento-de-semillas` | 28 |
+| FERTILIZANTES DE BASE | `fertilizantes-de-base` | 6 |
+| SEMILLAS | `semillas` | 23 |
 
-  Falta decidir si aparecen en la App como categorías propias o se muestran
-  dentro de una existente (por ejemplo, `fertilizantes-de-base` dentro de
-  `fertilizantes`). Si son propias, conviene cargarlas antes en
-  `database/sql/maestros-productos-categorias.sql` con su nombre bien escrito:
-  por P4 la ingesta no pisa un nombre que ya existe, y si no se cargan antes,
-  el chip dice «TRATAMIENTO DE SEMILLAS».
+No hace falta nada especial: es la regla de P4 para un código nuevo.
+
+## Pendiente del área
+
 - **Las presentaciones de los 14 productos de P10.** El área tiene que cargar
   los enlaces de las que faltan; la lista con los códigos está en
   `sql/catalogo-productos.sql` del Sincronizador. En el Alvo, la imagen y la
@@ -360,6 +360,10 @@ confirma que terminó la carga inicial. *(El nombre y la forma son míos.)*
 - **Conciliar la ficha** (P9). Hasta entonces, un dato que SAP no tiene se
   sigue mostrando con el valor de la web, y uno que alguien borre en SAP no se
   borra en la App.
+- **Las tres categorías nuevas:** corregir su nombre («TRATAMIENTO DE
+  SEMILLAS» en el chip) y decidir si alguna se muestra dentro de otra, por
+  ejemplo `fertilizantes-de-base` dentro de `fertilizantes`. Hoy el nombre se
+  corrige solo en la base.
 
 ## Avisos
 
