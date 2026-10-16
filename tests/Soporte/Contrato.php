@@ -31,7 +31,23 @@ final class Contrato
     public static function diferencias(TestResponse $respuesta, string $metodo, string $ruta, string $archivo = 'agropartners-api-v1.yaml'): array
     {
         $status = (string) $respuesta->getStatusCode();
-        $puntero = self::punteroAlEsquema($archivo, strtolower($metodo), $ruta, $status);
+        $metodo = strtolower($metodo);
+        $declarada = self::respuestaDeclarada($archivo, $metodo, $ruta, $status);
+
+        if ($declarada === null) {
+            return ["el contrato no declara {$status} para {$metodo} {$ruta}"];
+        }
+
+        // Un status declarado sin `content` —el 204 de una baja— cumple si no
+        // trae cuerpo: no hay esquema contra el que validar, y un cuerpo donde
+        // el contrato no declara ninguno también es una diferencia.
+        if (! isset($declarada->{'$ref'}) && ! isset($declarada->content)) {
+            $cuerpo = (string) $respuesta->getContent();
+
+            return $cuerpo === '' ? [] : ["el contrato declara {$status} sin cuerpo para {$metodo} {$ruta}"];
+        }
+
+        $puntero = self::punteroAlEsquema($archivo, $metodo, $ruta, $status);
 
         if ($puntero === null) {
             return ["el contrato no declara {$status} para {$metodo} {$ruta}"];
@@ -57,10 +73,17 @@ final class Contrato
         return $diferencias;
     }
 
-    private static function punteroAlEsquema(string $archivo, string $metodo, string $ruta, string $status): ?string
+    private static function respuestaDeclarada(string $archivo, string $metodo, string $ruta, string $status): ?stdClass
     {
         $operacion = self::documento($archivo)->paths->{$ruta}->{$metodo} ?? null;
         $respuesta = $operacion?->responses->{$status} ?? null;
+
+        return $respuesta instanceof stdClass ? $respuesta : null;
+    }
+
+    private static function punteroAlEsquema(string $archivo, string $metodo, string $ruta, string $status): ?string
+    {
+        $respuesta = self::respuestaDeclarada($archivo, $metodo, $ruta, $status);
 
         if (! $respuesta instanceof stdClass) {
             return null;

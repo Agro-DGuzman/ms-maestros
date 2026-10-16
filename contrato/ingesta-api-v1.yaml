@@ -28,12 +28,20 @@ info:
     responde igual con éxito. El grupo económico tiene su propia vigencia.
 
     **Envelope:** las respuestas con cuerpo usan `{ data, success, error }`, como `/v1`.
+
+    **Productos:** el catálogo entra por las mismas tres operaciones, con la misma
+    seguridad, la misma idempotencia y la misma regla de vigencia. Cada artículo de SAP
+    es un producto, identificado por su `ItemCode`. La descripción y los cuatro enlaces
+    (imagen, ficha técnica, hoja de seguridad y registro sanitario) los carga el área
+    desde el back-office: si llegan en el cuerpo **se ignoran**. Un campo opcional
+    ausente, nulo o vacío no borra lo que ya está guardado.
 servers:
   - url: https://agropartners-apim.azure-api.net/ingesta/v1
 security:
   - entraId: []
 tags:
   - name: Socios
+  - name: Productos
 paths:
   /socios:
     x-agropartners-servicio: maestros
@@ -131,6 +139,102 @@ paths:
           $ref: '#/components/responses/ConfiguracionIncompleta'
         '503':
           $ref: '#/components/responses/EntraNoDisponible'
+  /productos:
+    x-agropartners-servicio: maestros
+    post:
+      tags: [Productos]
+      summary: Crear un producto del catálogo
+      operationId: ingestaCrearProducto
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductoIngesta'
+      responses:
+        '201':
+          description: Creado, reactivado si estaba dado de baja, o ignorado por viejo (o clave de idempotencia ya procesada con 201).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaProducto'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/TokenInvalido'
+        '403':
+          $ref: '#/components/responses/SinGateway'
+        '409':
+          $ref: '#/components/responses/ProductoYaExiste'
+        '500':
+          $ref: '#/components/responses/ConfiguracionIncompleta'
+        '503':
+          $ref: '#/components/responses/EntraNoDisponible'
+  /productos/{itemCode}:
+    x-agropartners-servicio: maestros
+    parameters:
+      - $ref: '#/components/parameters/ItemCode'
+      - $ref: '#/components/parameters/IdempotencyKey'
+    put:
+      tags: [Productos]
+      summary: Reemplazar la ficha de un producto
+      description: |-
+        Reemplaza la ficha que manda SAP. `itemCode` del cuerpo debe coincidir con el de
+        la ruta. La descripción y los cuatro enlaces no se tocan, y un campo opcional
+        ausente, nulo o vacío deja la columna como estaba.
+      operationId: ingestaReemplazarProducto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductoIngesta'
+      responses:
+        '200':
+          description: Reemplazado, o ignorado por ser más viejo que la versión guardada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaProducto'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/TokenInvalido'
+        '403':
+          $ref: '#/components/responses/SinGateway'
+        '404':
+          $ref: '#/components/responses/ProductoNoEncontrado'
+        '422':
+          $ref: '#/components/responses/DatosInvalidos'
+        '500':
+          $ref: '#/components/responses/ConfiguracionIncompleta'
+        '503':
+          $ref: '#/components/responses/EntraNoDisponible'
+    delete:
+      tags: [Productos]
+      summary: Dar de baja un producto que dejó de ser de catálogo en SAP
+      description: |-
+        Baja lógica: la ficha, la descripción y los enlaces quedan guardados, y el
+        producto desaparece de la App. Vuelve con un POST más nuevo que la baja. El
+        Sincronizador trata 404 como éxito: el producto ya no estaba.
+      operationId: ingestaEliminarProducto
+      responses:
+        '204':
+          description: Dado de baja.
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/TokenInvalido'
+        '403':
+          $ref: '#/components/responses/SinGateway'
+        '404':
+          $ref: '#/components/responses/ProductoNoEncontrado'
+        '500':
+          $ref: '#/components/responses/ConfiguracionIncompleta'
+        '503':
+          $ref: '#/components/responses/EntraNoDisponible'
 components:
   securitySchemes:
     entraId:
@@ -150,6 +254,15 @@ components:
         type: string
         maxLength: 15
       example: C-004871
+    ItemCode:
+      name: itemCode
+      in: path
+      required: true
+      description: Código del artículo en SAP (OITM.ItemCode).
+      schema:
+        type: string
+        maxLength: 50
+      example: '10198'
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -252,6 +365,123 @@ components:
           format: int64
           description: EVENTO_ID del último evento del grupo.
           example: 1842
+    ProductoIngesta:
+      type: object
+      required: [itemCode, nombre, activo, categoria, cultivos, vigenteDesde, origen]
+      description: |-
+        La ficha del artículo. `descripcion` y los enlaces no figuran a propósito: los
+        carga el back-office, y si llegan igual se ignoran.
+      properties:
+        itemCode:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: OITM.ItemCode. Una tarjeta por presentación.
+          example: '10198'
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: OITM.ItemName.
+          example: ALVO - 1 L
+        activo:
+          type: boolean
+          description: OITM.validFor = 'Y' y frozenFor = 'N'.
+        categoria:
+          oneOf:
+            - $ref: '#/components/schemas/CategoriaIngesta'
+            - type: 'null'
+          description: |-
+            El grupo del artículo (OITB). Nula no cambia la categoría guardada. Si el
+            código es nuevo, se crea con el nombre que manda SAP; si ya existe, su
+            nombre no se toca.
+        presentacion:
+          type: [string, 'null']
+          maxLength: 255
+          description: U_CANT_PRES + U_UNI_MED_PRES.
+          example: 1 L
+        ingredienteActivo:
+          type: [string, 'null']
+          maxLength: 500
+          description: U_ING_ACT1-10 con sus concentraciones.
+          example: Bifenthrin 280 g/L + Clothianidin 140 g/L
+        formulacionCodigo:
+          type: [string, 'null']
+          maxLength: 20
+          description: U_TIPO_FORM. Se guarda junto con la descripción, como «SUSPENSION CONCENTRADA (SC)».
+          example: SC
+        formulacionDescripcion:
+          type: [string, 'null']
+          maxLength: 200
+          example: SUSPENSION CONCENTRADA
+        dosisReferencial:
+          type: [string, 'null']
+          maxLength: 500
+          description: U_DOSIS1-8, como texto. No se asocia a ningún cultivo.
+          example: 300 ml/ha, 400 ml/ha
+        cultivos:
+          type: array
+          description: U_CULTIVO1-8. Una lista con al menos un cultivo reemplaza la guardada; una vacía no la toca.
+          items:
+            type: string
+            maxLength: 255
+          example: ['ARROZ (Oryza Sativa L.)', 'SOYA (Glycine Max L.)']
+        registro:
+          oneOf:
+            - $ref: '#/components/schemas/RegistroIngesta'
+            - type: 'null'
+          description: U_NRO_REG1. Solo los artículos AGR lo tienen.
+        vigenteDesde:
+          type: string
+          format: date-time
+          description: Instante UTC en que el Sincronizador leyó SAP. Sirve para descartar versiones viejas.
+          example: '2026-10-16T12:00:00Z'
+        origen:
+          $ref: '#/components/schemas/OrigenIngesta'
+    CategoriaIngesta:
+      type: object
+      required: [codigo, nombre]
+      properties:
+        codigo:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Nombre del grupo (OITB.ItmsGrpNam) sin tildes, en minúsculas y con guiones. Es la identidad de la categoría.
+          example: insecticidas
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Solo se usa si la categoría todavía no existe.
+          example: INSECTICIDAS
+    RegistroIngesta:
+      type: object
+      required: [entidad, numero]
+      properties:
+        entidad:
+          type: string
+          enum: [SENASAG, INIAF, otro]
+          description: Hoy SAP manda siempre SENASAG.
+        numero:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: '4848'
+    RespuestaProducto:
+      type: object
+      required: [data, success, error]
+      properties:
+        data:
+          type: object
+          required: [itemCode]
+          properties:
+            itemCode:
+              type: string
+        success:
+          type: boolean
+          const: true
+        error:
+          type: 'null'
     RespuestaSocio:
       type: object
       required: [data, success, error]
@@ -316,7 +546,7 @@ components:
           schema:
             $ref: '#/components/schemas/RespuestaError'
     DatosInvalidos:
-      description: Datos que no cumplen reglas (`CARDCODE_NO_COINCIDE`). El Sincronizador lo marca FALLIDO.
+      description: Datos que no cumplen reglas (`CARDCODE_NO_COINCIDE`, `ITEMCODE_NO_COINCIDE`). El Sincronizador lo marca FALLIDO.
       content:
         application/json:
           schema:
@@ -329,6 +559,18 @@ components:
             $ref: '#/components/schemas/RespuestaError'
     SocioNoEncontrado:
       description: El socio no existe o está dado de baja (`SOCIO_NO_ENCONTRADO`). En PUT el Sincronizador reintenta como POST; en DELETE lo toma como éxito.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    ProductoYaExiste:
+      description: El producto ya existe (`PRODUCTO_YA_EXISTE`). El Sincronizador reintenta como PUT.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RespuestaError'
+    ProductoNoEncontrado:
+      description: El producto no existe o está dado de baja (`PRODUCTO_NO_ENCONTRADO`). En PUT el Sincronizador reintenta como POST; en DELETE lo toma como éxito.
       content:
         application/json:
           schema:

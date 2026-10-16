@@ -24,6 +24,7 @@ final class MapaDeErroresHttp
         'LIMITE_TASA_SUPERADO' => 429,
         // La regla de negocio violada que el contrato de ingesta reserva a 422.
         'CARDCODE_NO_COINCIDE' => 422,
+        'ITEMCODE_NO_COINCIDE' => 422,
         // Transitorio: el Sincronizador lo reintenta como cualquier 5xx.
         'ENTRA_NO_DISPONIBLE' => 503,
     ];

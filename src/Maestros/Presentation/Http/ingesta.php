@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Maestros\Presentation\Http\IngestaController;
+use Maestros\Presentation\Http\IngestaDeProductosController;
 
 /*
  * La API de ingesta del Sincronizador (contrato/ingesta-api-v1.yaml). Fuera de
@@ -16,4 +17,8 @@ Route::prefix('ingesta/v1')
         Route::post('socios', [IngestaController::class, 'crear']);
         Route::put('socios/{cardCode}', [IngestaController::class, 'reemplazar']);
         Route::delete('socios/{cardCode}', [IngestaController::class, 'eliminar']);
+
+        Route::post('productos', [IngestaDeProductosController::class, 'crear']);
+        Route::put('productos/{itemCode}', [IngestaDeProductosController::class, 'reemplazar']);
+        Route::delete('productos/{itemCode}', [IngestaDeProductosController::class, 'eliminar']);
     });
