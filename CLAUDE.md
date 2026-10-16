@@ -385,6 +385,13 @@ que cortan antes de la base (secreto, token, clave).
 nada**: la baja fija la vigencia en su momento, y el cuerpo es más viejo. Para
 recrear el socio, `--vigencia=` con la hora actual o posterior.
 
+`probar-ingesta.php` solo cubre socios: sus rutas están fijas en el código. Los
+productos se prueban con Postman, `16f`–`16j`, que necesitan `gatewaySecret` y
+`tokenEntra` cargados. **Escriben de verdad en la base a la que apunte
+`baseUrl`**, así que el cuerpo va `activo: false` y con una categoría que ya
+existe: un producto de prueba no asoma en el catálogo de la App ni deja una
+categoría nueva. `16j` lo da de baja al final.
+
 ### Entrar al back-office con contraseña
 
 En local no hace falta: con `BACKOFFICE_AUTENTICADOR=desarrollo`, abrir

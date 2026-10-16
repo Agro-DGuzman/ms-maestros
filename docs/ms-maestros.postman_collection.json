@@ -15,7 +15,8 @@
     { "key": "cardCode", "value": "" },
     { "key": "gatewaySecret", "value": "" },
     { "key": "tokenEntra", "value": "" },
-    { "key": "cardCodeIngesta", "value": "C-900001" }
+    { "key": "cardCodeIngesta", "value": "C-900001" },
+    { "key": "itemCodeIngesta", "value": "PRUEBA-0001" }
   ],
   "item": [
     {
@@ -864,6 +865,287 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('responde 400 con el campo Idempotency-Key', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().error.structuredMessage[0].campo).to.eql('Idempotency-Key'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16f. Crear producto (POST)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Gateway-Secret",
+                "value": "{{gatewaySecret}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenEntra}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}"
+              }
+            ],
+            "description": "Escribe un producto de verdad en la base a la que apunta baseUrl. Va inactivo y con una categoria que ya existe, asi no aparece en el catalogo de la App; igual conviene cerrar con 16j, que lo da de baja.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"itemCode\": \"{{itemCodeIngesta}}\",\n    \"nombre\": \"PRODUCTO DE PRUEBA - 1 L\",\n    \"activo\": false,\n    \"categoria\": {\n        \"codigo\": \"insecticidas\",\n        \"nombre\": \"INSECTICIDAS\"\n    },\n    \"presentacion\": \"1 L\",\n    \"ingredienteActivo\": \"Bifenthrin 280 g/L + Clothianidin 140 g/L\",\n    \"formulacionCodigo\": \"SC\",\n    \"formulacionDescripcion\": \"SUSPENSION CONCENTRADA\",\n    \"dosisReferencial\": \"300 ml/ha, 400 ml/ha\",\n    \"cultivos\": [\n        \"ARROZ (Oryza Sativa L.)\",\n        \"SOYA (Glycine Max L.)\"\n    ],\n    \"registro\": {\n        \"entidad\": \"SENASAG\",\n        \"numero\": \"4848\"\n    },\n    \"vigenteDesde\": \"{{$isoTimestamp}}\",\n    \"origen\": {\n        \"esquema\": \"AGRO_P6\",\n        \"eventoId\": 1\n    }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ingesta/v1/productos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingesta",
+                "v1",
+                "productos"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201, o 409 si el producto ya existe', () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));",
+                  "pm.test('el sobre tiene data, success y error', () => pm.expect(Object.keys(pm.response.json()).sort()).to.eql(['data', 'error', 'success']));",
+                  "if (pm.response.code === 201) { pm.test('devuelve el itemCode', () => pm.expect(pm.response.json().data.itemCode).to.eql(pm.variables.replaceIn('{{itemCodeIngesta}}'))); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16g. Reemplazar producto (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Gateway-Secret",
+                "value": "{{gatewaySecret}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenEntra}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}"
+              }
+            ],
+            "description": "El reintento que hace el Sincronizador cuando el POST dio 409. La descripcion y los cuatro enlaces que haya cargado el area no se tocan.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"itemCode\": \"{{itemCodeIngesta}}\",\n    \"nombre\": \"PRODUCTO DE PRUEBA - 1 L (reemplazado)\",\n    \"activo\": false,\n    \"categoria\": {\n        \"codigo\": \"insecticidas\",\n        \"nombre\": \"INSECTICIDAS\"\n    },\n    \"presentacion\": \"1 L\",\n    \"ingredienteActivo\": \"Bifenthrin 280 g/L + Clothianidin 140 g/L\",\n    \"formulacionCodigo\": \"SC\",\n    \"formulacionDescripcion\": \"SUSPENSION CONCENTRADA\",\n    \"dosisReferencial\": \"300 ml/ha, 400 ml/ha\",\n    \"cultivos\": [\n        \"ARROZ (Oryza Sativa L.)\",\n        \"SOYA (Glycine Max L.)\"\n    ],\n    \"registro\": {\n        \"entidad\": \"SENASAG\",\n        \"numero\": \"4848\"\n    },\n    \"vigenteDesde\": \"{{$isoTimestamp}}\",\n    \"origen\": {\n        \"esquema\": \"AGRO_P6\",\n        \"eventoId\": 1\n    }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ingesta/v1/productos/{{itemCodeIngesta}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingesta",
+                "v1",
+                "productos",
+                "{{itemCodeIngesta}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('el sobre tiene data, success y error', () => pm.expect(Object.keys(pm.response.json()).sort()).to.eql(['data', 'error', 'success']));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16h. itemCode que no coincide (espera 422)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Gateway-Secret",
+                "value": "{{gatewaySecret}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenEntra}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}"
+              }
+            ],
+            "description": "El itemCode del cuerpo tiene que ser el de la ruta. No escribe nada.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"itemCode\": \"{{itemCodeIngesta}}\",\n    \"nombre\": \"PRODUCTO DE PRUEBA - 1 L\",\n    \"activo\": false,\n    \"categoria\": {\n        \"codigo\": \"insecticidas\",\n        \"nombre\": \"INSECTICIDAS\"\n    },\n    \"presentacion\": \"1 L\",\n    \"ingredienteActivo\": \"Bifenthrin 280 g/L + Clothianidin 140 g/L\",\n    \"formulacionCodigo\": \"SC\",\n    \"formulacionDescripcion\": \"SUSPENSION CONCENTRADA\",\n    \"dosisReferencial\": \"300 ml/ha, 400 ml/ha\",\n    \"cultivos\": [\n        \"ARROZ (Oryza Sativa L.)\",\n        \"SOYA (Glycine Max L.)\"\n    ],\n    \"registro\": {\n        \"entidad\": \"SENASAG\",\n        \"numero\": \"4848\"\n    },\n    \"vigenteDesde\": \"{{$isoTimestamp}}\",\n    \"origen\": {\n        \"esquema\": \"AGRO_P6\",\n        \"eventoId\": 1\n    }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ingesta/v1/productos/OTRO-CODIGO",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingesta",
+                "v1",
+                "productos",
+                "OTRO-CODIGO"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422));",
+                  "pm.test('ITEMCODE_NO_COINCIDE', () => pm.expect(pm.response.json().error.code).to.eql(['ITEMCODE_NO_COINCIDE']));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16i. Producto inexistente (espera 404)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Gateway-Secret",
+                "value": "{{gatewaySecret}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenEntra}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}"
+              }
+            ],
+            "description": "Con un 404 el Sincronizador reintenta como POST.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"itemCode\": \"NO-EXISTE-0000\",\n    \"nombre\": \"PRODUCTO DE PRUEBA - 1 L\",\n    \"activo\": false,\n    \"categoria\": {\n        \"codigo\": \"insecticidas\",\n        \"nombre\": \"INSECTICIDAS\"\n    },\n    \"presentacion\": \"1 L\",\n    \"ingredienteActivo\": \"Bifenthrin 280 g/L + Clothianidin 140 g/L\",\n    \"formulacionCodigo\": \"SC\",\n    \"formulacionDescripcion\": \"SUSPENSION CONCENTRADA\",\n    \"dosisReferencial\": \"300 ml/ha, 400 ml/ha\",\n    \"cultivos\": [\n        \"ARROZ (Oryza Sativa L.)\",\n        \"SOYA (Glycine Max L.)\"\n    ],\n    \"registro\": {\n        \"entidad\": \"SENASAG\",\n        \"numero\": \"4848\"\n    },\n    \"vigenteDesde\": \"{{$isoTimestamp}}\",\n    \"origen\": {\n        \"esquema\": \"AGRO_P6\",\n        \"eventoId\": 1\n    }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ingesta/v1/productos/NO-EXISTE-0000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingesta",
+                "v1",
+                "productos",
+                "NO-EXISTE-0000"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404', () => pm.response.to.have.status(404));",
+                  "pm.test('PRODUCTO_NO_ENCONTRADO', () => pm.expect(pm.response.json().error.code).to.eql(['PRODUCTO_NO_ENCONTRADO']));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16j. Dar de baja producto (DELETE)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Gateway-Secret",
+                "value": "{{gatewaySecret}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenEntra}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}"
+              }
+            ],
+            "description": "Baja logica: la ficha, la descripcion y los enlaces quedan guardados, y el producto desaparece de la App. Vuelve con un POST mas nuevo que la baja.",
+            "url": {
+              "raw": "{{baseUrl}}/ingesta/v1/productos/{{itemCodeIngesta}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingesta",
+                "v1",
+                "productos",
+                "{{itemCodeIngesta}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204, o 404 si ya estaba dado de baja', () => pm.expect(pm.response.code).to.be.oneOf([204, 404]));",
+                  "if (pm.response.code === 204) { pm.test('sin cuerpo', () => pm.expect(pm.response.text()).to.eql('')); }"
                 ]
               }
             }
