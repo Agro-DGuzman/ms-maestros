@@ -58,11 +58,15 @@ final class CatalogoDeEjemplo
             'codigo_categoria' => 'herbicidas',
         ]);
 
+        // Queda afuera solo por la baja, como lo deja un DELETE de la ingesta:
+        // activo en SAP, con la vigencia fijada en el momento de la baja.
         self::producto([
             'codigo_articulo' => 'A-0300',
             'nombre' => 'Dado de baja',
             'codigo_categoria' => 'herbicidas',
-            'activo' => false,
+            'activo' => true,
+            'dado_de_baja_el' => '2026-10-10 12:00:00',
+            'vigente_desde' => '2026-10-10 12:00:00',
             'ficha_tecnica_url' => 'https://docs.agropartners.com.bo/A-0300-tds.pdf',
         ]);
         self::producto(['codigo_articulo' => null, 'nombre' => 'Sin código SAP todavía', 'codigo_categoria' => 'herbicidas']);

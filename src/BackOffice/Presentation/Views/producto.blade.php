@@ -14,6 +14,9 @@
         @else
             <span class="rojo">No se ve en la App: {{ $producto->porQueNoSeVe() }}</span>
         @endif
+        @if (! $producto->llegoDeSap)
+            · <span class="tenue">Todavía no llegó de SAP</span>
+        @endif
     </p>
 
     {{-- Sigue a lo que se teclea, para ver si una URL carga antes de guardarla:
@@ -29,6 +32,17 @@
 
     <form method="POST" action="{{ route('admin.producto.guardar', $producto->id) }}" style="margin:16px 0;">
         @csrf
+        <p>
+            <label for="descripcion"><strong>Descripción</strong></label>
+            <span class="tenue" style="font-size:13px;">· Vacía no se muestra en la App</span>
+            <br>
+            <textarea id="descripcion" name="descripcion" maxlength="1000" rows="4"
+                      style="padding:8px; width:100%; max-width:720px;">{{ old('descripcion', $producto->descripcion) }}</textarea>
+            @error('descripcion')
+                <br><span class="rojo" style="font-size:13px;">{{ $message }}</span>
+            @enderror
+        </p>
+
         @foreach ($campos as $campo)
             @php($actual = $producto->enlaces->valor($campo))
             <p>
@@ -112,7 +126,9 @@
         @forelse ($historial as $cambio)
             <tr>
                 <td>{{ $cambio->ocurrioEl->format('d/m/Y H:i') }} UTC</td>
-                <td>{{ \Maestros\Application\Productos\CampoDeEnlace::tryFrom($cambio->campo)?->etiqueta() ?? $cambio->campo }}</td>
+                <td>{{ $cambio->campo === 'descripcion'
+                        ? 'Descripción'
+                        : (\Maestros\Application\Productos\CampoDeEnlace::tryFrom($cambio->campo)?->etiqueta() ?? $cambio->campo) }}</td>
                 <td style="word-break:break-all;">{{ $cambio->anterior ?? '—' }}</td>
                 <td style="word-break:break-all;">{{ $cambio->nuevo ?? '(quitado)' }}</td>
                 <td>{{ $cambio->operador }}</td>

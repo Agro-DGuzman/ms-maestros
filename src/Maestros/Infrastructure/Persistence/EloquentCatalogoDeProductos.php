@@ -15,9 +15,14 @@ use Maestros\Application\Productos\RegistroDelProducto;
 use Maestros\Application\Productos\TipoDeDocumento;
 
 /**
- * El catálogo no es réplica de SAP: lo mantiene Agropartners, primero con un
- * script y después desde una web de administración. Por eso no pasa por
- * `vigenteDesde` ni por el importador de maestros.
+ * El catálogo es réplica de SAP en parte: la ingesta escribe la ficha y pasa
+ * por `vigenteDesde`, con la misma regla que los socios, mientras la
+ * descripción y los cuatro enlaces los carga el back-office.
+ *
+ * De eso cuelga `visibles()`, que es la única definición de lo que la App
+ * muestra: activo, **sin baja**, con código de artículo y con una categoría que
+ * existe. `ProductoAdministrable::porQueNoSeVe()` dice esa misma regla en
+ * palabras, así que las dos se cambian juntas.
  */
 final class EloquentCatalogoDeProductos implements CatalogoDeProductos
 {
@@ -111,6 +116,7 @@ final class EloquentCatalogoDeProductos implements CatalogoDeProductos
         return DB::table($this->tabla('producto').' as p')
             ->join($this->tabla('categoria').' as c', 'c.codigo', '=', 'p.codigo_categoria')
             ->where('p.activo', true)
+            ->whereNull('p.dado_de_baja_el')
             ->whereNotNull('p.codigo_articulo')
             ->select([
                 'p.id_producto', 'p.codigo_articulo', 'p.nombre', 'p.presentacion', 'p.imagen_url',

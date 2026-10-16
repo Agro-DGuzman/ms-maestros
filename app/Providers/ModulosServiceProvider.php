@@ -38,6 +38,7 @@ use Illuminate\Support\ServiceProvider;
 use Maestros\Application\Alcance\ResolutorDeAlcance;
 use Maestros\Application\Configuracion\ConfiguracionDeLaApp;
 use Maestros\Application\Contactos\BuscadorDeContactos;
+use Maestros\Application\Ingesta\ReplicaDeProductos;
 use Maestros\Application\Productos\CatalogoAdministrable;
 use Maestros\Application\Productos\CatalogoDeProductos;
 use Maestros\Application\Propiedades\PropiedadesDeSocios;
@@ -47,6 +48,7 @@ use Maestros\Domain\Contactos\ContactoRepository;
 use Maestros\Domain\Grupos\GrupoRepository;
 use Maestros\Domain\Socios\SocioRepository;
 use Maestros\Infrastructure\Alcance\ResolutorPorNumero;
+use Maestros\Infrastructure\Catalogo\ProductosSinSapCommand;
 use Maestros\Infrastructure\Configuracion\ConfiguracionDesdeEntorno;
 use Maestros\Infrastructure\Importacion\ImportarMaestrosCommand;
 use Maestros\Infrastructure\Persistence\EloquentBuscadorDeContactos;
@@ -55,6 +57,7 @@ use Maestros\Infrastructure\Persistence\EloquentCatalogoDeProductos;
 use Maestros\Infrastructure\Persistence\EloquentContactoRepository;
 use Maestros\Infrastructure\Persistence\EloquentGrupoRepository;
 use Maestros\Infrastructure\Persistence\EloquentPropiedadesDeSocios;
+use Maestros\Infrastructure\Persistence\EloquentReplicaDeProductos;
 use Maestros\Infrastructure\Persistence\EloquentSocioRepository;
 use Psr\Log\LoggerInterface;
 
@@ -69,6 +72,7 @@ final class ModulosServiceProvider extends ServiceProvider
         $this->app->bind(GrupoRepository::class, EloquentGrupoRepository::class);
         $this->app->bind(CatalogoDeProductos::class, EloquentCatalogoDeProductos::class);
         $this->app->bind(CatalogoAdministrable::class, EloquentCatalogoAdministrable::class);
+        $this->app->bind(ReplicaDeProductos::class, EloquentReplicaDeProductos::class);
         $this->app->bind(PropiedadesDeSocios::class, EloquentPropiedadesDeSocios::class);
 
         // Se interpreta al usarse y no al arrancar: una variable mal escrita
@@ -207,6 +211,7 @@ final class ModulosServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 ImportarMaestrosCommand::class,
+                ProductosSinSapCommand::class,
                 HabilitarPersonaCommand::class,
                 DeshabilitarPersonaCommand::class,
                 ConciliarIdentidadesCommand::class,

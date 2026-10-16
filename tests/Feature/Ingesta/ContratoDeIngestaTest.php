@@ -50,11 +50,14 @@ function operacionesDeIngestaEnLaApp(): array
     return $operaciones;
 }
 
-it('lee el contrato de ingesta y encuentra sus tres operaciones', function () {
+it('lee el contrato de ingesta y encuentra sus seis operaciones', function () {
     expect(operacionesDeIngestaEnElContrato())->toEqualCanonicalizing([
         'POST ingesta/v1/socios',
         'PUT ingesta/v1/socios/{cardCode}',
         'DELETE ingesta/v1/socios/{cardCode}',
+        'POST ingesta/v1/productos',
+        'PUT ingesta/v1/productos/{itemCode}',
+        'DELETE ingesta/v1/productos/{itemCode}',
     ]);
 });
 
