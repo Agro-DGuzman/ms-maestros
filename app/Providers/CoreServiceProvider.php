@@ -13,6 +13,8 @@ use BackOffice\Application\Accesos\RevocarAcceso\RevocarAcceso;
 use BackOffice\Application\Accesos\RevocarAcceso\RevocarAccesoHandler;
 use BackOffice\Application\Bitacora\HistorialDePersona\HistorialDePersona;
 use BackOffice\Application\Bitacora\HistorialDePersona\HistorialDePersonaHandler;
+use BackOffice\Application\Catalogo\ActualizarDescripcion\ActualizarDescripcion;
+use BackOffice\Application\Catalogo\ActualizarDescripcion\ActualizarDescripcionHandler;
 use BackOffice\Application\Catalogo\ActualizarEnlaces\ActualizarEnlaces;
 use BackOffice\Application\Catalogo\ActualizarEnlaces\ActualizarEnlacesHandler;
 use Core\Contracts\Mediator;
@@ -47,6 +49,8 @@ use Maestros\Application\Ingesta\ReplicarProducto\ReplicarProducto;
 use Maestros\Application\Ingesta\ReplicarProducto\ReplicarProductoHandler;
 use Maestros\Application\Ingesta\ReplicarSocio\ReplicarSocio;
 use Maestros\Application\Ingesta\ReplicarSocio\ReplicarSocioHandler;
+use Maestros\Application\Productos\CambiarDescripcion\CambiarDescripcionDeProducto;
+use Maestros\Application\Productos\CambiarDescripcion\CambiarDescripcionDeProductoHandler;
 use Maestros\Application\Productos\CambiarEnlaces\CambiarEnlacesDeProducto;
 use Maestros\Application\Productos\CambiarEnlaces\CambiarEnlacesDeProductoHandler;
 use Maestros\Application\Propiedades\ListarPropiedades\ListarPropiedades;
@@ -57,7 +61,9 @@ final class CoreServiceProvider extends ServiceProvider
     /** @var array<class-string, class-string> */
     public const HANDLERS = [
         EvaluarNumero::class => EvaluarNumeroHandler::class,
+        ActualizarDescripcion::class => ActualizarDescripcionHandler::class,
         ActualizarEnlaces::class => ActualizarEnlacesHandler::class,
+        CambiarDescripcionDeProducto::class => CambiarDescripcionDeProductoHandler::class,
         CambiarEnlacesDeProducto::class => CambiarEnlacesDeProductoHandler::class,
         ConcederAcceso::class => ConcederAccesoHandler::class,
         HistorialDePersona::class => HistorialDePersonaHandler::class,

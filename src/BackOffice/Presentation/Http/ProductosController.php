@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BackOffice\Presentation\Http;
 
+use BackOffice\Application\Catalogo\ActualizarDescripcion\ActualizarDescripcion;
 use BackOffice\Application\Catalogo\ActualizarEnlaces\ActualizarEnlaces;
 use BackOffice\Domain\Catalogo\RegistroDeCambiosDelCatalogo;
 use BackOffice\Domain\Operadores\Operador;
@@ -71,6 +72,8 @@ final readonly class ProductosController
             $reglas[$campo->value] = ['present', 'nullable', 'string', self::enlaceValido($campo)];
         }
 
+        $reglas['descripcion'] = ['present', 'nullable', 'string', 'max:1000'];
+
         $datos = $pedido->validate($reglas);
 
         $resultado = $this->mediator->send(new ActualizarEnlaces(
@@ -92,6 +95,25 @@ final readonly class ProductosController
         assert($resultado instanceof ResultWithValue);
         $cantidad = $resultado->value();
         assert(is_int($cantidad));
+
+        // La descripción va en su propio caso de uso, después de los enlaces:
+        // el controlador ya validó los cinco campos, así que este segundo
+        // despacho no puede fallar por datos.
+        $descripcion = $this->mediator->send(new ActualizarDescripcion(
+            idProducto: $producto->id,
+            descripcion: self::descripcion($datos),
+            operador: $this->operador(),
+            direccionIp: (string) $pedido->ip(),
+        ));
+
+        if ($descripcion->isFailure()) {
+            return $destino->with('error', $descripcion->error->description);
+        }
+
+        assert($descripcion instanceof ResultWithValue);
+        $cambioDeDescripcion = $descripcion->value();
+        assert(is_int($cambioDeDescripcion));
+        $cantidad += $cambioDeDescripcion;
 
         return $destino->with('aviso', match (true) {
             $cantidad === 0 => 'No había cambios.',
@@ -133,6 +155,14 @@ final readonly class ProductosController
     private static function texto(array $datos, CampoDeEnlace $campo): ?string
     {
         $valor = $datos[$campo->value] ?? null;
+
+        return is_string($valor) ? $valor : null;
+    }
+
+    /** @param array<string, mixed> $datos */
+    private static function descripcion(array $datos): ?string
+    {
+        $valor = $datos['descripcion'] ?? null;
 
         return is_string($valor) ? $valor : null;
     }

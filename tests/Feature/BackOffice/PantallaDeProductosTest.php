@@ -22,6 +22,9 @@ beforeEach(function () {
 function formularioDeGliforte(array $cambios = []): array
 {
     return array_merge([
+        // El valor de la semilla: así los tests que no la tocan siguen viendo
+        // «No había cambios».
+        'descripcion' => 'Herbicida sistémico no selectivo de amplio espectro.',
         'imagen_url' => 'https://cdn.agropartners.com.bo/productos/A-0142.webp',
         'ficha_tecnica_url' => 'https://docs.agropartners.com.bo/A-0142-tds.pdf',
         'hoja_seguridad_url' => 'https://docs.agropartners.com.bo/A-0142-msds.pdf',
@@ -95,11 +98,13 @@ it('un POST sin los campos no borra nada', function () {
     // un formulario al que le falte un campo no puede despublicar nada.
     $this->from("/admin/productos/{$this->gliforte}")
         ->post("/admin/productos/{$this->gliforte}", [])
-        ->assertSessionHasErrors(['imagen_url', 'ficha_tecnica_url', 'hoja_seguridad_url', 'registro_sanitario_url']);
+        ->assertSessionHasErrors(['descripcion', 'imagen_url', 'ficha_tecnica_url', 'hoja_seguridad_url', 'registro_sanitario_url']);
+
+    $fila = DB::table(CatalogoDeEjemplo::tabla('producto'))->where('id_producto', $this->gliforte)->first();
 
     expect(asientos())->toBe(0)
-        ->and(DB::table(CatalogoDeEjemplo::tabla('producto'))->where('id_producto', $this->gliforte)->value('hoja_seguridad_url'))
-        ->toBe('https://docs.agropartners.com.bo/A-0142-msds.pdf');
+        ->and($fila?->hoja_seguridad_url)->toBe('https://docs.agropartners.com.bo/A-0142-msds.pdf')
+        ->and($fila?->descripcion)->toBe('Herbicida sistémico no selectivo de amplio espectro.');
 });
 
 it('los enlaces del encabezado se ven sobre el fondo verde', function () {
@@ -130,6 +135,7 @@ it('se edita un producto sin codigo', function () {
     $sinCodigo = CatalogoDeEjemplo::idDe('Sin código SAP todavía');
 
     $this->post("/admin/productos/{$sinCodigo}", [
+        'descripcion' => '',
         'imagen_url' => 'https://cdn.x.bo/nueva.jpg',
         'ficha_tecnica_url' => '',
         'hoja_seguridad_url' => '',
@@ -170,4 +176,30 @@ it('avisa cuando un producto todavia no llego de SAP', function () {
     DB::table(CatalogoDeEjemplo::tabla('producto'))->where('id_producto', $this->gliforte)->update(['origen_esquema' => 'AGRO_P6']);
 
     $this->get("/admin/productos/{$this->gliforte}")->assertDontSee('Todavía no llegó de SAP');
+});
+
+it('guardar la descripcion la asienta en la bitacora', function () {
+    $this->post("/admin/productos/{$this->gliforte}", formularioDeGliforte(['descripcion' => 'Otra']))
+        ->assertRedirect("/admin/productos/{$this->gliforte}")
+        ->assertSessionHas('aviso', 'Se guardó 1 cambio.');
+
+    $asiento = DB::table('backoffice_cambios_de_catalogo')->where('campo', 'descripcion')->first();
+
+    expect($asiento?->valor_anterior)->toBe('Herbicida sistémico no selectivo de amplio espectro.')
+        ->and($asiento?->valor_nuevo)->toBe('Otra');
+
+    $this->get("/admin/productos/{$this->gliforte}")->assertSee('Descripción');
+});
+
+it('una descripcion de mas de 1000 caracteres vuelve con el error', function () {
+    $this->from("/admin/productos/{$this->gliforte}")
+        ->post("/admin/productos/{$this->gliforte}", formularioDeGliforte(['descripcion' => str_repeat('a', 1001)]))
+        ->assertSessionHasErrors('descripcion');
+
+    expect(asientos())->toBe(0);
+});
+
+it('el formulario muestra la descripcion actual', function () {
+    $this->get("/admin/productos/{$this->gliforte}")
+        ->assertSee('Herbicida sistémico no selectivo de amplio espectro.');
 });

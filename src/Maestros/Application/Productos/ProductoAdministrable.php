@@ -20,6 +20,8 @@ final readonly class ProductoAdministrable
         public bool $dadoDeBaja,
         /** `origen_esquema` no vacío: lo que nunca llegó de SAP lo cargó la web. */
         public bool $llegoDeSap,
+        /** La carga el back-office; SAP no la manda (P5). */
+        public ?string $descripcion,
         public EnlacesDeProducto $enlaces,
     ) {}
 

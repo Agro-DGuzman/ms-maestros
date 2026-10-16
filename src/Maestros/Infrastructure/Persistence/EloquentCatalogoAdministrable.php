@@ -75,6 +75,14 @@ final class EloquentCatalogoAdministrable implements CatalogoAdministrable
         ]);
     }
 
+    public function guardarDescripcion(int $id, ?string $descripcion): void
+    {
+        DB::table($this->tabla('producto'))->where('id_producto', $id)->update([
+            'descripcion' => $descripcion,
+            'actualizado_en' => now(),
+        ]);
+    }
+
     /** El left join deja la categoría en null si falta o si apunta a una que no existe. */
     private function consulta(): Builder
     {
@@ -82,7 +90,7 @@ final class EloquentCatalogoAdministrable implements CatalogoAdministrable
             ->leftJoin($this->tabla('categoria').' as c', 'c.codigo', '=', 'p.codigo_categoria')
             ->select([
                 'p.id_producto', 'p.codigo_articulo', 'p.nombre', 'p.activo',
-                'p.dado_de_baja_el', 'p.origen_esquema',
+                'p.dado_de_baja_el', 'p.origen_esquema', 'p.descripcion',
                 'p.imagen_url', 'p.ficha_tecnica_url', 'p.hoja_seguridad_url', 'p.registro_sanitario_url',
                 'c.nombre as categoria_nombre',
             ]);
@@ -105,6 +113,7 @@ final class EloquentCatalogoAdministrable implements CatalogoAdministrable
             activo: (bool) ($fila['activo'] ?? false),
             dadoDeBaja: ($fila['dado_de_baja_el'] ?? null) !== null,
             llegoDeSap: $this->textoOpcional($fila, 'origen_esquema') !== null,
+            descripcion: $this->textoOpcional($fila, 'descripcion'),
             enlaces: new EnlacesDeProducto(
                 $this->textoOpcional($fila, 'imagen_url'),
                 $this->textoOpcional($fila, 'ficha_tecnica_url'),
