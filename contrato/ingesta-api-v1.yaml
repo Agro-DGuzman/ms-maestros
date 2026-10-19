@@ -11,7 +11,9 @@ info:
     `Ingesta.Maestros.Escribir`, grupo económico opcional `{ codigo, nombre, segmento }`,
     error con la forma de `/v1`, y los status 401, 403 y 503. Está en OpenAPI 3.1 porque
     es el dialecto con el que se validan las respuestas en los tests; el archivo oficial
-    puede seguir en 3.0.3 para el APIM.
+    puede seguir en 3.0.3 para el APIM. Un campo anulable se escribe con `oneOf` y
+    `type: 'null'`, nunca con `type` como lista: el importador del APIM rechaza el
+    archivo entero si encuentra una.
 
     **Seguridad:** lista blanca con la IP pública del Sincronizador y JWT de Microsoft
     Entra ID (client credentials) con el rol `Ingesta.Maestros.Escribir`, validado en el
@@ -329,7 +331,9 @@ components:
           description: OCPR.FirstName + LastName; si ambos están vacíos, OCPR.Name.
           example: Mónica Salvatierra
         celular:
-          type: [string, 'null']
+          oneOf:
+            - type: string
+            - type: 'null'
           description: OCPR.Cellolar tal como está en SAP. ms-maestros lo normaliza (+591); si no es un móvil, el contacto queda sin celular.
           example: '70741828'
         activo:
@@ -349,7 +353,9 @@ components:
           description: Informativo.
           example: Grupo Monasterio
         segmento:
-          type: [string, 'null']
+          oneOf:
+            - type: string
+            - type: 'null'
           description: Informativo; no decide precios, crédito ni visibilidad.
           example: Agroindustrial
     OrigenIngesta:
@@ -396,27 +402,37 @@ components:
             código es nuevo, se crea con el nombre que manda SAP; si ya existe, su
             nombre no se toca.
         presentacion:
-          type: [string, 'null']
-          maxLength: 255
+          oneOf:
+            - type: string
+              maxLength: 255
+            - type: 'null'
           description: U_CANT_PRES + U_UNI_MED_PRES.
           example: 1 L
         ingredienteActivo:
-          type: [string, 'null']
-          maxLength: 500
+          oneOf:
+            - type: string
+              maxLength: 500
+            - type: 'null'
           description: U_ING_ACT1-10 con sus concentraciones.
           example: Bifenthrin 280 g/L + Clothianidin 140 g/L
         formulacionCodigo:
-          type: [string, 'null']
-          maxLength: 20
+          oneOf:
+            - type: string
+              maxLength: 20
+            - type: 'null'
           description: U_TIPO_FORM. Se guarda junto con la descripción, como «SUSPENSION CONCENTRADA (SC)».
           example: SC
         formulacionDescripcion:
-          type: [string, 'null']
-          maxLength: 200
+          oneOf:
+            - type: string
+              maxLength: 200
+            - type: 'null'
           example: SUSPENSION CONCENTRADA
         dosisReferencial:
-          type: [string, 'null']
-          maxLength: 500
+          oneOf:
+            - type: string
+              maxLength: 500
+            - type: 'null'
           description: U_DOSIS1-8, como texto. No se asocia a ningún cultivo.
           example: 300 ml/ha, 400 ml/ha
         cultivos:

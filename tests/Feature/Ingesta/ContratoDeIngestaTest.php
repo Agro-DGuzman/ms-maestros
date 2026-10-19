@@ -68,3 +68,33 @@ it('toda operacion del contrato de ingesta existe', function () {
 it('la app no expone en ingesta nada que el contrato no tenga', function () {
     expect(array_values(array_diff(operacionesDeIngestaEnLaApp(), operacionesDeIngestaEnElContrato())))->toBe([]);
 });
+
+/**
+ * Las rutas del contrato donde `type` es una lista.
+ *
+ * @param  array<mixed>  $nodo
+ * @return list<string>
+ */
+function tiposEnListaDelContratoDeIngesta(array $nodo, string $ruta = '#'): array
+{
+    $encontrados = [];
+
+    foreach ($nodo as $clave => $valor) {
+        // Una propiedad que se llama `type` (la de ErrorApi) es un mapa: se
+        // recorre como cualquier esquema.
+        if ($clave === 'type' && is_array($valor) && array_is_list($valor)) {
+            $encontrados[] = "{$ruta}/type";
+        } elseif (is_array($valor)) {
+            $encontrados = [...$encontrados, ...tiposEnListaDelContratoDeIngesta($valor, "{$ruta}/{$clave}")];
+        }
+    }
+
+    return $encontrados;
+}
+
+it('ningun type del contrato de ingesta es una lista', function () {
+    // OpenAPI 3.1 admite `type: [string, 'null']`, pero el importador del APIM
+    // no: rechaza el archivo entero con «Cannot create a scalar value». Un nulo
+    // se escribe con `oneOf` y `type: 'null'`, que los dos aceptan.
+    expect(tiposEnListaDelContratoDeIngesta(Yaml::parseFile(base_path('contrato/ingesta-api-v1.yaml'))))->toBe([]);
+});
