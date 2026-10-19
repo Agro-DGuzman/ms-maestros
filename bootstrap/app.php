@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Envelope;
+use App\Http\ErroresDeRuta;
 use App\Http\MapaDeErroresHttp;
 use App\Http\Middleware\AutenticarIngesta;
 use App\Http\Middleware\AutenticarPorToken;
@@ -20,6 +21,8 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -43,9 +46,34 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prepend([IpRealDetrasDelIngress::class, EsquemaRealDetrasDelIngress::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Todo es API salvo el back-office, que lo mira una persona.
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+            fn (Request $request) => ! $request->is('admin', 'admin/*') || $request->expectsJson(),
         );
+
+        // Un pedido sin ruta no pasa por ningún middleware de ruta, ForzarJson
+        // incluido: sin esto, quien no manda Accept recibe la página HTML de
+        // Laravel. Un abort(404) dentro de una ruta que existe no entra acá.
+        $exceptions->render(function (NotFoundHttpException $e, Request $peticion): ?JsonResponse {
+            if ($peticion->route() !== null || $peticion->is('admin', 'admin/*')) {
+                return null;
+            }
+
+            $error = ErroresDeRuta::rutaInexistente($peticion->method(), '/'.ltrim($peticion->path(), '/'));
+
+            return new JsonResponse(Envelope::fallo($error), MapaDeErroresHttp::status($error));
+        });
+
+        $exceptions->render(function (MethodNotAllowedHttpException $e, Request $peticion): ?JsonResponse {
+            if ($peticion->is('admin', 'admin/*')) {
+                return null;
+            }
+
+            $error = ErroresDeRuta::metodoNoPermitido($peticion->method(), '/'.ltrim($peticion->path(), '/'));
+
+            // Allow dice qué métodos sí admite la ruta.
+            return new JsonResponse(Envelope::fallo($error), MapaDeErroresHttp::status($error), $e->getHeaders());
+        });
 
         $exceptions->render(function (DomainException $e, Request $peticion): ?JsonResponse {
             if (! $peticion->expectsJson()) {

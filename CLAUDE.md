@@ -74,6 +74,12 @@ la línea siguiente ya dice, sobra.
   construido desde un `Result` y nunca a mano. `success: true ⟹ error: null`;
   `success: false ⟹ data: null`. La forma de cada respuesta la fija el
   contrato, y `ContratoDeRespuestasTest` valida cada status contra su esquema.
+  **Una ruta que no existe también responde el envelope**, pida JSON o no:
+  404 `RUTA_INEXISTENTE` y 405 `METODO_NO_PERMITIDO`, con el método y la ruta
+  que llegaron en la descripción (`ErroresDeRuta`). Esos pedidos no pasan por
+  `ForzarJson`, que es middleware de ruta, y el Sincronizador no manda `Accept`:
+  sin esto su registro guardaba la página HTML de Laravel en lugar de la ruta
+  que el APIM había reenviado. Solo `/admin` conserva su página de error.
 - **`structuredMessage` es el desglose por campo** (`{ campo, codigo, mensaje }`),
   no la plantilla del mensaje: solo lo llenan los `FieldError`, y un error que
   no es de un campo lo deja vacío. Una petición mal formada es **400**; el

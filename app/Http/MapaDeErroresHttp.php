@@ -21,6 +21,7 @@ final class MapaDeErroresHttp
         'CODIGO_INVALIDO' => 401,
         'REFRESH_TOKEN_INVALIDO' => 401,
         'ACCESO_DENEGADO' => 403,
+        'METODO_NO_PERMITIDO' => 405,
         'LIMITE_TASA_SUPERADO' => 429,
         // La regla de negocio violada que el contrato de ingesta reserva a 422.
         'CARDCODE_NO_COINCIDE' => 422,
