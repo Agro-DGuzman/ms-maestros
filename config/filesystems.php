@@ -35,7 +35,9 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // Nadie sirve archivos de este disco por HTTP: encendido, expone
+            // GET y PUT en /storage/{path}.
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

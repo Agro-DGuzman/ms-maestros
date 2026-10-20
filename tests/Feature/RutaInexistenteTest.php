@@ -36,3 +36,16 @@ it('el back-office sigue respondiendo su pagina de error', function () {
 
     expect($respuesta->headers->get('Content-Type'))->toStartWith('text/html');
 });
+
+it('las rutas que Laravel trae de serie no existen', function (string $metodo, string $ruta) {
+    // La bienvenida de Laravel y el disco local servido por HTTP no son de
+    // este servicio: lo que no usa nadie tampoco tiene que estar expuesto.
+    $this->call($metodo, $ruta)
+        ->assertStatus(404)
+        ->assertJsonPath('error.code', ['RUTA_INEXISTENTE'])
+        ->assertJsonPath('error.description', "No existe la ruta {$metodo} {$ruta}");
+})->with([
+    ['GET', '/'],
+    ['GET', '/storage/archivo.txt'],
+    ['PUT', '/storage/archivo.txt'],
+]);
