@@ -20,6 +20,10 @@ FROM dunglas/frankenphp:php8.4-trixie AS runtime
 
 RUN install-php-extensions pdo_sqlsrv sqlsrv intl opcache
 
+# Sin X-Powered-By: la versión exacta de PHP es justo lo que busca quien
+# rastrea servidores sin parchear. Solo se puede apagar desde el ini.
+RUN echo 'expose_php = Off' > "$PHP_INI_DIR/conf.d/zz-ms-maestros.ini"
+
 WORKDIR /app
 
 COPY --from=vendor /usr/bin/composer /usr/bin/composer
