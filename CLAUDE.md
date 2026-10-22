@@ -33,6 +33,12 @@ Cada módulo se parte en `Domain/`, `Application/`, `Infrastructure/` y
 pase algo, porque una regla en rojo es un hallazgo real.
 
 - **PHP 8.4** y `declare(strict_types=1);` en **todos** los archivos de `src/`.
+  Las imágenes de `docker/Dockerfile` y de `azure-pipelines.yml` toman el último
+  parche de la 8.4 en cada build (`php8.4-trixie`, `8.4-cli-trixie`), así que
+  un parche de seguridad entra con el próximo push. Debian va fijo en trixie
+  porque el driver de SQL Server depende de su versión. `composer.json` pone el
+  piso (`^8.4.27`) y fija `config.platform.php`: la imagen de Composer corre
+  PHP 8.5, y sin eso podría elegir paquetes que la app no puede correr.
 - **PSR-4:** `Core\` → `src/Core/`, `Maestros\` → `src/Maestros/`,
   `Identidad\` → `src/Identidad/`, `App\` → `app/`, `Tests\` → `tests/`.
 - **`Core/` no referencia `Illuminate\`.** Si el core necesita algo del

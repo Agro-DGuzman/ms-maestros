@@ -13,7 +13,10 @@ RUN composer install \
         --prefer-dist \
         --no-progress
 
-FROM dunglas/frankenphp:php8.4 AS runtime
+# El último parche de la 8.4 en cada build, a propósito: así entra solo cada
+# parche de seguridad. Debian sí va fijo, porque el driver de SQL Server
+# depende de su versión.
+FROM dunglas/frankenphp:php8.4-trixie AS runtime
 
 RUN install-php-extensions pdo_sqlsrv sqlsrv intl opcache
 

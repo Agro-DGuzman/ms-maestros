@@ -40,7 +40,7 @@ stages:
           # nada. Un contenedor lanzado a mano corre como root.
           - script: |
               set -e
-              docker run -d --name php -v "$(Build.SourcesDirectory)":/app -w /app php:8.4-cli sleep infinity
+              docker run -d --name php -v "$(Build.SourcesDirectory)":/app -w /app php:8.4-cli-trixie sleep infinity
               docker exec php bash -ec '
                 apt-get update -qq
                 apt-get install -y -qq git unzip libzip-dev > /dev/null
