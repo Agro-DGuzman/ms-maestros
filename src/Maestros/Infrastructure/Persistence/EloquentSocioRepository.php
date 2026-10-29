@@ -41,6 +41,19 @@ final class EloquentSocioRepository implements SocioRepository
         );
     }
 
+    public function conLineaYSinBaja(): array
+    {
+        return array_values(
+            SocioRecord::query()
+                ->whereNotNull('linea_de_credito')
+                ->whereNull('dado_de_baja_el')
+                ->orderBy('codigo_de_socio')
+                ->get()
+                ->map(fn (SocioRecord $record): Socio => $this->aDominio($record))
+                ->all(),
+        );
+    }
+
     private function aDominio(SocioRecord $record): Socio
     {
         $grupo = $record->id_de_grupo;

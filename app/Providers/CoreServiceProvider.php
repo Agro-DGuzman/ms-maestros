@@ -45,6 +45,8 @@ use Maestros\Application\Ingesta\DarDeBajaProducto\DarDeBajaProducto;
 use Maestros\Application\Ingesta\DarDeBajaProducto\DarDeBajaProductoHandler;
 use Maestros\Application\Ingesta\DarDeBajaSocio\DarDeBajaSocio;
 use Maestros\Application\Ingesta\DarDeBajaSocio\DarDeBajaSocioHandler;
+use Maestros\Application\Ingesta\PublicarSocios\PublicarSocios;
+use Maestros\Application\Ingesta\PublicarSocios\PublicarSociosHandler;
 use Maestros\Application\Ingesta\ReplicarProducto\ReplicarProducto;
 use Maestros\Application\Ingesta\ReplicarProducto\ReplicarProductoHandler;
 use Maestros\Application\Ingesta\ReplicarSocio\ReplicarSocio;
@@ -74,6 +76,7 @@ final class CoreServiceProvider extends ServiceProvider
         ListarPropiedades::class => ListarPropiedadesHandler::class,
         ReplicarSocio::class => ReplicarSocioHandler::class,
         DarDeBajaSocio::class => DarDeBajaSocioHandler::class,
+        PublicarSocios::class => PublicarSociosHandler::class,
         ReplicarProducto::class => ReplicarProductoHandler::class,
         DarDeBajaProducto::class => DarDeBajaProductoHandler::class,
         CerrarSesion::class => CerrarSesionHandler::class,

@@ -52,6 +52,7 @@ use Maestros\Infrastructure\Alcance\ResolutorPorNumero;
 use Maestros\Infrastructure\Catalogo\ProductosSinSapCommand;
 use Maestros\Infrastructure\Configuracion\ConfiguracionDesdeEntorno;
 use Maestros\Infrastructure\Eventos\EloquentSalidaDeEventos;
+use Maestros\Infrastructure\Eventos\PublicarSociosCommand;
 use Maestros\Infrastructure\Importacion\ImportarMaestrosCommand;
 use Maestros\Infrastructure\Persistence\EloquentBuscadorDeContactos;
 use Maestros\Infrastructure\Persistence\EloquentCatalogoAdministrable;
@@ -215,6 +216,7 @@ final class ModulosServiceProvider extends ServiceProvider
             $this->commands([
                 ImportarMaestrosCommand::class,
                 ProductosSinSapCommand::class,
+                PublicarSociosCommand::class,
                 HabilitarPersonaCommand::class,
                 DeshabilitarPersonaCommand::class,
                 ConciliarIdentidadesCommand::class,
