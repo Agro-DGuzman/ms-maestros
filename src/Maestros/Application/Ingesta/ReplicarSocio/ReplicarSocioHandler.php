@@ -9,6 +9,8 @@ use Core\Contracts\RequestHandler;
 use Core\Results\DomainException;
 use Core\Results\Result;
 use Core\Results\ResultWithValue;
+use Maestros\Application\Eventos\SalidaDeEventos;
+use Maestros\Application\Eventos\SocioActualizado;
 use Maestros\Application\Ingesta\IngestaErrors;
 use Maestros\Application\Ingesta\OperacionDeIngesta;
 use Maestros\Application\Ingesta\ResultadoDeIngesta;
@@ -42,6 +44,7 @@ final readonly class ReplicarSocioHandler implements RequestHandler
         private SocioRepository $socios,
         private GrupoRepository $grupos,
         private ContactoRepository $contactos,
+        private SalidaDeEventos $salida,
     ) {}
 
     public function handle(Request $peticion): Result
@@ -84,6 +87,7 @@ final readonly class ReplicarSocioHandler implements RequestHandler
 
             $this->socios->save($existente->dadoDeBaja($peticion->momento));
             $this->contactos->darDeBajaLosQueNoVinieron($codigo, [], $peticion->momento);
+            $this->publicar($codigo);
 
             return ResultWithValue::of(ResultadoDeIngesta::DadoDeBaja);
         }
@@ -125,8 +129,27 @@ final readonly class ReplicarSocioHandler implements RequestHandler
         }
 
         $this->contactos->darDeBajaLosQueNoVinieron($codigo, array_values($ids), $peticion->momento);
+        $this->publicar($codigo);
 
         return ResultWithValue::of(ResultadoDeIngesta::Aplicado);
+    }
+
+    /**
+     * El evento sale de lo guardado y no del cuerpo: la réplica guarda la
+     * vigencia al segundo, y la foto del bus tiene que ordenarse igual que
+     * ella. En la misma transacción, así un corte no deja socio sin evento.
+     */
+    private function publicar(CodigoDeSocio $codigo): void
+    {
+        $socio = $this->socios->find($codigo);
+        assert($socio instanceof Socio);
+
+        $grupo = $socio->grupo() === null ? null : $this->grupos->find($socio->grupo());
+        $evento = SocioActualizado::de($socio, $grupo instanceof GrupoEconomico ? $grupo : null);
+
+        if ($evento !== null) {
+            $this->salida->registrar($evento);
+        }
     }
 
     /**
