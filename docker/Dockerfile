@@ -18,7 +18,9 @@ RUN composer install \
 # depende de su versión.
 FROM dunglas/frankenphp:php8.4-trixie AS runtime
 
-RUN install-php-extensions pdo_sqlsrv sqlsrv intl opcache
+# pcntl: eventos:consumir atiende SIGTERM para terminar el mensaje en curso
+# antes de que Container Apps cambie de revisión.
+RUN install-php-extensions pdo_sqlsrv sqlsrv intl opcache pcntl
 
 # Sin X-Powered-By: la versión exacta de PHP es justo lo que busca quien
 # rastrea servidores sin parchear. Solo se puede apagar desde el ini.
