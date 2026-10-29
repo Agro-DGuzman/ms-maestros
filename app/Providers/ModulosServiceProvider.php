@@ -71,6 +71,7 @@ use Maestros\Infrastructure\Persistence\EloquentPropiedadesDeSocios;
 use Maestros\Infrastructure\Persistence\EloquentReplicaDeProductos;
 use Maestros\Infrastructure\Persistence\EloquentReplicaDePropiedades;
 use Maestros\Infrastructure\Persistence\EloquentSocioRepository;
+use Maestros\Infrastructure\Persistence\PropiedadesSinEventoCommand;
 use Maestros\Infrastructure\ServiceBus\BuzonServiceBusRest;
 use Maestros\Infrastructure\ServiceBus\PublicadorServiceBusRest;
 use Psr\Log\LoggerInterface;
@@ -251,6 +252,7 @@ final class ModulosServiceProvider extends ServiceProvider
                 ProductosSinSapCommand::class,
                 PublicarSociosCommand::class,
                 ConsumirCommand::class,
+                PropiedadesSinEventoCommand::class,
                 HabilitarPersonaCommand::class,
                 DeshabilitarPersonaCommand::class,
                 ConciliarIdentidadesCommand::class,
