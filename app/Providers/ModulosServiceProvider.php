@@ -38,7 +38,10 @@ use Illuminate\Support\ServiceProvider;
 use Maestros\Application\Alcance\ResolutorDeAlcance;
 use Maestros\Application\Configuracion\ConfiguracionDeLaApp;
 use Maestros\Application\Contactos\BuscadorDeContactos;
+use Maestros\Application\Eventos\BuzonDeEntrada;
+use Maestros\Application\Eventos\PublicadorDeEventos;
 use Maestros\Application\Eventos\SalidaDeEventos;
+use Maestros\Application\Eventos\SaludDeLaBase;
 use Maestros\Application\Ingesta\RegistroDeEventos;
 use Maestros\Application\Ingesta\ReplicaDeProductos;
 use Maestros\Application\Ingesta\ReplicaDePropiedades;
@@ -53,9 +56,11 @@ use Maestros\Domain\Socios\SocioRepository;
 use Maestros\Infrastructure\Alcance\ResolutorPorNumero;
 use Maestros\Infrastructure\Catalogo\ProductosSinSapCommand;
 use Maestros\Infrastructure\Configuracion\ConfiguracionDesdeEntorno;
+use Maestros\Infrastructure\Eventos\ConsumirCommand;
 use Maestros\Infrastructure\Eventos\EloquentRegistroDeEventos;
 use Maestros\Infrastructure\Eventos\EloquentSalidaDeEventos;
 use Maestros\Infrastructure\Eventos\PublicarSociosCommand;
+use Maestros\Infrastructure\Eventos\SaludDeLaBaseEloquent;
 use Maestros\Infrastructure\Importacion\ImportarMaestrosCommand;
 use Maestros\Infrastructure\Persistence\EloquentBuscadorDeContactos;
 use Maestros\Infrastructure\Persistence\EloquentCatalogoAdministrable;
@@ -66,6 +71,8 @@ use Maestros\Infrastructure\Persistence\EloquentPropiedadesDeSocios;
 use Maestros\Infrastructure\Persistence\EloquentReplicaDeProductos;
 use Maestros\Infrastructure\Persistence\EloquentReplicaDePropiedades;
 use Maestros\Infrastructure\Persistence\EloquentSocioRepository;
+use Maestros\Infrastructure\ServiceBus\BuzonServiceBusRest;
+use Maestros\Infrastructure\ServiceBus\PublicadorServiceBusRest;
 use Psr\Log\LoggerInterface;
 
 final class ModulosServiceProvider extends ServiceProvider
@@ -84,6 +91,26 @@ final class ModulosServiceProvider extends ServiceProvider
         $this->app->bind(SalidaDeEventos::class, EloquentSalidaDeEventos::class);
         $this->app->bind(RegistroDeEventos::class, EloquentRegistroDeEventos::class);
         $this->app->bind(ReplicaDePropiedades::class, EloquentReplicaDePropiedades::class);
+        $this->app->bind(SaludDeLaBase::class, SaludDeLaBaseEloquent::class);
+
+        // Se arman al usarse: eventos:consumir comprueba antes que la
+        // configuración esté completa, y la app HTTP no los necesita.
+        $this->app->bind(BuzonDeEntrada::class, fn ($app): BuzonDeEntrada => new BuzonServiceBusRest(
+            $app->make(Http::class),
+            Config::string('servicebus.namespace'),
+            Config::string('servicebus.topic'),
+            Config::string('servicebus.suscripcion'),
+            Config::string('servicebus.escucha.nombre'),
+            Config::string('servicebus.escucha.clave'),
+            Config::integer('servicebus.espera_segundos'),
+        ));
+        $this->app->bind(PublicadorDeEventos::class, fn ($app): PublicadorDeEventos => new PublicadorServiceBusRest(
+            $app->make(Http::class),
+            Config::string('servicebus.namespace'),
+            Config::string('servicebus.publicacion.topic'),
+            Config::string('servicebus.publicacion.nombre'),
+            Config::string('servicebus.publicacion.clave'),
+        ));
 
         // Se interpreta al usarse y no al arrancar: una variable mal escrita
         // rompe solo su endpoint, no la API entera.
@@ -223,6 +250,7 @@ final class ModulosServiceProvider extends ServiceProvider
                 ImportarMaestrosCommand::class,
                 ProductosSinSapCommand::class,
                 PublicarSociosCommand::class,
+                ConsumirCommand::class,
                 HabilitarPersonaCommand::class,
                 DeshabilitarPersonaCommand::class,
                 ConciliarIdentidadesCommand::class,
