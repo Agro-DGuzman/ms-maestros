@@ -37,6 +37,7 @@ final class Ingesta
             'razonSocial' => 'Agro Prueba SRL',
             'tipoSap' => 'C',
             'activo' => true,
+            'lineaDeCredito' => '50000.00',
             'grupoEconomico' => ['codigo' => 'GRP-900', 'nombre' => 'Grupo Prueba', 'segmento' => 'Agroindustrial'],
             'contactos' => [
                 ['codigoDeContacto' => '1523', 'nombre' => 'Mónica Salvatierra', 'celular' => '70741828', 'activo' => true],

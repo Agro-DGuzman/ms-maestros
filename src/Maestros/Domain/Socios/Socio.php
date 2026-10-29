@@ -30,6 +30,7 @@ final class Socio extends AggregateRoot
         private readonly ?DateTimeImmutable $dadoDeBajaEl,
         private readonly ?string $origenEsquema,
         private readonly ?int $origenEventoId,
+        private readonly ?LineaDeCredito $lineaDeCredito,
     ) {
         parent::__construct($codigo);
     }
@@ -43,8 +44,9 @@ final class Socio extends AggregateRoot
         ?DateTimeImmutable $dadoDeBajaEl = null,
         ?string $origenEsquema = null,
         ?int $origenEventoId = null,
+        ?LineaDeCredito $lineaDeCredito = null,
     ): self {
-        return new self($codigo, $razonSocial, $grupo, $vigenteDesde, $activo, $dadoDeBajaEl, $origenEsquema, $origenEventoId);
+        return new self($codigo, $razonSocial, $grupo, $vigenteDesde, $activo, $dadoDeBajaEl, $origenEsquema, $origenEventoId, $lineaDeCredito);
     }
 
     public function codigoDeSocio(): CodigoDeSocio
@@ -90,6 +92,12 @@ final class Socio extends AggregateRoot
         return $this->origenEventoId;
     }
 
+    /** Nula solo en los socios que llegaron antes que ella: la semilla y el importador. */
+    public function lineaDeCredito(): ?LineaDeCredito
+    {
+        return $this->lineaDeCredito;
+    }
+
     /** Lo único que la App puede ver: activo en SAP y sin baja. */
     public function esVisible(): bool
     {
@@ -105,6 +113,7 @@ final class Socio extends AggregateRoot
         return new self(
             $this->codigoDeSocio(), $this->razonSocial, $this->grupo, $momento,
             $this->activo, $momento, $this->origenEsquema, $this->origenEventoId,
+            $this->lineaDeCredito,
         );
     }
 

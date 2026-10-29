@@ -277,7 +277,7 @@ components:
   schemas:
     SocioIngesta:
       type: object
-      required: [cardCode, razonSocial, tipoSap, activo, contactos, vigenteDesde, origen]
+      required: [cardCode, razonSocial, tipoSap, activo, lineaDeCredito, contactos, vigenteDesde, origen]
       properties:
         cardCode:
           type: string
@@ -296,6 +296,15 @@ components:
         activo:
           type: boolean
           description: Derivado de OCRD.frozenFor (inactivo cuando frozenFor = 'Y'). Regla a validar con datos reales.
+        lineaDeCredito:
+          type: string
+          pattern: '^\d{1,15}(\.\d{1,6})?$'
+          description: |-
+            OCRD.CreditLine, en dólares (la moneda local de la empresa). Texto decimal con
+            punto, sin signo y sin separador de miles; texto y no número para no perder
+            decimales en el camino. Va siempre: un socio sin línea manda `"0.00"`, que es
+            como SAP la quita. ms-maestros se la pasa a ms-comercial.
+          example: '50000.00'
         grupoEconomico:
           oneOf:
             - $ref: '#/components/schemas/GrupoEconomicoIngesta'

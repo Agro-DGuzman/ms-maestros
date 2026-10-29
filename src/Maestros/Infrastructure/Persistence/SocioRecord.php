@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property CarbonImmutable|null $dado_de_baja_el
  * @property string|null $origen_esquema
  * @property int|null $origen_evento_id
+ * @property string|null $linea_de_credito
  */
 final class SocioRecord extends Model
 {

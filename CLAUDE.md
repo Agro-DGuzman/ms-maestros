@@ -189,6 +189,14 @@ la línea siguiente ya dice, sobra.
   - **El contacto de SAP es la fila `p-{CntctCode}` de la réplica**, no una
     persona: la persona es su número (ver abajo). La ingesta **nunca escribe
     nada de habilitación**.
+  - **`lineaDeCredito` es obligatoria y se guarda como el texto que llegó**,
+    no como DECIMAL. Sale de `OCRD.CreditLine` y está en dólares; un socio
+    sin línea manda `"0.00"`. ms-maestros no hace cuentas con ella: solo se
+    la pasa a ms-comercial en `maestros.socio.actualizado`. Además pdo_sqlsrv
+    devuelve un decimal menor que 1 sin el cero adelante (`.00`), y
+    ms-comercial lo rechaza. El patrón vive en `LineaDeCredito::PATRON`, y
+    `ContratoDeIngestaTest` exige que el contrato repita el mismo. Los socios
+    de la semilla y del importador no la tienen.
   - **Visible** es la palabra de la que cuelga todo: socio activo y sin baja;
     contacto activo, sin baja y de un socio visible. Lo no visible no se
     alcanza (403), no tiene contexto, no puede ingresar y no puede renovar la

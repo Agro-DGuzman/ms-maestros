@@ -3,6 +3,7 @@
   "razonSocial": "Agro Compartido SRL",
   "tipoSap": "C",
   "activo": true,
+  "lineaDeCredito": "50000.00",
   "grupoEconomico": null,
   "contactos": [
     { "codigoDeContacto": "1530", "nombre": "Mónica Duplicada", "celular": "70741828", "activo": true }

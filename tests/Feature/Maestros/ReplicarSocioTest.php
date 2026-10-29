@@ -133,6 +133,15 @@ it('un cuerpo viejo se ignora entero, grupo incluido', function () {
         ->and(app(GrupoRepository::class)->find(IdDeGrupo::desde('GRP-900'))?->nombre())->toBe('Grupo Prueba');
 });
 
+it('guarda la linea de credito con el texto exacto, y uno viejo no la pisa', function () {
+    replicar(CuerpoDeIngesta::socio(lineaDeCredito: '0.00'));
+
+    replicar(CuerpoDeIngesta::socio(lineaDeCredito: '50000.00', vigenteDesde: '2026-10-05T11:59:00Z'), OperacionDeIngesta::Reemplazar);
+
+    expect(socioReplicado()?->lineaDeCredito()?->texto())->toBe('0.00')
+        ->and(SocioRecord::query()->find('C-900001')?->linea_de_credito)->toBe('0.00');
+});
+
 it('un cuerpo del mismo segundo que lo guardado se ignora', function () {
     // Lo guardado se trunca al segundo: sin truncar también el cuerpo, uno
     // viejo dentro del mismo segundo parecería más nuevo y pisaría al nuevo.

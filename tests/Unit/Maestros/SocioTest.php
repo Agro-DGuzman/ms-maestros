@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Core\Results\DomainException;
 use Maestros\Domain\Grupos\IdDeGrupo;
 use Maestros\Domain\Socios\CodigoDeSocio;
+use Maestros\Domain\Socios\LineaDeCredito;
 use Maestros\Domain\Socios\RazonSocial;
 use Maestros\Domain\Socios\Socio;
 
@@ -83,6 +84,29 @@ it('darlo de baja fija la baja y la vigencia en el mismo momento', function () {
     expect($dado->dadoDeBajaEl())->toEqual($momento)
         ->and($dado->vigenteDesde())->toEqual($momento)
         ->and($dado->esVisible())->toBeFalse();
+});
+
+it('conserva la linea de credito con el texto exacto que manda SAP', function (string $texto) {
+    expect(LineaDeCredito::desde($texto)->texto())->toBe($texto);
+})->with(['50000.00', '0.00', '1234.5', '0', '5000000.00', '999999999999999.123456']);
+
+it('rechaza una linea de credito con signo, separador o mas precision que SAP', function (string $malo) {
+    expect(fn () => LineaDeCredito::desde($malo))->toThrow(DomainException::class);
+})->with([
+    '', '-5.00', '+5.00', '50,000.00', '50.000,00', ' 50000.00', "50000.00\n",
+    '.50', '5.', '1e5', '1.1234567', '1234567890123456.00',
+]);
+
+it('darlo de baja conserva la linea de credito', function () {
+    $socio = Socio::replica(
+        CodigoDeSocio::desde('C-900001'),
+        RazonSocial::desde('Agro Prueba SRL'),
+        IdDeGrupo::desde('GRP-900'),
+        new DateTimeImmutable('2026-10-05T12:00:00Z'),
+        lineaDeCredito: LineaDeCredito::desde('50000.00'),
+    );
+
+    expect($socio->dadoDeBaja(new DateTimeImmutable('2026-10-05T15:00:00Z'))->lineaDeCredito()?->texto())->toBe('50000.00');
 });
 
 it('un socio puede no tener grupo economico', function () {

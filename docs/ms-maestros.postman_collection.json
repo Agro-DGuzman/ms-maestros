@@ -640,7 +640,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"cardCode\": \"{{cardCodeIngesta}}\",\n    \"razonSocial\": \"Agro Prueba SRL\",\n    \"tipoSap\": \"C\",\n    \"activo\": true,\n    \"grupoEconomico\": {\n        \"codigo\": \"GRP-900\",\n        \"nombre\": \"Grupo Prueba\",\n        \"segmento\": \"Agroindustrial\"\n    },\n    \"contactos\": [\n        {\n            \"codigoDeContacto\": \"1523\",\n            \"nombre\": \"Mónica Prueba\",\n            \"celular\": \"75000001\",\n            \"activo\": true\n        }\n    ],\n    \"vigenteDesde\": \"{{$isoTimestamp}}\",\n    \"origen\": {\n        \"esquema\": \"AGRO_P6\",\n        \"eventoId\": 1\n    }\n}"
+              "raw": "{\n    \"cardCode\": \"{{cardCodeIngesta}}\",\n    \"razonSocial\": \"Agro Prueba SRL\",\n    \"tipoSap\": \"C\",\n    \"activo\": true,\n    \"lineaDeCredito\": \"50000.00\",\n    \"grupoEconomico\": {\n        \"codigo\": \"GRP-900\",\n        \"nombre\": \"Grupo Prueba\",\n        \"segmento\": \"Agroindustrial\"\n    },\n    \"contactos\": [\n        {\n            \"codigoDeContacto\": \"1523\",\n            \"nombre\": \"Mónica Prueba\",\n            \"celular\": \"75000001\",\n            \"activo\": true\n        }\n    ],\n    \"vigenteDesde\": \"{{$isoTimestamp}}\",\n    \"origen\": {\n        \"esquema\": \"AGRO_P6\",\n        \"eventoId\": 1\n    }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/ingesta/v1/socios",
@@ -695,7 +695,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"cardCode\": \"{{cardCodeIngesta}}\",\n    \"razonSocial\": \"Agro Prueba SRL\",\n    \"tipoSap\": \"C\",\n    \"activo\": true,\n    \"grupoEconomico\": {\n        \"codigo\": \"GRP-900\",\n        \"nombre\": \"Grupo Prueba\",\n        \"segmento\": \"Agroindustrial\"\n    },\n    \"contactos\": [\n        {\n            \"codigoDeContacto\": \"1523\",\n            \"nombre\": \"Mónica Prueba\",\n            \"celular\": \"75000001\",\n            \"activo\": true\n        }\n    ],\n    \"vigenteDesde\": \"{{$isoTimestamp}}\",\n    \"origen\": {\n        \"esquema\": \"AGRO_P6\",\n        \"eventoId\": 1\n    }\n}"
+              "raw": "{\n    \"cardCode\": \"{{cardCodeIngesta}}\",\n    \"razonSocial\": \"Agro Prueba SRL\",\n    \"tipoSap\": \"C\",\n    \"activo\": true,\n    \"lineaDeCredito\": \"50000.00\",\n    \"grupoEconomico\": {\n        \"codigo\": \"GRP-900\",\n        \"nombre\": \"Grupo Prueba\",\n        \"segmento\": \"Agroindustrial\"\n    },\n    \"contactos\": [\n        {\n            \"codigoDeContacto\": \"1523\",\n            \"nombre\": \"Mónica Prueba\",\n            \"celular\": \"75000001\",\n            \"activo\": true\n        }\n    ],\n    \"vigenteDesde\": \"{{$isoTimestamp}}\",\n    \"origen\": {\n        \"esquema\": \"AGRO_P6\",\n        \"eventoId\": 1\n    }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/ingesta/v1/socios/{{cardCodeIngesta}}",
@@ -794,7 +794,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"cardCode\": \"{{cardCodeIngesta}}\",\n    \"razonSocial\": \"Agro Prueba SRL\",\n    \"tipoSap\": \"C\",\n    \"activo\": true,\n    \"grupoEconomico\": {\n        \"codigo\": \"GRP-900\",\n        \"nombre\": \"Grupo Prueba\",\n        \"segmento\": \"Agroindustrial\"\n    },\n    \"contactos\": [\n        {\n            \"codigoDeContacto\": \"1523\",\n            \"nombre\": \"Mónica Prueba\",\n            \"celular\": \"75000001\",\n            \"activo\": true\n        }\n    ],\n    \"vigenteDesde\": \"{{$isoTimestamp}}\",\n    \"origen\": {\n        \"esquema\": \"AGRO_P6\",\n        \"eventoId\": 1\n    }\n}"
+              "raw": "{\n    \"cardCode\": \"{{cardCodeIngesta}}\",\n    \"razonSocial\": \"Agro Prueba SRL\",\n    \"tipoSap\": \"C\",\n    \"activo\": true,\n    \"lineaDeCredito\": \"50000.00\",\n    \"grupoEconomico\": {\n        \"codigo\": \"GRP-900\",\n        \"nombre\": \"Grupo Prueba\",\n        \"segmento\": \"Agroindustrial\"\n    },\n    \"contactos\": [\n        {\n            \"codigoDeContacto\": \"1523\",\n            \"nombre\": \"Mónica Prueba\",\n            \"celular\": \"75000001\",\n            \"activo\": true\n        }\n    ],\n    \"vigenteDesde\": \"{{$isoTimestamp}}\",\n    \"origen\": {\n        \"esquema\": \"AGRO_P6\",\n        \"eventoId\": 1\n    }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/ingesta/v1/socios",
@@ -844,7 +844,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"cardCode\": \"{{cardCodeIngesta}}\",\n    \"razonSocial\": \"Agro Prueba SRL\",\n    \"tipoSap\": \"C\",\n    \"activo\": true,\n    \"grupoEconomico\": {\n        \"codigo\": \"GRP-900\",\n        \"nombre\": \"Grupo Prueba\",\n        \"segmento\": \"Agroindustrial\"\n    },\n    \"contactos\": [\n        {\n            \"codigoDeContacto\": \"1523\",\n            \"nombre\": \"Mónica Prueba\",\n            \"celular\": \"75000001\",\n            \"activo\": true\n        }\n    ],\n    \"vigenteDesde\": \"{{$isoTimestamp}}\",\n    \"origen\": {\n        \"esquema\": \"AGRO_P6\",\n        \"eventoId\": 1\n    }\n}"
+              "raw": "{\n    \"cardCode\": \"{{cardCodeIngesta}}\",\n    \"razonSocial\": \"Agro Prueba SRL\",\n    \"tipoSap\": \"C\",\n    \"activo\": true,\n    \"lineaDeCredito\": \"50000.00\",\n    \"grupoEconomico\": {\n        \"codigo\": \"GRP-900\",\n        \"nombre\": \"Grupo Prueba\",\n        \"segmento\": \"Agroindustrial\"\n    },\n    \"contactos\": [\n        {\n            \"codigoDeContacto\": \"1523\",\n            \"nombre\": \"Mónica Prueba\",\n            \"celular\": \"75000001\",\n            \"activo\": true\n        }\n    ],\n    \"vigenteDesde\": \"{{$isoTimestamp}}\",\n    \"origen\": {\n        \"esquema\": \"AGRO_P6\",\n        \"eventoId\": 1\n    }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/ingesta/v1/socios",

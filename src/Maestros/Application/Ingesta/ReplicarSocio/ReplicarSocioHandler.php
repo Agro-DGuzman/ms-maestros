@@ -22,6 +22,7 @@ use Maestros\Domain\Grupos\GrupoEconomico;
 use Maestros\Domain\Grupos\GrupoRepository;
 use Maestros\Domain\Grupos\IdDeGrupo;
 use Maestros\Domain\Socios\CodigoDeSocio;
+use Maestros\Domain\Socios\LineaDeCredito;
 use Maestros\Domain\Socios\RazonSocial;
 use Maestros\Domain\Socios\Socio;
 use Maestros\Domain\Socios\SocioErrors;
@@ -89,6 +90,7 @@ final readonly class ReplicarSocioHandler implements RequestHandler
 
         // Todo lo que puede lanzar, armado antes de escribir.
         $razonSocial = RazonSocial::desde($cuerpo->razonSocial);
+        $lineaDeCredito = LineaDeCredito::desde($cuerpo->lineaDeCredito);
         $grupo = $cuerpo->grupo === null ? null : IdDeGrupo::desde($cuerpo->grupo->codigo);
         $ids = array_map(static fn ($c): IdDePersona => IdDePersona::deContactoSap($c->codigo), $cuerpo->contactos);
 
@@ -104,6 +106,7 @@ final readonly class ReplicarSocioHandler implements RequestHandler
             activo: $cuerpo->activo,
             origenEsquema: $cuerpo->origenEsquema,
             origenEventoId: $cuerpo->origenEventoId,
+            lineaDeCredito: $lineaDeCredito,
         ));
 
         foreach ($cuerpo->contactos as $i => $contacto) {

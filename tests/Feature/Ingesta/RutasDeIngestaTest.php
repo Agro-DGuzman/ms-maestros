@@ -85,7 +85,19 @@ it('un cuerpo mal formado responde 400 con el campo', function (array $cuerpo, s
     'codigo de contacto con letras' => [['contactos' => [['codigoDeContacto' => '15a3', 'nombre' => 'Mónica', 'celular' => '70741828', 'activo' => true]]], 'contactos.0.codigoDeContacto'],
     'tipo SAP desconocido' => [['tipoSap' => 'X'], 'tipoSap'],
     'grupo sin codigo' => [['grupoEconomico' => ['nombre' => 'Sin codigo']], 'grupoEconomico.codigo'],
+    // Sin línea no se puede avisar a ms-comercial: SAP la quita poniéndola en
+    // cero, así que el Sincronizador manda "0.00" y nunca la omite.
+    'sin linea de credito' => [['lineaDeCredito' => null], 'lineaDeCredito'],
+    'linea de credito con signo' => [['lineaDeCredito' => '-5.00'], 'lineaDeCredito'],
+    'linea de credito con separador de miles' => [['lineaDeCredito' => '50,000.00'], 'lineaDeCredito'],
+    'linea de credito como numero de JSON' => [['lineaDeCredito' => 50000.5], 'lineaDeCredito'],
 ]);
+
+it('la linea de credito se guarda con el texto que llego', function () {
+    crearSocio(['lineaDeCredito' => '0.00'])->assertStatus(201);
+
+    expect(SocioRecord::query()->find('C-900001')?->linea_de_credito)->toBe('0.00');
+});
 
 it('sin Accept: application/json igual responde el envelope 400, no una redireccion', function () {
     $respuesta = test()->call('POST', '/ingesta/v1/socios', [], [], [], array_merge(

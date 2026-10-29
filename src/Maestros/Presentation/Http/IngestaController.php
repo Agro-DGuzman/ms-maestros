@@ -23,6 +23,7 @@ use Maestros\Application\Ingesta\ReplicarSocio\ReplicarSocio;
 use Maestros\Application\Ingesta\ResultadoDeIngesta;
 use Maestros\Application\Ingesta\SocioIngresado;
 use Maestros\Domain\Socios\CodigoDeSocio;
+use Maestros\Domain\Socios\LineaDeCredito;
 use Maestros\Domain\Socios\SocioErrors;
 
 /**
@@ -67,6 +68,8 @@ final readonly class IngestaController
             'razonSocial' => ['required', 'string', 'max:100'],
             'tipoSap' => ['required', 'in:C,S,L'],
             'activo' => ['required', 'boolean'],
+            // Texto y no número: un número de JSON pierde decimales en el camino.
+            'lineaDeCredito' => ['required', 'string', 'regex:/'.LineaDeCredito::PATRON.'/D'],
             'grupoEconomico' => ['nullable', 'array'],
             'grupoEconomico.codigo' => ['required_with:grupoEconomico', 'string', 'max:50'],
             'grupoEconomico.nombre' => ['required_with:grupoEconomico', 'string', 'max:200'],
@@ -107,6 +110,7 @@ final readonly class IngestaController
             razonSocial: self::texto($datos, 'razonSocial'),
             tipoSap: self::texto($datos, 'tipoSap'),
             activo: (bool) ($datos['activo'] ?? false),
+            lineaDeCredito: self::texto($datos, 'lineaDeCredito'),
             grupo: $grupo === null ? null : new GrupoIngresado(
                 self::texto($grupo, 'codigo'),
                 self::texto($grupo, 'nombre'),

@@ -10,6 +10,7 @@ use Core\Domain\AggregateRoot;
 use DateTimeImmutable;
 use Maestros\Domain\Grupos\IdDeGrupo;
 use Maestros\Domain\Socios\CodigoDeSocio;
+use Maestros\Domain\Socios\LineaDeCredito;
 use Maestros\Domain\Socios\RazonSocial;
 use Maestros\Domain\Socios\Socio;
 use Maestros\Domain\Socios\SocioRepository;
@@ -43,6 +44,7 @@ final class EloquentSocioRepository implements SocioRepository
     private function aDominio(SocioRecord $record): Socio
     {
         $grupo = $record->id_de_grupo;
+        $linea = $record->linea_de_credito;
 
         return Socio::replica(
             CodigoDeSocio::desde((string) $record->codigo_de_socio),
@@ -53,6 +55,7 @@ final class EloquentSocioRepository implements SocioRepository
             dadoDeBajaEl: $record->dado_de_baja_el?->toDateTimeImmutable(),
             origenEsquema: $record->origen_esquema,
             origenEventoId: $record->origen_evento_id,
+            lineaDeCredito: is_string($linea) && $linea !== '' ? LineaDeCredito::desde($linea) : null,
         );
     }
 
@@ -69,6 +72,7 @@ final class EloquentSocioRepository implements SocioRepository
             'dado_de_baja_el' => self::enUtc($socio->dadoDeBajaEl()),
             'origen_esquema' => $socio->origenEsquema(),
             'origen_evento_id' => $socio->origenEventoId(),
+            'linea_de_credito' => $socio->lineaDeCredito()?->texto(),
         ];
     }
 }

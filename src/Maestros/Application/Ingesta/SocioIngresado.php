@@ -18,6 +18,7 @@ final readonly class SocioIngresado
         public string $razonSocial,
         public string $tipoSap,
         public bool $activo,
+        public string $lineaDeCredito,
         public ?GrupoIngresado $grupo,
         public array $contactos,
         public DateTimeImmutable $vigenteDesde,

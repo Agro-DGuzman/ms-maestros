@@ -22,6 +22,15 @@ final class SocioErrors
         return Error::validation('RAZON_SOCIAL_VACIA', 'La razón social no puede estar vacía');
     }
 
+    public static function lineaDeCreditoInvalida(string $texto): Error
+    {
+        return Error::validation(
+            'LINEA_DE_CREDITO_INVALIDA',
+            'La línea de crédito {texto} no es un decimal sin signo con punto',
+            $texto,
+        );
+    }
+
     public static function noEncontrado(string $codigo): Error
     {
         return Error::notFound('SOCIO_NO_ENCONTRADO', 'No existe el socio {codigo}', $codigo);

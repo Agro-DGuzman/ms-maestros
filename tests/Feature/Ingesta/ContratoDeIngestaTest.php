@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Routing\Route as Ruta;
 use Illuminate\Support\Facades\Route;
+use Maestros\Domain\Socios\LineaDeCredito;
 use Symfony\Component\Yaml\Yaml;
 
 /*
@@ -91,6 +92,15 @@ function tiposEnListaDelContratoDeIngesta(array $nodo, string $ruta = '#'): arra
 
     return $encontrados;
 }
+
+it('la linea de credito es obligatoria y el contrato la valida con el patron del dominio', function () {
+    /** @var array{components: array{schemas: array<string, array<string, mixed>>}} $contrato */
+    $contrato = Yaml::parseFile(base_path('contrato/ingesta-api-v1.yaml'));
+    $socio = $contrato['components']['schemas']['SocioIngesta'];
+
+    expect($socio['required'])->toContain('lineaDeCredito')
+        ->and($socio['properties']['lineaDeCredito']['pattern'])->toBe(LineaDeCredito::PATRON);
+});
 
 it('ningun type del contrato de ingesta es una lista', function () {
     // OpenAPI 3.1 admite `type: [string, 'null']`, pero el importador del APIM

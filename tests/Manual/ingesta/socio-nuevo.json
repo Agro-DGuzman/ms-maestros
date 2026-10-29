@@ -3,6 +3,7 @@
   "razonSocial": "Agro Prueba SRL",
   "tipoSap": "C",
   "activo": true,
+  "lineaDeCredito": "50000.00",
   "grupoEconomico": { "codigo": "GRP-900", "nombre": "Grupo Prueba", "segmento": "Agroindustrial" },
   "contactos": [
     { "codigoDeContacto": "1523", "nombre": "Mónica Prueba", "celular": "75000001", "activo": true },
