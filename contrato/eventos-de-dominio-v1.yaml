@@ -1,0 +1,198 @@
+openapi: 3.1.0
+info:
+  title: Agropartners · Eventos de dominio entre servicios
+  version: 1.0.0
+  description: |-
+    Los eventos que un microservicio publica para que los otros se enteren de un cambio en un
+    dato que es suyo (spec `2026-10-27-ms-comercial-eventos-de-dominio-design.md`). No hay
+    operaciones HTTP: cada evento viaja como mensaje de Service Bus, y este archivo declara
+    solo su forma, en `components.schemas`. Está en OpenAPI 3.1, como los otros contratos,
+    porque es el dialecto con el que se valida en los tests; un campo anulable se escribe con
+    `oneOf` y `type: 'null'`, nunca con `type` como lista.
+
+    **Topics (ED1).** Uno por servicio que publica: `maestros-eventos` y `comercial-eventos`.
+    Cada servicio publica solo en el suyo, con una clave Send que vale solo para ese topic, y
+    escucha el del otro con su propia suscripción.
+
+    | Topic | Publica | Suscripción | Regla |
+    |---|---|---|---|
+    | `maestros-eventos` | ms-maestros | `sub-ms-comercial` | `tipo LIKE 'maestros.socio.%'` |
+    | `comercial-eventos` | ms-comercial | `sub-ms-maestros` (paso 13.8 de la guía de ms-comercial) | `tipo LIKE 'comercial.propiedad.%'` |
+
+    Las suscripciones no tienen sesiones ni la regla `$Default`: 5 entregas, bloqueo de 60 s y,
+    al vencer, a la cola de mensajes muertos.
+
+    **El sobre (ED2).** Cada evento es el sobre de la versión 1 (`eventoId`, `tipo`,
+    `ocurridoEn`, `origen`, `clave`, `version`, `datos`), con la **foto completa** del dato en
+    `datos`: un campo que falta se lee como que no tiene valor, no como «sin cambios». El
+    `tipo` viaja también como propiedad del mensaje (una cabecera `tipo` con el valor en JSON),
+    que es lo que filtran las suscripciones; `MessageId` es el `eventoId`.
+
+    - **`eventoId`**: un UUID aleatorio, nuevo por cada foto y único en todo el bus. El que
+      escucha descarta uno ya visto, así que una entrega repetida no cambia nada.
+    - **`ocurridoEn`**: en UTC, con zona y hasta 6 decimales. Ordena las fotos: lo igual o más
+      viejo que lo guardado se descarta.
+    - **Importes** como texto decimal, nunca como número JSON.
+
+    **«El socio cambió» (ED3)** es `maestros.socio.actualizado`. `ocurridoEn` es el
+    `vigenteDesde` con el que ms-maestros guardó ese socio, así la foto del bus y la de SAP se
+    ordenan con el mismo reloj. Una baja es una foto más, con `deBaja: true`: el socio queda
+    de baja y su historia se conserva. Sin contactos: son datos personales, y comercial no
+    los usa.
+
+    **«La propiedad cambió» (ED5)** es `comercial.propiedad.actualizada`. Sale cada vez que
+    la propiedad se crea o se reemplaza, no cuando se ignora por vieja. `ocurridoEn` es el de
+    la propiedad guardada: el `actualizadoEn` de Appgronomy, o `1970-01-01T00:00:00.000000Z`
+    si la creó un informe de visita, para que cualquier foto real la pise también en
+    ms-maestros.
+
+    **El estado de la propiedad (ED6)** es `activo` o `inactivo`, tal como lo manda
+    Appgronomy. Mientras Appgronomy no lo mande siempre, una propiedad sin estado informado
+    conserva el que tenía, y una nueva es `activo`; el evento lo lleva siempre.
+paths: {}
+components:
+  schemas:
+    SobreDeEvento:
+      type: object
+      required: [eventoId, tipo, ocurridoEn, origen, clave, version, datos]
+      description: El sobre de la versión 1, común a todos los eventos de dominio (ED2).
+      properties:
+        eventoId:
+          type: string
+          format: uuid
+          pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+          description: Un UUID aleatorio, nuevo por cada foto y único en todo el bus. El mismo solo al reintentar la misma foto.
+          example: 4f7c2a1e-9b3d-4e8a-a1c2-7d5e6f8a9b10
+        tipo:
+          type: string
+          minLength: 1
+        ocurridoEn:
+          type: string
+          format: date-time
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$'
+          description: 'El instante de la foto, con zona y **hasta 6 decimales** (con 7 el sobre se rechaza).'
+          example: '2026-10-27T14:00:00.123Z'
+        origen:
+          type: string
+          minLength: 1
+          description: El servicio que publica, para el log.
+        clave:
+          type: object
+        version:
+          type: integer
+          enum: [1]
+        datos:
+          type: object
+    CardCode:
+      type: string
+      minLength: 1
+      maxLength: 15
+      description: OCRD.CardCode, el código del socio en SAP.
+      example: C-004871
+    SocioActualizado:
+      description: '«El socio cambió» (ED3): publica ms-maestros en `maestros-eventos`, escucha ms-comercial.'
+      allOf:
+        - $ref: '#/components/schemas/SobreDeEvento'
+        - type: object
+          properties:
+            tipo:
+              const: maestros.socio.actualizado
+            origen:
+              example: ms-maestros
+            clave:
+              type: object
+              required: [objeto, cardCode]
+              properties:
+                objeto:
+                  const: socio
+                cardCode:
+                  $ref: '#/components/schemas/CardCode'
+            datos:
+              type: object
+              required: [cardCode, razonSocial, lineaDeCredito, deBaja]
+              properties:
+                cardCode:
+                  $ref: '#/components/schemas/CardCode'
+                razonSocial:
+                  type: string
+                  minLength: 1
+                  example: Sebastian Monasterio
+                grupoEconomico:
+                  oneOf:
+                    - $ref: '#/components/schemas/GrupoEconomico'
+                    - type: 'null'
+                  description: Ausente o nulo si el socio no tiene grupo. Se guarda, pero no decide ningún alcance.
+                lineaDeCredito:
+                  type: string
+                  pattern: '^\d{1,15}(\.\d+)?$'
+                  description: 'OCRD.CreditLine, como texto decimal. Obligatoria: con la foto completa, un evento sin ella le borraría la línea al socio, e *Inicio* mostraría `$us 0,00`.'
+                  example: '50000.00'
+                deBaja:
+                  type: boolean
+                  description: Si el socio se dio de baja en ms-maestros. No borra nada en comercial.
+                  example: false
+    GrupoEconomico:
+      type: object
+      required: [codigo, nombre]
+      description: La forma de la ingesta de socios de ms-maestros. Comercial guarda solo el código.
+      properties:
+        codigo:
+          type: string
+          maxLength: 50
+          example: GRP-014
+        nombre:
+          type: string
+          example: Grupo Monasterio
+        segmento:
+          oneOf:
+            - type: string
+            - type: 'null'
+          example: agricola
+    PropiedadActualizada:
+      description: '«La propiedad cambió» (ED5): publica ms-comercial en `comercial-eventos`, escucha ms-maestros.'
+      allOf:
+        - $ref: '#/components/schemas/SobreDeEvento'
+        - type: object
+          properties:
+            tipo:
+              const: comercial.propiedad.actualizada
+            origen:
+              example: ms-comercial
+            clave:
+              type: object
+              required: [objeto, propiedadId]
+              properties:
+                objeto:
+                  const: propiedad
+                propiedadId:
+                  $ref: '#/components/schemas/IdDePropiedad'
+            datos:
+              type: object
+              required: [propiedadId, nombre, cardCode, estado]
+              properties:
+                propiedadId:
+                  $ref: '#/components/schemas/IdDePropiedad'
+                nombre:
+                  type: string
+                  minLength: 1
+                  maxLength: 150
+                  example: Lote 14 · San Julián
+                zona:
+                  oneOf:
+                    - type: string
+                      enum: [norte, chiquitania, sur]
+                    - type: 'null'
+                  description: Zona comercial. Ausente o nula si todavía no tiene.
+                  example: norte
+                cardCode:
+                  $ref: '#/components/schemas/CardCode'
+                estado:
+                  type: string
+                  enum: [activo, inactivo]
+                  description: 'El de Appgronomy (ED6). Siempre presente: una propiedad sin estado informado conserva el que tenía, y una nueva es `activo`.'
+                  example: activo
+    IdDePropiedad:
+      type: string
+      pattern: '^[A-Za-z0-9-]{1,30}$'
+      description: El id de la propiedad en Appgronomy.
+      example: PROP-014

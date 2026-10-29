@@ -73,6 +73,34 @@ final class Contrato
         return $diferencias;
     }
 
+    /**
+     * Valida un dato cualquiera —un evento del bus, que no es una respuesta
+     * HTTP— contra un esquema de `components.schemas`.
+     *
+     * @return list<string> las diferencias; vacía si cumple
+     */
+    public static function diferenciasDeEsquema(mixed $dato, string $archivo, string $esquema): array
+    {
+        $resultado = self::validador($archivo)->validate(
+            json_decode((string) json_encode($dato, JSON_THROW_ON_ERROR)),
+            self::id($archivo).'#/components/schemas/'.self::escapar($esquema),
+        );
+
+        if ($resultado->isValid()) {
+            return [];
+        }
+
+        $diferencias = [];
+
+        foreach ((new ErrorFormatter)->format($resultado->error()) as $lugar => $mensajes) {
+            foreach ((array) $mensajes as $mensaje) {
+                $diferencias[] = $lugar.': '.$mensaje;
+            }
+        }
+
+        return $diferencias;
+    }
+
     private static function respuestaDeclarada(string $archivo, string $metodo, string $ruta, string $status): ?stdClass
     {
         $operacion = self::documento($archivo)->paths->{$ruta}->{$metodo} ?? null;
