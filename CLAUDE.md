@@ -130,23 +130,55 @@ la línea siguiente ya dice, sobra.
   valor anterior leído de la base y no del formulario. La regla de una URL
   válida vive en `Maestros\Domain\Productos\Enlace` —https, ruta codificada,
   extensión según sea imagen o documento— y el formulario la reusa.
-- **Las propiedades del socio tampoco son réplica de SAP.** Salen de una
-  conciliación que hace Agropartners contra otra base de Azure, y se cargan con
-  `INSERT` sobre `database/sql/maestros-propiedades.sql` (la estructura, que la
-  migración ejecuta; SQLite recibe una copia sin los CHECK). El `id` **nunca se
-  reusa ni se cambia**: viaja a ms-comercial en `POST /solicitudes-visita` y lo
-  guardan los reportes de campo. El `nombre` es **el mismo texto** que
-  `ReporteCampo.propiedad`, así que se toma de la fuente de esos reportes. Para
-  la App existe solo la activa, y `cantidadPropiedades` cuenta con esa misma
-  definición. ms-comercial valida `propiedadAjena` consultando
+- **Las propiedades del socio tampoco son réplica de SAP.** Las manda
+  Appgronomy a ms-comercial, y llegan acá por el bus como
+  `comercial.propiedad.actualizada` (ver «Los eventos de dominio»). La
+  estructura vive en `database/sql/maestros-propiedades.sql`, que las
+  migraciones ejecutan; SQLite recibe una copia sin los CHECK. El `id` **nunca
+  se reusa ni se cambia**: viaja a ms-comercial en `POST /solicitudes-visita`
+  y lo guardan los reportes de campo. El `nombre` es **el mismo texto** que
+  `ReporteCampo.propiedad`. **`estado` decide qué se ve**
+  (`activo`/`inactivo`); `activa` quedó sin leer ni escribir y se borra con las
+  otras columnas en desuso. Para la App existe solo la activa, y
+  `cantidadPropiedades` cuenta con esa misma definición. **Una foto vieja no
+  pisa una nueva**: `vigente_desde` es el `ocurridoEn` del evento, con
+  microsegundos; nula en las que nunca llegaron por un evento (la semilla), que
+  cualquier foto pisa. ms-comercial valida `propiedadAjena` consultando
   `GET /socios/{cardCode}/propiedades` con el token de la persona, no leyendo
-  esta tabla. Sin clave foránea a `socios`: después de cargar, la consulta del
-  final del script tiene que dar cero filas, o hay propiedades que no ve nadie.
+  esta tabla. Sin clave foránea a `socios`: una propiedad de un socio que no
+  está se guarda igual. Después de que ms-comercial republique sus
+  propiedades, `maestros:propiedades-sin-evento` lista las que ningún evento
+  tocó y, con `--borrar`, las borra: el borrado es físico porque no hay un
+  evento que borre una propiedad. Antes del republicado no se corre.
   **La tabla tiene que existir en Azure antes que la imagen que la usa**:
   `/mi-cuenta`, `/socios` y también el login cuentan propiedades, así que una
   revisión nueva sin la tabla responde 500 a todos. La migración se corre
   contra Azure desde la imagen local, antes del push; `az containerapp exec`
   no sirve para esto, porque el contenedor viejo no trae la migración nueva.
+- **Los eventos de dominio** (`docs/superpowers/specs/2026-10-29-eventos-de-dominio-design.md`).
+  ms-maestros publica `maestros.socio.actualizado` en `maestros-eventos` y
+  escucha `comercial.propiedad.actualizada` en `sub-ms-maestros`, con el sobre
+  y las formas de `contrato/eventos-de-dominio-v1.yaml`: copia idéntica de la de
+  ms-comercial, que no se edita acá. El transporte (REST con SAS) es copia del
+  de ms-comercial: un arreglo en uno se lleva a mano al otro.
+  - **El evento nace en la transacción del socio**: `ReplicarSocio` y
+    `DarDeBajaSocio` lo dejan en `maestros.evento_saliente`, y si el outbox
+    falla no queda el socio. Sale de lo **guardado**, no del cuerpo: el
+    `ocurridoEn` es el `vigenteDesde` al segundo, como la réplica.
+  - **Un socio sin línea no se publica** (la semilla y el importador):
+    ms-comercial lo mandaría a mensajes muertos. Su baja se guarda igual.
+  - **`eventos:consumir`** corre en `ms-maestros-consumidor`, **con una sola
+    réplica**: publica hasta 50 pendientes por vuelta y después recibe. Un
+    fallo al publicar corta solo la publicación; la vuelta igual recibe. Sin
+    la configuración completa no arranca y dice qué variable falta.
+  - **Un evento que no se entiende no se completa**: tipo desconocido, sobre
+    mal formado o datos que no cumplen los CHECK lanzan `EventoInvalido`, y a
+    la quinta entrega van a mensajes muertos, donde lo ve la alerta. Un
+    `eventoId` ya registrado en `maestros.evento_procesado` sale como
+    duplicado.
+  - **`eventos:publicar-socios`** encola una vez todos los socios con línea y
+    sin baja, en la puesta en marcha y después de que ms-comercial borre los
+    suyos (paso 3 del 12.3 de su guía).
 - **Cada sección del back-office exige su `Permiso`** (`accesos`, `catalogo`)
   con `backoffice.permiso:<valor>`. Hoy los autenticadores de desarrollo y
   contraseña dan todos; cuando entre Entra, cada permiso tiene que salir de un
@@ -412,6 +444,22 @@ productos se prueban con Postman, `16f`–`16j`, que necesitan `gatewaySecret` y
 existe: un producto de prueba no asoma en el catálogo de la App ni deja una
 categoría nueva. `16j` lo da de baja al final.
 
+### El bus de eventos, contra Azure
+
+No hay bus local: el consumidor se prueba con dobles, y el transporte contra
+el topic de pruebas `pruebas-ms-comercial` del namespace real (13.5 de la
+guía de ms-comercial), con sus claves `pruebas-escucha` y `pruebas-envio`
+leídas sin eco para que no queden en el historial:
+
+```sh
+read -rsp 'Clave de escucha: ' SERVICEBUS_SAS_CLAVE; echo; read -rsp 'Clave de envío: ' SERVICEBUS_SAS_ENVIO_CLAVE; echo; export SERVICEBUS_SAS_CLAVE SERVICEBUS_SAS_ENVIO_CLAVE
+SERVICEBUS_NAMESPACE=<namespace> SERVICEBUS_SAS_NOMBRE=pruebas-escucha SERVICEBUS_SAS_ENVIO_NOMBRE=pruebas-envio vendor/bin/pest -c phpunit.integration.xml tests/Integration/ServiceBusTest.php
+```
+
+Tiene que pasar **sin pruebas saltadas**: una saltada es una variable que
+faltó. **Nunca** con `comercial-eventos` ni `sub-ms-maestros`: la prueba vacía
+la suscripción antes de empezar y se comería propiedades sin aplicarlas.
+
 ### Entrar al back-office con contraseña
 
 En local no hace falta: con `BACKOFFICE_AUTENTICADOR=desarrollo`, abrir
@@ -615,7 +663,8 @@ curl -s localhost:8082/realms/master/.well-known/openid-configuration
 - Keycloak arranca con `start-dev` en `compose.yaml`, con base embebida que se
   pierde al recrear el contenedor. La imagen de `docker/keycloak/Dockerfile` es
   la que lo reemplaza en la nube; el `compose.yaml` local todavía no la usa.
-- **Borrar `vista_en_importacion_el` y `habilitada_el`** en una entrega posterior:
+- **Borrar `vista_en_importacion_el`, `habilitada_el` y `propiedad.activa`**
+  (con su default y el índice `IX_propiedad_socio`) en una entrega posterior:
   quedaron en desuso, pero el código que corre en Azure todavía puede leerlas
   al momento de la migración.
 - **La semilla en Azure**: 8 socios de prueba, 267 propiedades con socios
@@ -623,8 +672,10 @@ curl -s localhost:8082/realms/master/.well-known/openid-configuration
   `71112233` y `72112233`. No choca con la réplica, porque en SAP los
   `cardCode` y los grupos son números (`10001`, `1003`) y los de la semilla
   son `C-00xxxx` y `GRP-0xx`. Se borra en dos partes:
-  - **Las propiedades, antes de consumir las de ms-comercial.** Los ids son
-    reales y el dueño es inventado.
+  - **Las propiedades, después de que ms-comercial republique las suyas**,
+    con `maestros:propiedades-sin-evento --borrar`. Los ids son reales y el
+    dueño es inventado: las que comercial publique se corrigen solas, y
+    mientras tanto solo las ven los tres números de prueba.
   - **Los socios, cuando el equipo de la App tenga otra cuenta de prueba.**
     Sin ellos, esos tres números dejan de entrar.
 
