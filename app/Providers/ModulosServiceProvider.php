@@ -38,6 +38,7 @@ use Illuminate\Support\ServiceProvider;
 use Maestros\Application\Alcance\ResolutorDeAlcance;
 use Maestros\Application\Configuracion\ConfiguracionDeLaApp;
 use Maestros\Application\Contactos\BuscadorDeContactos;
+use Maestros\Application\Eventos\SalidaDeEventos;
 use Maestros\Application\Ingesta\ReplicaDeProductos;
 use Maestros\Application\Productos\CatalogoAdministrable;
 use Maestros\Application\Productos\CatalogoDeProductos;
@@ -50,6 +51,7 @@ use Maestros\Domain\Socios\SocioRepository;
 use Maestros\Infrastructure\Alcance\ResolutorPorNumero;
 use Maestros\Infrastructure\Catalogo\ProductosSinSapCommand;
 use Maestros\Infrastructure\Configuracion\ConfiguracionDesdeEntorno;
+use Maestros\Infrastructure\Eventos\EloquentSalidaDeEventos;
 use Maestros\Infrastructure\Importacion\ImportarMaestrosCommand;
 use Maestros\Infrastructure\Persistence\EloquentBuscadorDeContactos;
 use Maestros\Infrastructure\Persistence\EloquentCatalogoAdministrable;
@@ -74,6 +76,7 @@ final class ModulosServiceProvider extends ServiceProvider
         $this->app->bind(CatalogoAdministrable::class, EloquentCatalogoAdministrable::class);
         $this->app->bind(ReplicaDeProductos::class, EloquentReplicaDeProductos::class);
         $this->app->bind(PropiedadesDeSocios::class, EloquentPropiedadesDeSocios::class);
+        $this->app->bind(SalidaDeEventos::class, EloquentSalidaDeEventos::class);
 
         // Se interpreta al usarse y no al arrancar: una variable mal escrita
         // rompe solo su endpoint, no la API entera.
