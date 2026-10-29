@@ -56,7 +56,7 @@ final class EloquentPropiedadesDeSocios implements PropiedadesDeSocios
     {
         $tabla = DB::getDriverName() === 'sqlsrv' ? 'maestros.propiedad' : 'maestros_propiedad';
 
-        return DB::table($tabla)->where('activa', true);
+        return DB::table($tabla)->where('estado', 'activo');
     }
 
     /** @param array<string, mixed> $fila */

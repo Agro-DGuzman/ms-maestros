@@ -17,11 +17,11 @@ final class PropiedadesDeEjemplo
     public static function sembrar(): void
     {
         DB::table(self::tabla())->insert([
-            ['id_propiedad' => 'PROP-014', 'nombre' => 'Lote 14 · San Julián', 'codigo_de_socio' => 'C-004871', 'activa' => true],
-            ['id_propiedad' => 'PROP-007', 'nombre' => 'Lote 07 · Cuatro Cañadas', 'codigo_de_socio' => 'C-004871', 'activa' => true],
-            ['id_propiedad' => 'PROP-003', 'nombre' => 'Lote 03 · Pailón', 'codigo_de_socio' => 'C-004871', 'activa' => false],
-            ['id_propiedad' => 'PROP-021', 'nombre' => 'Lote 21 · Okinawa', 'codigo_de_socio' => 'C-004872', 'activa' => true],
-            ['id_propiedad' => 'PROP-031', 'nombre' => 'Lote 31 · Montero', 'codigo_de_socio' => 'C-005210', 'activa' => true],
+            ['id_propiedad' => 'PROP-014', 'nombre' => 'Lote 14 · San Julián', 'codigo_de_socio' => 'C-004871', 'estado' => 'activo'],
+            ['id_propiedad' => 'PROP-007', 'nombre' => 'Lote 07 · Cuatro Cañadas', 'codigo_de_socio' => 'C-004871', 'estado' => 'activo'],
+            ['id_propiedad' => 'PROP-003', 'nombre' => 'Lote 03 · Pailón', 'codigo_de_socio' => 'C-004871', 'estado' => 'inactivo'],
+            ['id_propiedad' => 'PROP-021', 'nombre' => 'Lote 21 · Okinawa', 'codigo_de_socio' => 'C-004872', 'estado' => 'activo'],
+            ['id_propiedad' => 'PROP-031', 'nombre' => 'Lote 31 · Montero', 'codigo_de_socio' => 'C-005210', 'estado' => 'activo'],
         ]);
     }
 

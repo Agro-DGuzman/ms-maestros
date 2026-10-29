@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Maestros\Application\Propiedades\PropiedadDelSocio;
 use Maestros\Application\Propiedades\PropiedadesDeSocios;
 use Maestros\Domain\Socios\CodigoDeSocio;
@@ -51,4 +52,16 @@ it('contar una lista vacia no consulta nada', function () {
 
 it('no cuenta socios que no se pidieron', function () {
     expect($this->propiedades->contarPorSocio([CodigoDeSocio::desde('C-004871')]))->toBe(['C-004871' => 2]);
+});
+
+it('una propiedad inactiva no se lista ni se cuenta, aunque activa diga 1', function () {
+    // `estado` es lo que decide desde los eventos de comercial (EM9); `activa`
+    // queda sin leer hasta que se borre.
+    DB::table(PropiedadesDeEjemplo::tabla())->insert([
+        'id_propiedad' => 'PROP-090', 'nombre' => 'Lote 90 · Guarayos', 'codigo_de_socio' => 'C-004872',
+        'activa' => true, 'estado' => 'inactivo',
+    ]);
+
+    expect(idYNombre($this->propiedades->deSocio(CodigoDeSocio::desde('C-004872'))))->toBe([['PROP-021', 'Lote 21 · Okinawa']])
+        ->and($this->propiedades->contarPorSocio([CodigoDeSocio::desde('C-004872')]))->toBe(['C-004872' => 1]);
 });

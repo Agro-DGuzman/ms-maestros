@@ -19,7 +19,8 @@
      y la clave podría trabarla. La consulta del final encuentra lo que
      quedó colgado.
    - Si se cambia la tabla acá, se cambia también la copia de SQLite en
-     database/migrations/maestros/2026_09_29_000100_crear_propiedades.php.
+     database/migrations/maestros/2026_09_29_000100_crear_propiedades.php
+     y en las migraciones que la amplían (2026_10_30_000200).
    ===================================================================== */
 
 IF SCHEMA_ID('maestros') IS NULL EXEC('CREATE SCHEMA maestros');
@@ -61,6 +62,42 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_propiedad_socio'
                AND object_id = OBJECT_ID('maestros.propiedad'))
 CREATE INDEX IX_propiedad_socio ON maestros.propiedad (codigo_de_socio) INCLUDE (activa, nombre);
+GO
+
+/* ---------------------------------------------------------------------
+   Las propiedades por eventos de ms-comercial (spec 2026-10-29, EM8-EM10).
+   `estado` reemplaza a `activa`, y `vigente_desde` ordena las fotos: nula
+   en las que nunca llegaron por un evento. Cada bloque es idempotente: el
+   script se vuelve a correr entero en cada migración que lo toca.
+   --------------------------------------------------------------------- */
+
+IF COL_LENGTH('maestros.propiedad', 'estado') IS NULL
+ALTER TABLE maestros.propiedad
+    ADD estado NVARCHAR(10) NOT NULL CONSTRAINT DF_propiedad_estado DEFAULT (N'activo');
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_propiedad_estado'
+               AND parent_object_id = OBJECT_ID('maestros.propiedad'))
+ALTER TABLE maestros.propiedad
+    ADD CONSTRAINT CK_propiedad_estado CHECK (estado IN (N'activo', N'inactivo'));
+GO
+
+-- Con 6 decimales y en UTC: dos cambios de Appgronomy en el mismo segundo
+-- tienen que ordenarse.
+IF COL_LENGTH('maestros.propiedad', 'vigente_desde') IS NULL
+ALTER TABLE maestros.propiedad ADD vigente_desde DATETIME2(6) NULL;
+GO
+
+-- Solo las que ningún evento tocó: después, el estado lo decide el evento y
+-- `activa` queda vieja. Dentro de EXEC porque, cuando se borre `activa`, el
+-- lote ya no compilaría con la columna nombrada directamente.
+IF COL_LENGTH('maestros.propiedad', 'activa') IS NOT NULL
+EXEC(N'UPDATE maestros.propiedad SET estado = N''inactivo'' WHERE activa = 0 AND vigente_desde IS NULL');
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_propiedad_socio_estado'
+               AND object_id = OBJECT_ID('maestros.propiedad'))
+CREATE INDEX IX_propiedad_socio_estado ON maestros.propiedad (codigo_de_socio) INCLUDE (estado, nombre);
 GO
 
 /* Verificación después de cargar: propiedades cuyo socio no está en la réplica.
