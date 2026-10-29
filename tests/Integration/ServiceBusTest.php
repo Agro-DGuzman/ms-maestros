@@ -10,8 +10,9 @@ use Ramsey\Uuid\Uuid;
 use Tests\Soporte\SobresDePropiedad;
 
 /*
- * Contra un namespace real, con el topic de pruebas pruebas-ms-comercial, su
- * suscripción sub-pruebas (sin sesiones, bloqueo de 60 s) y dos políticas SAS
+ * Contra un namespace real, con el topic de pruebas prueba-ms-comercial (en
+ * singular: la guía de ms-comercial dice pruebas-, pero el recurso se creó
+ * así), su suscripción sub-pruebas (sin sesiones, bloqueo de 60 s) y dos políticas SAS
  * en el topic: una de escucha y una de envío (13.5 de la guía de ms-comercial,
  * EM15). El emulador local de Service Bus solo habla AMQP, así que esto no se
  * puede probar en local. **Nunca** contra los topics reales: vacía la
@@ -30,7 +31,7 @@ function buzonDeDesarrollo(): BuzonServiceBusRest
     return new BuzonServiceBusRest(
         new Http,
         (string) env('SERVICEBUS_NAMESPACE'),
-        (string) env('SERVICEBUS_TOPIC', 'pruebas-ms-comercial'),
+        (string) env('SERVICEBUS_TOPIC', 'prueba-ms-comercial'),
         (string) env('SERVICEBUS_SUSCRIPCION', 'sub-pruebas'),
         (string) env('SERVICEBUS_SAS_NOMBRE'),
         (string) env('SERVICEBUS_SAS_CLAVE'),
@@ -45,7 +46,7 @@ function publicarUnSobreNuevo(): string
     (new PublicadorServiceBusRest(
         new Http,
         (string) env('SERVICEBUS_NAMESPACE'),
-        (string) env('SERVICEBUS_TOPIC', 'pruebas-ms-comercial'),
+        (string) env('SERVICEBUS_TOPIC', 'prueba-ms-comercial'),
         (string) env('SERVICEBUS_SAS_ENVIO_NOMBRE'),
         (string) env('SERVICEBUS_SAS_ENVIO_CLAVE'),
     ))->publicar(SobresDePropiedad::de(sobre: ['eventoId' => $eventoId]));

@@ -447,18 +447,28 @@ categoría nueva. `16j` lo da de baja al final.
 ### El bus de eventos, contra Azure
 
 No hay bus local: el consumidor se prueba con dobles, y el transporte contra
-el topic de pruebas `pruebas-ms-comercial` del namespace real (13.5 de la
-guía de ms-comercial), con sus claves `pruebas-escucha` y `pruebas-envio`
-leídas sin eco para que no queden en el historial:
+el topic de pruebas del namespace real `sb-agropartners-int-eus2`, con sus
+claves `pruebas-escucha` y `pruebas-envio` leídas sin eco para que no queden
+en el historial. **El topic se llama `prueba-ms-comercial`, en singular**,
+aunque el 13.5 de la guía de ms-comercial diga `pruebas-`: el recurso se creó
+así. Con el nombre equivocado Azure no responde 404 sino
+`401 InvalidSignature`, y parece que las claves están mal.
 
 ```sh
 read -rsp 'Clave de escucha: ' SERVICEBUS_SAS_CLAVE; echo; read -rsp 'Clave de envío: ' SERVICEBUS_SAS_ENVIO_CLAVE; echo; export SERVICEBUS_SAS_CLAVE SERVICEBUS_SAS_ENVIO_CLAVE
-SERVICEBUS_NAMESPACE=<namespace> SERVICEBUS_SAS_NOMBRE=pruebas-escucha SERVICEBUS_SAS_ENVIO_NOMBRE=pruebas-envio vendor/bin/pest -c phpunit.integration.xml tests/Integration/ServiceBusTest.php
+SERVICEBUS_NAMESPACE=sb-agropartners-int-eus2 SERVICEBUS_SAS_NOMBRE=pruebas-escucha SERVICEBUS_SAS_ENVIO_NOMBRE=pruebas-envio php -d curl.cainfo=<bundle> -d openssl.cafile=<bundle> vendor/bin/pest -c phpunit.integration.xml tests/Integration/ServiceBusTest.php
 ```
+
+**El PHP de Windows no trae certificados raíz**, y sin ellos falla con
+`cURL error 60`. No hace falta tocar `php.ini`: `<bundle>` es el de Git,
+`<instalación de Git>/mingw64/etc/ssl/certs/ca-bundle.crt`, pasado solo para
+esa corrida. En la imagen no pasa, porque es Linux y los trae.
 
 Tiene que pasar **sin pruebas saltadas**: una saltada es una variable que
 faltó. **Nunca** con `comercial-eventos` ni `sub-ms-maestros`: la prueba vacía
-la suscripción antes de empezar y se comería propiedades sin aplicarlas.
+la suscripción antes de empezar y se comería propiedades sin aplicarlas. Y una
+clave se escribe solo en un aviso que no la muestre: si se pega en uno común,
+queda en la pantalla y hay que regenerarla.
 
 ### Entrar al back-office con contraseña
 
