@@ -25,13 +25,15 @@ final class PublicarSociosCommand extends Command
     {
         $resultado = $mediator->send(new PublicarSocios);
 
-        if (! $resultado instanceof ResultWithValue || $resultado->isFailure()) {
+        $encolados = $resultado instanceof ResultWithValue && $resultado->isSuccess ? $resultado->value() : null;
+
+        if (! is_int($encolados)) {
             $this->error('No se pudo encolar los socios: '.$resultado->error->description);
 
             return self::FAILURE;
         }
 
-        $this->info('Socios en la cola: '.(int) $resultado->value().'.');
+        $this->info("Socios en la cola: {$encolados}.");
 
         return self::SUCCESS;
     }
