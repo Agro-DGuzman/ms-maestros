@@ -618,11 +618,20 @@ curl -s localhost:8082/realms/master/.well-known/openid-configuration
 - **Borrar `vista_en_importacion_el` y `habilitada_el`** en una entrega posterior:
   quedaron en desuso, pero el código que corre en Azure todavía puede leerlas
   al momento de la migración.
-- **La semilla en Azure** (8 socios de prueba, 267 propiedades con socios
+- **La semilla en Azure**: 8 socios de prueba, 267 propiedades con socios
   inventados, y tres personas con acceso y eco del código: `70741828`,
-  `71112233` y `72112233`): decidir si se borra cuando lleguen los socios
-  reales. Un `cardCode` real podría coincidir con uno de la semilla, y los dos
-  últimos números son inventados: tienen que salir de `OTP_ECO_NUMEROS` antes
-  de prender WhatsApp, o el código le llega a quien tenga ese número.
+  `71112233` y `72112233`. No choca con la réplica, porque en SAP los
+  `cardCode` y los grupos son números (`10001`, `1003`) y los de la semilla
+  son `C-00xxxx` y `GRP-0xx`. Se borra en dos partes:
+  - **Las propiedades, antes de consumir las de ms-comercial.** Los ids son
+    reales y el dueño es inventado.
+  - **Los socios, cuando el equipo de la App tenga otra cuenta de prueba.**
+    Sin ellos, esos tres números dejan de entrar.
+
+  **Los tres números son inventados.** Tienen que salir de
+  `OTP_ECO_NUMEROS` y deshabilitarse antes de prender WhatsApp, o el código
+  le llega a quien tenga ese número. Si alguno aparece como contacto de un
+  socio real, hay que sacarlo de la lista en el momento: ya tiene credencial,
+  y con el eco cualquiera que conozca el número entra como esa persona.
 - **Prender `GATEWAY_SECRETO_EN_V1`** cuando el APIM mande `X-Gateway-Secret`
   también en `/v1`. Hasta entonces la App se puede llamar saltándose el APIM.
