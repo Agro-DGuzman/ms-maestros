@@ -14,6 +14,10 @@ composer test:integration  # necesita Keycloak vivo
 
 Los tres primeros tienen que estar en verde antes de cualquier commit.
 
+**El push va a los dos remotos**: `git push azure main` y `git push origin main`.
+El pipeline de despliegue escucha **Azure Repos** (`azure`); GitHub (`origin`)
+es la copia. Un push solo a `origin` no despliega nada, y no avisa.
+
 ## Estructura
 
 ```
