@@ -74,3 +74,22 @@ it('si no se pudo completar lo dice', function () {
 
     buzonRest($http)->completar(new MensajeRecibido('{}', 'm-1', 1, UBICACION_DEL_BLOQUEO));
 })->throws(RuntimeException::class);
+
+/**
+ * Igual que al publicar: el cuerpo es lo único que distingue un nombre de
+ * topic equivocado —que firma un recurso inexistente y responde
+ * `InvalidSignature`— de una clave que no corresponde.
+ */
+it('el motivo que manda el bus viaja en la excepcion al recibir', function () {
+    $http = new Http;
+    $http->fake(['*' => $http->response('40103: Invalid authorization token signature', 401)]);
+
+    buzonRest($http)->recibir();
+})->throws(RuntimeException::class, '40103: Invalid authorization token signature');
+
+it('el motivo que manda el bus viaja en la excepcion al completar', function () {
+    $http = new Http;
+    $http->fake(['*' => $http->response('The lock supplied is invalid', 410)]);
+
+    buzonRest($http)->completar(new MensajeRecibido('{}', 'm-1', 1, UBICACION_DEL_BLOQUEO));
+})->throws(RuntimeException::class, 'The lock supplied is invalid');

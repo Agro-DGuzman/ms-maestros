@@ -51,7 +51,17 @@ final readonly class PublicadorServiceBusRest implements PublicadorDeEventos
             ->post("{$recurso}/messages");
 
         if ($respuesta->status() !== 201) {
-            throw new RuntimeException("Service Bus respondió {$respuesta->status()} al publicar");
+            // El motivo va en el cuerpo, y es lo único que distingue las causas
+            // de un 401: un topic que no existe firma un recurso que no existe
+            // y da `InvalidSignature`, igual que una clave de otra regla. Sin
+            // esto el log de Azure dice «401» y hay que adivinar. Recortado,
+            // porque es texto del servicio y no tiene por qué ser corto; la
+            // firma no viaja en la respuesta.
+            $motivo = trim(mb_substr($respuesta->body(), 0, 200));
+
+            throw new RuntimeException(
+                "Service Bus respondió {$respuesta->status()} al publicar".($motivo === '' ? '' : ": {$motivo}"),
+            );
         }
     }
 }

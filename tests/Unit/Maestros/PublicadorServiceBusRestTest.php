@@ -46,3 +46,16 @@ it('una respuesta que no es 201 es una excepcion', function () {
 
     publicadorRest($http)->publicar(sobreParaPublicar());
 })->throws(RuntimeException::class, '401');
+
+/**
+ * Un 401 del bus tiene cuatro causas —topic que no existe, clave de otra
+ * regla, `skn` que no corresponde, o la regla sin Send— y el cuerpo es lo
+ * único que las distingue. Sin él, el log de Azure dice «401» y hay que
+ * adivinar.
+ */
+it('el motivo que manda el bus viaja en la excepcion', function () {
+    $http = new Http;
+    $http->fake(['*' => $http->response('40103: Invalid authorization token signature', 401)]);
+
+    publicadorRest($http)->publicar(sobreParaPublicar());
+})->throws(RuntimeException::class, '40103: Invalid authorization token signature');

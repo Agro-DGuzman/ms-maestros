@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maestros\Infrastructure\ServiceBus;
 
 use Illuminate\Http\Client\Factory as Http;
+use Illuminate\Http\Client\Response;
 use Maestros\Application\Eventos\BuzonDeEntrada;
 use Maestros\Application\Eventos\MensajeRecibido;
 use RuntimeException;
@@ -54,7 +55,7 @@ final readonly class BuzonServiceBusRest implements BuzonDeEntrada
         }
 
         if ($respuesta->status() !== 201) {
-            throw new RuntimeException("Service Bus respondió {$respuesta->status()} al recibir");
+            throw new RuntimeException("Service Bus respondió {$respuesta->status()} al recibir".self::motivo($respuesta));
         }
 
         $propiedades = json_decode($respuesta->header('BrokerProperties'), true);
@@ -78,8 +79,24 @@ final readonly class BuzonServiceBusRest implements BuzonDeEntrada
             ->delete($mensaje->referenciaDeBloqueo);
 
         if (! $respuesta->successful()) {
-            throw new RuntimeException("Service Bus respondió {$respuesta->status()} al completar {$mensaje->idDeMensaje}");
+            throw new RuntimeException(
+                "Service Bus respondió {$respuesta->status()} al completar {$mensaje->idDeMensaje}".self::motivo($respuesta),
+            );
         }
+    }
+
+    /**
+     * El motivo va en el cuerpo, y es lo único que distingue las causas de un
+     * 401: un nombre de topic equivocado firma un recurso que no existe y
+     * responde `InvalidSignature`, igual que una clave de otra regla. Sin esto
+     * el log de Azure dice «401» y hay que adivinar. Recortado, porque es texto
+     * del servicio; la firma no viaja en la respuesta.
+     */
+    private static function motivo(Response $respuesta): string
+    {
+        $motivo = trim(mb_substr($respuesta->body(), 0, 200));
+
+        return $motivo === '' ? '' : ": {$motivo}";
     }
 
     /** Sobre el topic: cubre sus suscripciones. Cinco minutos alcanzan para un pedido. */
