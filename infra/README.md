@@ -123,10 +123,14 @@ Después, contra `urlDeLaApp`: `POST /v1/auth/otp` con
 
 ## Paso 6 — El pipeline
 
-`azure-pipelines.yml` construye la imagen y se la pone a la aplicación y al
-worker, que tienen que existir antes de la primera corrida: el pipeline los
-actualiza, no los crea. Los nombres están en las variables `appDeContenedor` y
-`workerDeContenedor`. Keycloak no pasa por el pipeline. Para que
+`azure-pipelines.yml` construye la imagen y se la pone a la aplicación, al
+worker y al consumidor del bus (`ms-maestros-consumidor`), que tienen que
+existir antes de la primera corrida: el pipeline los actualiza, no los crea.
+Los nombres están en las variables `appDeContenedor`, `workerDeContenedor` y
+`consumidorDeContenedor`. **El consumidor no está en `main.bicep`**: se creó
+desde el portal, con la configuración de la sección 13 de la guía de
+ms-comercial y las variables `SERVICEBUS_*` de `.env.example`. Keycloak no pasa
+por el pipeline. Para que
 funcione hacen falta, en DevOps: crear el pipeline apuntando al archivo,
 autorizar las dos conexiones de servicio, y una **política de rama** sobre
 `main` que exija la corrida —el campo `pr:` del YAML no funciona en Azure
@@ -134,7 +138,8 @@ Repos, así que sin esa política las compuertas corren recién después del
 merge—.
 
 **Terminado cuando** una corrida completa las tres etapas y las revisiones
-activas de la aplicación y del worker apuntan las dos a la etiqueta que publicó.
+activas de la aplicación, del worker y del consumidor apuntan las tres a la
+etiqueta que publicó.
 
 ## Cuando algo falla
 
