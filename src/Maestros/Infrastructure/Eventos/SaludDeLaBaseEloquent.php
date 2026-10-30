@@ -7,6 +7,7 @@ namespace Maestros\Infrastructure\Eventos;
 use App\Persistence\TablaConEsquema;
 use Illuminate\Database\ConnectionInterface;
 use Maestros\Application\Eventos\SaludDeLaBase;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
@@ -19,7 +20,10 @@ final class SaludDeLaBaseEloquent implements SaludDeLaBase
 {
     use TablaConEsquema;
 
-    public function __construct(private readonly ConnectionInterface $conexion) {}
+    public function __construct(
+        private readonly ConnectionInterface $conexion,
+        private readonly LoggerInterface $log,
+    ) {}
 
     public function responde(): bool
     {
@@ -27,7 +31,12 @@ final class SaludDeLaBaseEloquent implements SaludDeLaBase
             $this->conexion->select("select 1 from {$this->tablaEn('maestros', 'evento_procesado')} where 1 = 0");
 
             return true;
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            // El comando solo dice «La base no responde»: sin el motivo, un
+            // login rechazado y una base sin migrar se ven igual. El mensaje
+            // del driver nombra servidor, base y usuario, nunca la contraseña.
+            $this->log->warning('La base no responde', ['error' => $e->getMessage()]);
+
             return false;
         }
     }
