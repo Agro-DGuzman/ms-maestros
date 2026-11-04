@@ -448,6 +448,42 @@ productos se prueban con Postman, `16f`–`16j`, que necesitan `gatewaySecret` y
 existe: un producto de prueba no asoma en el catálogo de la App ni deja una
 categoría nueva. `16j` lo da de baja al final.
 
+### WhatsApp
+
+El código sale por la plantilla `desafio_ingreso`, en español (`es`). Tiene
+que ser de categoría **Autenticación**: Meta la exige para un código de
+ingreso, y el texto lo pone Meta. Lleva la recomendación de seguridad, el
+vencimiento en 5 minutos, el botón «Copiar código» y **5 minutos de validez
+del mensaje**: si WhatsApp no lo entrega en ese plazo, que no lo entregue, el
+código ya venció. Una plantilla de autenticación lleva el código dos veces, en
+el cuerpo y en el botón, y `EnviadorCloudApi` manda los dos. Con otro nombre
+o idioma, `WHATSAPP_PLANTILLA` y `WHATSAPP_IDIOMA`.
+
+`tests/Manual/probar-whatsapp.php` manda un código de prueba a un número
+cualquiera, sin pasar por el ingreso, e imprime lo que respondió Meta. Lee
+`WHATSAPP_PHONE_NUMBER_ID` y `WHATSAPP_TOKEN` del `.env` y no mira
+`WHATSAPP_DRIVER`, que en local se queda en `log`: en `cloud_api`, cada
+`/auth/otp` mandaría un WhatsApp de verdad. En Windows, con el bundle de Git
+(ver «El bus de eventos»):
+
+```sh
+php -d curl.cainfo=<bundle> -d openssl.cafile=<bundle> tests/Manual/probar-whatsapp.php 70741828
+```
+
+**Que Meta acepte no es que llegue**: un número sin WhatsApp también responde
+200, y el fallo viene después por el webhook de estados, que no escuchamos.
+La prueba es que el mensaje aparezca en el teléfono.
+
+En Azure las variables van en el Container App **`worker`**, que es el que
+corre `EnviarDesafioJob`, no en `ms-maestros`: `WHATSAPP_DRIVER=cloud_api`,
+`WHATSAPP_PHONE_NUMBER_ID` y `WHATSAPP_TOKEN` como secreto. Si
+`WHATSAPP_BASE_URL` está puesta, tiene que ser una versión vigente de la API
+(hoy `v26.0`; la `v21.0` deja de andar el 21/01/2027). El token tiene que ser
+de un **usuario de sistema**: el temporal del panel de desarrolladores vence a
+las 24 horas y el envío deja de andar sin avisar. Un rechazo queda en el log
+del `worker` como `WhatsApp rechazó el envío`, con el código y el mensaje de
+error de Meta; una plantilla que no existe en ese idioma es el `132001`.
+
 ### El bus de eventos, contra Azure
 
 No hay bus local: el consumidor se prueba con dobles, y el transporte contra
