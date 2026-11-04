@@ -133,16 +133,39 @@ it('sin numeros de prueba configurados no devuelve el codigo', function () {
     expect($datos)->not->toHaveKey('codigoDePrueba');
 });
 
-it('devuelve el codigo al numero de prueba, y es el mismo que se envia', function () {
+it('devuelve el codigo al numero de prueba, y es el del desafio', function () {
     conNumerosDePrueba('70741828');
 
     $datos = $this->postJson('/v1/auth/otp', ['telefono' => '70741828'])->json('data');
-    $enviado = $this->enviador->enviados[array_key_last($this->enviador->enviados)]['digitos'] ?? null;
+    $desafio = app(DesafioRepository::class)->find(IdDeDesafio::desde((string) $datos['otpId']));
 
-    // Que lo enviado sea un string va primero: si no se mandara nada y tampoco
-    // volviera código, null contra null pasaría en verde sin probar nada.
-    expect($enviado)->toBeString()
-        ->and($datos['codigoDePrueba'] ?? null)->toBe($enviado);
+    // Que el desafío exista va primero: si no se guardara y tampoco volviera
+    // código, null contra null pasaría en verde sin probar nada.
+    expect($desafio)->not->toBeNull()
+        ->and($datos['codigoDePrueba'] ?? null)->toBe($desafio?->digitos());
+});
+
+/**
+ * Los números de prueba son inventados y los comparte todo el equipo de la
+ * App. Con WhatsApp prendido, el código le llegaría a quien tenga ese número
+ * de verdad; y no les hace falta, porque lo reciben en la respuesta.
+ */
+it('a un numero de prueba no se le manda WhatsApp', function () {
+    Queue::fake();
+    conNumerosDePrueba('70741828');
+
+    $this->postJson('/v1/auth/otp', ['telefono' => '70741828'])->assertStatus(200);
+
+    Queue::assertNotPushed(EnviarDesafioJob::class);
+});
+
+it('los demas numeros siguen recibiendo WhatsApp aunque haya numeros de prueba', function () {
+    Queue::fake();
+    conNumerosDePrueba('70741828');
+
+    $this->postJson('/v1/auth/otp', ['telefono' => '70112233'])->assertStatus(200);
+
+    Queue::assertPushed(EnviarDesafioJob::class, 1);
 });
 
 it('un numero de prueba no tiene limite por celular', function () {

@@ -661,19 +661,24 @@ curl -s localhost:8082/realms/master/.well-known/openid-configuration
   no vacía se niega a existir. Ese último resguardo **no aplica en `staging`**:
   lo que protege de verdad es la lista. Está en un commit propio para poder
   revertirlo solo, sin arrastrar el renombre a `otpId`. Los mismos números
-  **no tienen límite de desafíos por hora** (`$celularesSinLimite` de
-  `SolicitarDesafioHandler`): todo el equipo de la App prueba con uno solo, y
-  el límite no protege un código que ya viaja en la respuesta. Se retira
-  junto con el eco.
+  **no tienen límite de desafíos por hora ni reciben WhatsApp**
+  (`$celularesDePrueba` de `SolicitarDesafioHandler`): todo el equipo de la
+  App prueba con uno solo, el límite no protege un código que ya viaja en la
+  respuesta, y el mensaje le llegaría a quien tenga ese número de verdad. Se
+  retira junto con el eco.
 
 - **Reglas del contrato que todavía no se cumplen** (la forma de las respuestas
   sí; esto es comportamiento): 3 envíos por hora por número (hoy 5, por
   `DESAFIO_MAX_POR_CELULAR_POR_HORA`), 10 por IP y por hora, el plazo mínimo
   de reenvío (`REENVIO_DEMASIADO_PRONTO`), que un envío nuevo invalide el
   desafío previo, y 10 verificaciones por minuto por IP en el login. Además
-  el contrato distingue `DESAFIO_EXPIRADO` e `INTENTOS_AGOTADOS`, lo que
-  choca con la regla de arriba de responder todo como `CODIGO_INVALIDO`:
-  hay que decidirlo antes de implementarlo.
+  el contrato distingue `DESAFIO_EXPIRADO` e `INTENTOS_AGOTADOS`; se decidió
+  (27/10) cumplirlo, y al implementarlo se reescribe la regla de responder
+  todo como `CODIGO_INVALIDO`. **Los límites por IP no pueden ir en el APIM**:
+  es del plan Consumption, que no tiene `rate-limit-by-key` (y su ventana
+  máxima es de 5 minutos). En la app, todo pedido llega con la IP del APIM,
+  así que contar por IP ahí exige que el APIM mande la del cliente en una
+  cabecera propia y creerla solo con `GATEWAY_SECRETO_EN_V1` prendido.
 - Keycloak arranca con `start-dev` en `compose.yaml`, con base embebida que se
   pierde al recrear el contenedor. La imagen de `docker/keycloak/Dockerfile` es
   la que lo reemplaza en la nube; el `compose.yaml` local todavía no la usa.
@@ -693,10 +698,11 @@ curl -s localhost:8082/realms/master/.well-known/openid-configuration
   - **Los socios, cuando el equipo de la App tenga otra cuenta de prueba.**
     Sin ellos, esos tres números dejan de entrar.
 
-  **Los tres números son inventados.** Tienen que salir de
-  `OTP_ECO_NUMEROS` y deshabilitarse antes de prender WhatsApp, o el código
-  le llega a quien tenga ese número. Si alguno aparece como contacto de un
-  socio real, hay que sacarlo de la lista en el momento: ya tiene credencial,
-  y con el eco cualquiera que conozca el número entra como esa persona.
+  **Los tres números son inventados.** Mientras estén en `OTP_ECO_NUMEROS`
+  no reciben WhatsApp, así que se puede prender con ellos en la lista; quien
+  los saque de la lista sin deshabilitarlos le manda el código a quien tenga
+  ese número. Si alguno aparece como contacto de un socio real, hay que
+  sacarlo de la lista y deshabilitarlo en el momento: ya tiene credencial, y
+  con el eco cualquiera que conozca el número entra como esa persona.
 - **Prender `GATEWAY_SECRETO_EN_V1`** cuando el APIM mande `X-Gateway-Secret`
   también en `/v1`. Hasta entonces la App se puede llamar saltándose el APIM.

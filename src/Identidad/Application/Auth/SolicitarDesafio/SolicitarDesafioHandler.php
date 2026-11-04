@@ -24,19 +24,20 @@ use Identidad\Domain\Desafios\IdDeDesafio;
 final readonly class SolicitarDesafioHandler implements RequestHandler
 {
     /**
-     * TEMPORAL, se va junto con el eco: los celulares sin límite son los
-     * números de prueba de EcoDeCodigoDePrueba, que comparte todo el equipo de
-     * la App. A ellos el límite no los protege de nada, porque el código ya
-     * viaja en la respuesta.
+     * TEMPORAL, se va junto con el eco: los celulares de prueba son los
+     * números de EcoDeCodigoDePrueba, inventados y compartidos por todo el
+     * equipo de la App. Reciben el código en la respuesta, así que no tienen
+     * límite —no los protege de nada— ni WhatsApp, que le llegaría a quien
+     * tenga ese número de verdad.
      *
-     * @param  list<string>  $celularesSinLimite  en E.164
+     * @param  list<string>  $celularesDePrueba  en E.164
      */
     public function __construct(
         private DesafioRepository $desafios,
         private DespachadorDeDesafio $despachador,
         private RelojDelSistema $reloj,
         private int $maximoPorHora,
-        private array $celularesSinLimite = [],
+        private array $celularesDePrueba = [],
     ) {}
 
     public function handle(Request $peticion): Result
@@ -44,11 +45,11 @@ final readonly class SolicitarDesafioHandler implements RequestHandler
         assert($peticion instanceof SolicitarDesafio);
 
         $ahora = $this->reloj->ahora();
+        $dePrueba = in_array($peticion->celular->e164(), $this->celularesDePrueba, true);
 
         // El límite va sobre la EMISIÓN, no solo sobre los intentos: sin esto
         // el atacante compra intentos pidiendo desafíos nuevos.
-        if (! in_array($peticion->celular->e164(), $this->celularesSinLimite, true)
-            && $this->desafios->emitidosDesde($peticion->celular, $ahora->modify('-1 hour')) >= $this->maximoPorHora) {
+        if (! $dePrueba && $this->desafios->emitidosDesde($peticion->celular, $ahora->modify('-1 hour')) >= $this->maximoPorHora) {
             return ResultWithValue::failure(DesafioErrors::limiteDeTasa());
         }
 
@@ -56,7 +57,10 @@ final readonly class SolicitarDesafioHandler implements RequestHandler
         $digitos = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
 
         $this->desafios->add(DesafioDeIngreso::emitir($id, $peticion->celular, $digitos, $ahora));
-        $this->despachador->despachar($peticion->celular, $digitos);
+
+        if (! $dePrueba) {
+            $this->despachador->despachar($peticion->celular, $digitos);
+        }
 
         return ResultWithValue::of($id);
     }

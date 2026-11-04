@@ -191,9 +191,10 @@ final class ModulosServiceProvider extends ServiceProvider
             ->give(fn (): int => Config::integer('identidad.desafios_por_hora'));
 
         // TEMPORAL, se va con el eco: la misma lista, para que un número que
-        // recibe su código en la respuesta no quede además sin poder pedirlo.
+        // recibe su código en la respuesta no quede además sin poder pedirlo,
+        // ni le mande WhatsApp a quien tenga ese número de verdad.
         $this->app->when(SolicitarDesafioHandler::class)
-            ->needs('$celularesSinLimite')
+            ->needs('$celularesDePrueba')
             ->give(fn (): array => self::numerosDePrueba());
 
         // TEMPORAL: ver EcoDeCodigoDePrueba.
