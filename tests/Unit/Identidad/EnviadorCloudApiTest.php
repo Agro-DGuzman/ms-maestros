@@ -12,7 +12,7 @@ it('manda la plantilla con el codigo como parametro', function () {
     $http = new Http;
     $http->fake(['*' => $http->response(['messages' => [['id' => 'wamid.1']]], 200)]);
 
-    (new EnviadorCloudApi($http, 'https://graph.facebook.com/v21.0', '1234567890', 'token-secreto', 'desafio_ingreso', 'es'))
+    (new EnviadorCloudApi($http, 'https://graph.facebook.com/v26.0', '1234567890', 'token-secreto', 'desafio_ingreso', 'es'))
         ->enviar(Celular::desdeLocalBoliviano('70741828'), '4821');
 
     $http->assertSent(function (Request $peticion): bool {
@@ -53,7 +53,7 @@ it('no lanza si WhatsApp responde con error, pero lo registra', function () {
     $http = new Http;
     $http->fake(['*' => $http->response(['error' => ['message' => 'rate limit']], 429)]);
 
-    $enviador = new EnviadorCloudApi($http, 'https://graph.facebook.com/v21.0', '1', 't', 'p', 'es');
+    $enviador = new EnviadorCloudApi($http, 'https://graph.facebook.com/v26.0', '1', 't', 'p', 'es');
 
     expect(fn () => $enviador->enviar(Celular::desdeLocalBoliviano('70741828'), '4821'))
         ->not->toThrow(Exception::class);
