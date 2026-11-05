@@ -150,10 +150,16 @@ la línea siguiente ya dice, sobra.
   cualquier foto pisa. ms-comercial valida `propiedadAjena` consultando
   `GET /socios/{cardCode}/propiedades` con el token de la persona, no leyendo
   esta tabla. Sin clave foránea a `socios`: una propiedad de un socio que no
-  está se guarda igual. Después de que ms-comercial republique sus
-  propiedades, `maestros:propiedades-sin-evento` lista las que ningún evento
-  tocó y, con `--borrar`, las borra: el borrado es físico porque no hay un
-  evento que borre una propiedad. Antes del republicado no se corre.
+  está se guarda igual. **La carga inicial (05/11/2026) vino directo de la base
+  de Appgronomy**, por el mismo `ReplicaDePropiedades` que usan los eventos y
+  con la hora de la carga como vigencia, así que cualquier cambio posterior
+  de ms-comercial la pisa y no hace falta que republique. Se cargaron las 281
+  localizaciones con socio. Las 522 sin socio no se cargaron, porque nadie las
+  vería. El estado vacío se toma como activo, igual que lo publica
+  ms-comercial. `maestros:propiedades-sin-evento` lista las que nunca tocó ni un
+  evento ni esa carga y, con `--borrar`, las borra. El borrado es físico porque
+  no hay un evento que borre una propiedad. Después de la carga no quedó
+  ninguna.
   **La tabla tiene que existir en Azure antes que la imagen que la usa**:
   `/mi-cuenta`, `/socios` y también el login cuentan propiedades, así que una
   revisión nueva sin la tabla responde 500 a todos. La migración se corre
@@ -248,10 +254,17 @@ la línea siguiente ya dice, sobra.
   - **Las migraciones que cambian la réplica o el catálogo van antes del push**,
     igual que las de propiedades: la consulta de la App lee las columnas nuevas,
     así que una revisión nueva sin ellas responde 500.
-  - **Terminada la carga inicial del catálogo**, `maestros:productos-sin-sap`
-    lista los productos que nunca llegaron de SAP y, con `--dar-de-baja`, los da
-    de baja. Se corre desde la consola del Container App, y a mano a propósito:
-    ms-maestros no puede saber cuándo terminó esa carga.
+  - **La carga inicial del catálogo se hizo el 05/11/2026.**
+    - Fueron los 231 artículos de `AGRO_P6` (226 activos), por el mismo
+      controlador de la ingesta pero sin HTTP, desde la imagen con `.env.azure`
+      y con `eventoId` 0.
+    - Los 90 productos de la web encontraron su artículo y conservaron su
+      descripción y sus enlaces.
+    - Un artículo nuevo llega por el Sincronizador; la carga no se repite.
+    - `maestros:productos-sin-sap` lista los productos que nunca llegaron de SAP
+      y, con `--dar-de-baja`, los da de baja. Después de la carga no quedó
+      ninguno. Se corre desde la consola del Container App, y a mano a
+      propósito: ms-maestros no puede saber cuándo terminó una carga.
 - **La persona es el número** (`docs/superpowers/specs/2026-10-13-persona-por-numero-design.md`).
   Se habilita un celular, y todos los contactos visibles de SAP con ese número
   son la misma persona. Su id es `n-` y el E.164 sin el `+`
@@ -722,17 +735,18 @@ curl -s localhost:8082/realms/master/.well-known/openid-configuration
   (con su default y el índice `IX_propiedad_socio`) en una entrega posterior:
   quedaron en desuso, pero el código que corre en Azure todavía puede leerlas
   al momento de la migración.
-- **La semilla en Azure**: 8 socios de prueba, 267 propiedades con socios
-  inventados, y tres personas con acceso y eco del código: `70741828`,
-  `71112233` y `72112233`. No choca con la réplica, porque en SAP los
-  `cardCode` y los grupos son números (`10001`, `1003`) y los de la semilla
-  son `C-00xxxx` y `GRP-0xx`. Se borra en dos partes:
-  - **Las propiedades, después de que ms-comercial republique las suyas**,
-    con `maestros:propiedades-sin-evento --borrar`. Los ids son reales y el
-    dueño es inventado: las que comercial publique se corrigen solas, y
-    mientras tanto solo las ven los tres números de prueba.
-  - **Los socios, cuando el equipo de la App tenga otra cuenta de prueba.**
-    Sin ellos, esos tres números dejan de entrar.
+- **La semilla en Azure**: 8 socios de prueba y tres personas con acceso y eco
+  del código: `70741828`, `71112233` y `72112233`. No choca con la réplica,
+  porque en SAP los `cardCode` y los grupos son números (`10001`, `1003`) y los
+  de la semilla son `C-00xxxx` y `GRP-0xx`.
+  - **Ya no tiene propiedades.** Sus ids eran reales y la carga inicial les
+    devolvió el dueño verdadero.
+  - **Los socios se borran cuando el equipo de la App tenga otra cuenta de
+    prueba.** Sin ellos, esos tres números dejan de entrar.
+  - **`70741828` hoy prueba con SOGIMA.** Es contacto de `10057` y `12405`
+    (`p-99910057`, `p-99912405`), que SAP no tiene: el primer envío de SAP de
+    cualquiera de esos dos socios da de baja el contacto, y el número pierde
+    SOGIMA.
 
   **Los tres números son inventados.** Mientras estén en `OTP_ECO_NUMEROS`
   no reciben WhatsApp, así que se puede prender con ellos en la lista; quien
