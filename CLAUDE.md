@@ -142,8 +142,9 @@ la línea siguiente ya dice, sobra.
   se reusa ni se cambia**: viaja a ms-comercial en `POST /solicitudes-visita`
   y lo guardan los reportes de campo. El `nombre` es **el mismo texto** que
   `ReporteCampo.propiedad`. **`estado` decide qué se ve**
-  (`activo`/`inactivo`); `activa` quedó sin leer ni escribir y se borra con las
-  otras columnas en desuso. Para la App existe solo la activa, y
+  (`activo`/`inactivo`). La columna vieja `activa` se borró el 05/11/2026:
+  había quedado sin leer ni escribir, y decía 1 en propiedades inactivas. Para
+  la App existe solo la activa, y
   `cantidadPropiedades` cuenta con esa misma definición. **Una foto vieja no
   pisa una nueva**: `vigente_desde` es el `ocurridoEn` del evento, con
   microsegundos; nula en las que nunca llegaron por un evento (la semilla), que
@@ -731,10 +732,9 @@ curl -s localhost:8082/realms/master/.well-known/openid-configuration
 - Keycloak arranca con `start-dev` en `compose.yaml`, con base embebida que se
   pierde al recrear el contenedor. La imagen de `docker/keycloak/Dockerfile` es
   la que lo reemplaza en la nube; el `compose.yaml` local todavía no la usa.
-- **Borrar `vista_en_importacion_el`, `habilitada_el` y `propiedad.activa`**
-  (con su default y el índice `IX_propiedad_socio`) en una entrega posterior:
-  quedaron en desuso, pero el código que corre en Azure todavía puede leerlas
-  al momento de la migración.
+- **Borrar `vista_en_importacion_el` y `habilitada_el`** en una entrega
+  posterior: quedaron en desuso, pero el código que corre en Azure todavía
+  puede leerlas al momento de la migración. `propiedad.activa` ya se borró.
 - **La semilla en Azure**: 8 socios de prueba y tres personas con acceso y eco
   del código: `70741828`, `71112233` y `72112233`. No choca con la réplica,
   porque en SAP los `cardCode` y los grupos son números (`10001`, `1003`) y los

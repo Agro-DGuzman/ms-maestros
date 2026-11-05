@@ -20,7 +20,7 @@
      quedó colgado.
    - Si se cambia la tabla acá, se cambia también la copia de SQLite en
      database/migrations/maestros/2026_09_29_000100_crear_propiedades.php
-     y en las migraciones que la amplían (2026_10_30_000200).
+     y en las migraciones que la cambian (2026_10_30_000200, 2026_11_05_000100).
    ===================================================================== */
 
 IF SCHEMA_ID('maestros') IS NULL EXEC('CREATE SCHEMA maestros');
@@ -31,8 +31,7 @@ CREATE TABLE maestros.propiedad (
     id_propiedad     NVARCHAR(50)  NOT NULL CONSTRAINT PK_propiedad PRIMARY KEY,
     nombre           NVARCHAR(200) NOT NULL,
     codigo_de_socio  NVARCHAR(15)  NOT NULL,
-    activa           BIT           NOT NULL CONSTRAINT DF_propiedad_activa DEFAULT (1),
-    creado_en        DATETIME2(0)  NOT NULL CONSTRAINT DF_propiedad_creado DEFAULT SYSUTCDATETIME(),
+    creado_en       DATETIME2(0)  NOT NULL CONSTRAINT DF_propiedad_creado DEFAULT SYSUTCDATETIME(),
     actualizado_en   DATETIME2(0)  NOT NULL CONSTRAINT DF_propiedad_actualizado DEFAULT SYSUTCDATETIME(),
     -- Un espacio de más en el id viajaría distinto a ms-comercial, y en el
     -- código de socio dejaría la propiedad invisible. LEN ignora los espacios
@@ -57,11 +56,6 @@ CREATE TABLE maestros.propiedad (
         AND codigo_de_socio COLLATE Latin1_General_BIN2
             NOT LIKE N'%[' + NCHAR(9) + NCHAR(10) + NCHAR(13) + NCHAR(160) + N']%')
 );
-GO
-
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_propiedad_socio'
-               AND object_id = OBJECT_ID('maestros.propiedad'))
-CREATE INDEX IX_propiedad_socio ON maestros.propiedad (codigo_de_socio) INCLUDE (activa, nombre);
 GO
 
 /* ---------------------------------------------------------------------
@@ -98,6 +92,27 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_propiedad_socio_estado'
                AND object_id = OBJECT_ID('maestros.propiedad'))
 CREATE INDEX IX_propiedad_socio_estado ON maestros.propiedad (codigo_de_socio) INCLUDE (estado, nombre);
+GO
+
+/* ---------------------------------------------------------------------
+   Se borra `activa` (05/11/2026). Quedó sin leer ni escribir desde que
+   entró `estado`, y llegó a decir 1 en propiedades inactivas. Una tabla
+   creada con este script ya no la tiene; estos bloques la sacan de las
+   que existían, con su default y el índice viejo que la incluía.
+   --------------------------------------------------------------------- */
+
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_propiedad_socio'
+           AND object_id = OBJECT_ID('maestros.propiedad'))
+DROP INDEX IX_propiedad_socio ON maestros.propiedad;
+GO
+
+IF EXISTS (SELECT 1 FROM sys.default_constraints WHERE name = 'DF_propiedad_activa'
+           AND parent_object_id = OBJECT_ID('maestros.propiedad'))
+ALTER TABLE maestros.propiedad DROP CONSTRAINT DF_propiedad_activa;
+GO
+
+IF COL_LENGTH('maestros.propiedad', 'activa') IS NOT NULL
+ALTER TABLE maestros.propiedad DROP COLUMN activa;
 GO
 
 /* Verificación después de cargar: propiedades cuyo socio no está en la réplica.
