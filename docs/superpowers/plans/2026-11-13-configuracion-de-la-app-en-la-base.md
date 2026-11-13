@@ -30,7 +30,7 @@
 
 ---
 
-### Tarea 1: Las tablas y el adaptador que las lee
+### Task 1: Las tablas y el adaptador que las lee
 
 **Files:**
 - Create: `database/sql/maestros-configuracion.sql`
@@ -257,7 +257,7 @@ git commit -m "feat(configuracion): las cuentas y el diccionario de la App, en l
 
 ---
 
-### Tarea 2: La App lee la base
+### Task 2: La App lee la base
 
 **Files:**
 - Modify: `app/Providers/ModulosServiceProvider.php` (el bind de `ConfiguracionDeLaApp`, cerca de la línea 118, y `versionesDe()`, cerca de la línea 213)
