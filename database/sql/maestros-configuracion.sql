@@ -26,6 +26,7 @@
    Cada uno de estos INSERT tiene que fallar (comprobación a mano):
 
      INSERT INTO maestros.configuracion_app VALUES ('atencion.whatsapp', '67701468');
+     INSERT INTO maestros.configuracion_app VALUES ('Titular.NIT', N'1013879029');
      INSERT INTO maestros.configuracion_app VALUES ('titular.nit', N'   ');
      INSERT INTO maestros.configuracion_app VALUES ('atencion.telefono', N'33445566');
      INSERT INTO maestros.configuracion_app VALUES ('version.android.minima', N'1.8');
@@ -66,7 +67,10 @@ GO
 
 IF OBJECT_ID('maestros.configuracion_app') IS NULL
 CREATE TABLE maestros.configuracion_app (
-    clave  VARCHAR(60)   NOT NULL CONSTRAINT PK_configuracion_app PRIMARY KEY,
+    -- En binario: la colación de Azure no distingue mayúsculas, y con ella
+    -- 'Titular.NIT' pasaría el CHECK de claves mientras el código, que compara
+    -- exacto, la ignoraría. La clave mal escrita tiene que fallar en el INSERT.
+    clave  VARCHAR(60) COLLATE Latin1_General_BIN2 NOT NULL CONSTRAINT PK_configuracion_app PRIMARY KEY,
     valor  NVARCHAR(500) NOT NULL,
     CONSTRAINT CK_configuracion_app_clave CHECK (clave IN (
         'titular.nit',

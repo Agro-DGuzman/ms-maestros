@@ -120,6 +120,14 @@ it('si la base falla, la excepcion sube', function () {
     adaptador()->cuentasParaPagar();
 })->throws(QueryException::class);
 
+it('en SQL Server la clave compara exacto, con mayusculas incluidas', function () {
+    // La colación de Azure no distingue mayúsculas: sin BIN2, 'Titular.NIT'
+    // pasaría el CHECK de claves y el código, que compara exacto, la ignoraría.
+    $script = (string) file_get_contents(database_path('sql/maestros-configuracion.sql'));
+
+    expect($script)->toMatch('/\bclave\s+VARCHAR\(60\)\s+COLLATE\s+Latin1_General_BIN2\s+NOT\s+NULL/i');
+});
+
 it('el script acepta exactamente las claves que lee el codigo', function () {
     $script = (string) file_get_contents(database_path('sql/maestros-configuracion.sql'));
     preg_match('/CK_configuracion_app_clave\s+CHECK\s*\(\s*clave\s+IN\s*\(([^)]*)\)/i', $script, $lista);
