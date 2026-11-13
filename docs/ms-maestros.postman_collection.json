@@ -62,7 +62,12 @@
               "});",
               "pm.collectionVariables.set('otpId', b.data.otpId);",
               "console.log('otpId =', b.data.otpId);",
-              "console.log('Ahora saca el codigo:  docker compose logs app | Select-String Desaf');"
+              "// Un numero con eco trae el codigo en la respuesta: asi el Runner encadena el login sin escribirlo a mano.",
+              "if (b.data.codigoDePrueba) {",
+              "  pm.collectionVariables.set('codigo', b.data.codigoDePrueba);",
+              "} else {",
+              "  console.log('Ahora saca el codigo:  docker compose logs app | Select-String Desaf');",
+              "}"
             ]
           }
         }
@@ -348,7 +353,7 @@
             { "key": "version", "value": "1.0.0" }
           ]
         },
-        "description": "Lo primero que llama la App, antes del login. Decide por permiteContinuar. Cambia la version para ver los tres estados segun MOVIL_ANDROID_MINIMA y MOVIL_ANDROID_RECOMENDADA."
+        "description": "Lo primero que llama la App, antes del login. Decide por permiteContinuar. Cambia la version para ver los tres estados segun version.android.minima y version.android.recomendada de maestros.configuracion_app."
       },
       "event": [
         {
@@ -375,7 +380,7 @@
           { "key": "Authorization", "value": "Bearer {{token}}" }
         ],
         "url": { "raw": "{{baseUrl}}/v1/bancos", "host": ["{{baseUrl}}"], "path": ["v1", "bancos"] },
-        "description": "Las cuentas de BANCOS. Sin configurar responde 500 CONFIGURACION_INCOMPLETA. Con If-None-Match igual al ETag responde 304 sin cuerpo."
+        "description": "Las cuentas de maestros.cuentas_bancarias. Sin cuentas o sin titular.nit responde 500 CONFIGURACION_INCOMPLETA. Con If-None-Match igual al ETag responde 304 sin cuerpo."
       },
       "event": [
         {
@@ -403,7 +408,7 @@
           { "key": "Authorization", "value": "Bearer {{token}}" }
         ],
         "url": { "raw": "{{baseUrl}}/v1/contactos/atencion-al-cliente", "host": ["{{baseUrl}}"], "path": ["v1", "contactos", "atencion-al-cliente"] },
-        "description": "El WhatsApp de Control de Calidad, de ATENCION_TELEFONO."
+        "description": "El WhatsApp de Control de Calidad, de atencion.telefono en maestros.configuracion_app."
       },
       "event": [
         {
@@ -599,9 +604,14 @@
             "type": "text/javascript",
             "exec": [
               "const b = pm.response.json();",
-              "pm.test('las cuatro categorias', () => {",
+              "// Las categorias son datos: el catalogo real tiene mas que las cuatro de la semilla.",
+              "pm.test('lista las categorias con codigo y nombre', () => {",
               "  pm.response.to.have.status(200);",
-              "  pm.expect(b.data.items.length).to.equal(4);",
+              "  pm.expect(b.data.items.length).to.be.above(0);",
+              "  b.data.items.forEach(c => {",
+              "    pm.expect(c.codigo).to.be.a('string');",
+              "    pm.expect(c.nombre).to.be.a('string');",
+              "  });",
               "});"
             ]
           }
