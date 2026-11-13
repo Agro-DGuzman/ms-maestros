@@ -14,6 +14,7 @@ use Tests\Dobles\EmisorFalso;
 use Tests\Dobles\EnviadorQueRecuerda;
 use Tests\Dobles\VerificadorFalso;
 use Tests\Soporte\CatalogoDeEjemplo;
+use Tests\Soporte\ConfiguracionDeEjemplo;
 use Tests\Soporte\Contrato;
 use Tests\Soporte\PropiedadesDeEjemplo;
 use Tests\Soporte\ReplicaDeEjemplo;
@@ -136,12 +137,7 @@ it('el validador detecta una respuesta que no cumple', function () {
 });
 
 it('la configuracion de la App', function (string $ruta, array $cabeceras, int $status) {
-    config([
-        'app_movil.versiones.android' => ['minima' => '1.8.0', 'recomendada' => '2.1.0', 'tienda' => 'https://play.google.com/store/apps/details?id=bo.com.agropartners.socio'],
-        'app_movil.bancos.cuentas' => 'Banco Nacional de Bolivia|10000006816033',
-        'app_movil.bancos.titular_nit' => '1013879029',
-        'app_movil.atencion.telefono' => '67701468',
-    ]);
+    ConfiguracionDeEjemplo::sembrar();
 
     $respuesta = $this->getJson('/v1'.$ruta, $cabeceras)->assertStatus($status);
 

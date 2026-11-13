@@ -48,14 +48,13 @@ use Maestros\Application\Ingesta\ReplicaDePropiedades;
 use Maestros\Application\Productos\CatalogoAdministrable;
 use Maestros\Application\Productos\CatalogoDeProductos;
 use Maestros\Application\Propiedades\PropiedadesDeSocios;
-use Maestros\Domain\Aplicacion\AvisoDeVersion;
 use Maestros\Domain\Contactos\Celular;
 use Maestros\Domain\Contactos\ContactoRepository;
 use Maestros\Domain\Grupos\GrupoRepository;
 use Maestros\Domain\Socios\SocioRepository;
 use Maestros\Infrastructure\Alcance\ResolutorPorNumero;
 use Maestros\Infrastructure\Catalogo\ProductosSinSapCommand;
-use Maestros\Infrastructure\Configuracion\ConfiguracionDesdeEntorno;
+use Maestros\Infrastructure\Configuracion\ConfiguracionDesdeLaBase;
 use Maestros\Infrastructure\Eventos\ConsumirCommand;
 use Maestros\Infrastructure\Eventos\EloquentRegistroDeEventos;
 use Maestros\Infrastructure\Eventos\EloquentSalidaDeEventos;
@@ -113,20 +112,9 @@ final class ModulosServiceProvider extends ServiceProvider
             Config::string('servicebus.publicacion.clave'),
         ));
 
-        // Se interpreta al usarse y no al arrancar: una variable mal escrita
-        // rompe solo su endpoint, no la API entera.
-        $this->app->bind(ConfiguracionDeLaApp::class, fn ($app): ConfiguracionDeLaApp => new ConfiguracionDesdeEntorno(
-            [
-                'android' => self::versionesDe('android'),
-                'ios' => self::versionesDe('ios'),
-            ],
-            new AvisoDeVersion(Config::string('app_movil.avisos.obligatoria.titulo'), Config::string('app_movil.avisos.obligatoria.mensaje')),
-            new AvisoDeVersion(Config::string('app_movil.avisos.sugerida.titulo'), Config::string('app_movil.avisos.sugerida.mensaje')),
-            Config::string('app_movil.bancos.cuentas'),
-            Config::string('app_movil.bancos.titular_razon_social'),
-            Config::string('app_movil.bancos.titular_nit'),
-            Config::string('app_movil.atencion.area'),
-            Config::string('app_movil.atencion.telefono'),
+        // Se lee de la base en cada pedido: un valor mal cargado rompe solo su
+        // endpoint, no la API entera, y un cambio rige sin reiniciar nada.
+        $this->app->bind(ConfiguracionDeLaApp::class, fn ($app): ConfiguracionDeLaApp => new ConfiguracionDesdeLaBase(
             $app->make(LoggerInterface::class),
         ));
 
@@ -207,16 +195,6 @@ final class ModulosServiceProvider extends ServiceProvider
         $this->app->when(IniciarSesionHandler::class)
             ->needs('$diasDeSesion')
             ->give(fn (): int => Config::integer('identidad.dias_de_sesion'));
-    }
-
-    /** @return array{minima: string, recomendada: string, tienda: string} */
-    private static function versionesDe(string $plataforma): array
-    {
-        return [
-            'minima' => Config::string("app_movil.versiones.{$plataforma}.minima"),
-            'recomendada' => Config::string("app_movil.versiones.{$plataforma}.recomendada"),
-            'tienda' => Config::string("app_movil.versiones.{$plataforma}.tienda"),
-        ];
     }
 
     /**

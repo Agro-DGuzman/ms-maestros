@@ -6,7 +6,14 @@ declare(strict_types=1);
  * En /v1 el secreto del gateway queda detrás de un interruptor: se prende
  * cuando el APIM ya manda la cabecera, o la App se cae. Se decide en cada
  * pedido para que `route:cache` no congele la configuración.
+ *
+ * La ruta de prueba es /version, que lee su configuración de la base: sin
+ * las tablas respondería 500 y la prueba no diría nada del secreto.
  */
+
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+uses(RefreshDatabase::class);
 
 beforeEach(function () {
     config(['ingesta.gateway.secreto' => 'secreto-del-gateway']);

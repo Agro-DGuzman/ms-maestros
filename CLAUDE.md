@@ -95,13 +95,17 @@ la línea siguiente ya dice, sobra.
   no es de un campo lo deja vacío. Una petición mal formada es **400**; el
   contrato reserva 422 para una regla de negocio violada.
 - **La configuración de la App falla distinto según lo que protege.**
-  `/version`, `/bancos` y `/contactos/atencion-al-cliente` leen variables de
-  entorno (`config/app_movil.php`). Sin versiones configuradas, `/version`
-  **deja pasar a todos**: fallar cerrado por una variable que falta bloquearía
-  a todos los socios a la vez. Sin bancos o sin teléfono, en cambio, responde
-  500 `CONFIGURACION_INCOMPLETA`, nunca una lista vacía, que le diría al socio
-  que no hay dónde pagar. Se interpretan al usarse, no al arrancar, para que
-  una variable mal escrita rompa solo su endpoint.
+  `/version`, `/bancos` y `/contactos/atencion-al-cliente` leen dos tablas que
+  se cargan a mano: `maestros.cuentas_bancarias` y el diccionario
+  `maestros.configuracion_app` (`database/sql/maestros-configuracion.sql`, con
+  su ejemplo al lado). El diccionario solo acepta las claves que el código lee
+  (`ConfiguracionDesdeLaBase::CLAVES`), y una prueba exige que el script repita
+  la misma lista. Los valores reales no van al repo. Sin versiones cargadas,
+  `/version` **deja pasar a todos**: fallar cerrado por un valor que falta
+  bloquearía a todos los socios a la vez. Sin bancos o sin teléfono, en
+  cambio, responde 500 `CONFIGURACION_INCOMPLETA`, nunca una lista vacía, que
+  le diría al socio que no hay dónde pagar. Se leen en cada pedido, para que
+  un valor mal cargado rompa solo su endpoint.
 - **El catálogo de productos es réplica de SAP en parte.** La ingesta escribe la
   ficha; **la descripción y los cuatro enlaces son solo del back-office** y
   ningún envío de SAP los toca. **Cada artículo de SAP es un producto**
@@ -252,7 +256,8 @@ la línea siguiente ya dice, sobra.
   - Las peticiones de la ingesta son `EscrituraDeMaquina`: no hay persona y no
     hay alcance. `AlcanceTest` exige que solo las de `Maestros\Application\Ingesta`
     lleven el marcador.
-  - **Las migraciones que cambian la réplica o el catálogo van antes del push**,
+  - **Las migraciones que cambian la réplica, el catálogo o la configuración
+    de la App van antes del push**,
     igual que las de propiedades: la consulta de la App lee las columnas nuevas,
     así que una revisión nueva sin ellas responde 500.
   - **La carga inicial del catálogo se hizo el 05/11/2026.**

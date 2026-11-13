@@ -3,15 +3,14 @@
 declare(strict_types=1);
 
 use Identidad\Application\Contracts\VerificadorDeToken;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Dobles\VerificadorFalso;
+use Tests\Soporte\ConfiguracionDeEjemplo;
+
+uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    config([
-        'app_movil.versiones.android' => ['minima' => '1.8.0', 'recomendada' => '2.1.0', 'tienda' => 'https://play.google.com/store/apps/details?id=bo.com.agropartners.socio'],
-        'app_movil.bancos.cuentas' => 'Banco Nacional de Bolivia|10000006816033;Banco BISA|701-5032719-3-81',
-        'app_movil.bancos.titular_nit' => '1013879029',
-        'app_movil.atencion.telefono' => '67701468',
-    ]);
+    ConfiguracionDeEjemplo::sembrar();
     $this->app->instance(VerificadorDeToken::class, new VerificadorFalso('p-8f2b1c40'));
 });
 
@@ -63,23 +62,21 @@ it('/bancos responde 304 sin cuerpo si la App ya tiene la misma lista', function
     expect($respuesta->getContent())->toBe('');
 });
 
-it('/bancos cambia de ETag cuando cambian las cuentas', function () {
+it('/bancos cambia de ETag cuando cambian las cuentas, sin reiniciar nada', function () {
     $antes = $this->getJson('/v1/bancos', AUTENTICADO)->headers->get('ETag');
 
-    // Cambiar una variable en la nube es una revisión nueva, o sea un proceso
-    // nuevo: se simula con una aplicación recién arrancada.
-    $this->refreshApplication();
-    config([
-        'app_movil.bancos.cuentas' => 'Banco Unión|089489-001-1',
-        'app_movil.bancos.titular_nit' => '1013879029',
-    ]);
-    $this->app->instance(VerificadorDeToken::class, new VerificadorFalso('p-8f2b1c40'));
+    // Antes un cambio era una revisión nueva del contenedor; ahora es un
+    // UPDATE con el proceso vivo, y la App no puede seguir con la lista vieja.
+    ConfiguracionDeEjemplo::cuentas([['banco' => 'Banco Unión', 'cuenta' => '089489-001-1', 'orden' => 1]]);
 
-    expect($this->getJson('/v1/bancos', AUTENTICADO)->headers->get('ETag'))->not->toBe($antes);
+    $despues = $this->getJson('/v1/bancos', AUTENTICADO);
+
+    expect($despues->headers->get('ETag'))->not->toBe($antes)
+        ->and($despues->json('data.items.0.banco'))->toBe('Banco Unión');
 });
 
-it('/bancos sin configurar responde un problema nuestro, no una lista vacia', function () {
-    config(['app_movil.bancos.cuentas' => '']);
+it('/bancos sin cuentas responde un problema nuestro, no una lista vacia', function () {
+    ConfiguracionDeEjemplo::cuentas([]);
 
     $this->getJson('/v1/bancos', AUTENTICADO)
         ->assertStatus(500)
