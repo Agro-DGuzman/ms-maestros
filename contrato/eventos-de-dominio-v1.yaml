@@ -16,8 +16,12 @@ info:
 
     | Topic | Publica | Suscripción | Regla |
     |---|---|---|---|
-    | `maestros-eventos` | ms-maestros | `sub-ms-comercial` | `tipo LIKE 'maestros.socio.%'` |
-    | `comercial-eventos` | ms-comercial | `sub-ms-maestros` (paso 13.8 de la guía de ms-comercial) | `tipo LIKE 'comercial.propiedad.%'` |
+    | `maestros-eventos` | ms-maestros | `sub-ms-comercial` | `tipo LIKE 'maestros.socio.%' OR tipo = 'maestros.producto.nuevo'` |
+    | `comercial-eventos` | ms-comercial | `sub-ms-maestros` (paso 13.8 de la guía de ms-comercial) | `tipo LIKE 'comercial.propiedad.%' OR tipo = 'comercial.aviso.creado' OR tipo = 'comercial.preferencias.actualizadas'` |
+
+    Cada regla se amplía nombrando cada tipo nuevo, nunca con un comodín como `comercial.%`: un
+    tipo que el otro servicio agregue después iría a los mensajes muertos. Un tipo se agrega a la
+    regla recién cuando el que escucha ya lo entiende.
 
     Las suscripciones no tienen sesiones ni la regla `$Default`: 5 entregas, bloqueo de 60 s y,
     al vencer, a la cola de mensajes muertos.
@@ -49,6 +53,19 @@ info:
     **El estado de la propiedad (ED6)** es `activo` o `inactivo`, tal como lo manda
     Appgronomy. Mientras Appgronomy no lo mande siempre, una propiedad sin estado informado
     conserva el que tenía, y una nueva es `activo`; el evento lo lleva siempre.
+
+    **Las notificaciones push** (spec `2026-11-13-ms-comercial-avisos-para-push-design.md` y,
+    en ms-maestros, `2026-11-10-notificaciones-push-design.md`): el push lo manda ms-maestros,
+    y cada push nace de un aviso de la bandeja de ms-comercial.
+
+    - **«Un aviso nació»** es `comercial.aviso.creado`: un hecho, no una foto. Sale una vez por
+      aviso, en la transacción que lo crea; `eventoId` lo deduplica y `ocurridoEn` es el
+      `creadoEn` del aviso. El título y el cuerpo son los de la bandeja, sin importes.
+    - **«Las preferencias cambiaron»** es `comercial.preferencias.actualizadas`: la foto completa
+      de los cuatro interruptores de una persona; `ocurridoEn` ordena. Sin foto, todo está
+      prendido.
+    - **«Hay un producto nuevo»** es `maestros.producto.nuevo`: lo publica ms-maestros una sola vez
+      por producto, y ms-comercial crea con él un aviso de catálogo para todos.
 paths: {}
 components:
   schemas:
@@ -196,3 +213,150 @@ components:
       pattern: '^[A-Za-z0-9-]{1,30}$'
       description: El id de la propiedad en Appgronomy.
       example: PROP-014
+    AvisoCreado:
+      description: '«Un aviso nació»: publica ms-comercial en `comercial-eventos`, escucha ms-maestros, que manda el push.'
+      allOf:
+        - $ref: '#/components/schemas/SobreDeEvento'
+        - type: object
+          properties:
+            tipo:
+              const: comercial.aviso.creado
+            origen:
+              example: ms-comercial
+            clave:
+              type: object
+              required: [objeto, avisoId]
+              properties:
+                objeto:
+                  const: aviso
+                avisoId:
+                  type: string
+                  minLength: 1
+                  maxLength: 60
+            datos:
+              type: object
+              required: [avisoId, categoria, cardCode, titulo, cuerpo, creadoEn, fechaDelDocumento]
+              properties:
+                avisoId:
+                  type: string
+                  minLength: 1
+                  maxLength: 60
+                  description: 'El id del aviso en la bandeja: `AV-F-`, `AV-P-`, `AV-R-` o `AV-C-` y el documento.'
+                  example: AV-F-1990
+                categoria:
+                  type: string
+                  enum: [factura, vencimiento, pago, reporte_campo, catalogo]
+                  description: 'La categoría del aviso. Los interruptores: `facturas` gobierna `factura` y `vencimiento`; `pagos`, `pago`; `reportes`, `reporte_campo`; `catalogo`, `catalogo`.'
+                cardCode:
+                  oneOf:
+                    - $ref: '#/components/schemas/CardCode'
+                    - type: 'null'
+                  description: 'El socio del aviso. `null` en un aviso para todos (el de catálogo); el campo va siempre.'
+                titulo:
+                  type: string
+                  minLength: 1
+                  maxLength: 65
+                  example: Factura N° 1990 disponible
+                cuerpo:
+                  type: string
+                  minLength: 1
+                  maxLength: 240
+                  description: El de la bandeja, sin importes.
+                  example: Ya puedes ver la factura de Sebastian Monasterio.
+                creadoEn:
+                  type: string
+                  format: date-time
+                  pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$'
+                  description: 'El `creadoEn` del aviso: el `ocurridoEn` del documento, el instante en que el Sincronizador leyó SAP (no la fecha del documento).'
+                fechaDelDocumento:
+                  oneOf:
+                    - type: string
+                      format: date
+                      pattern: '^\d{4}-\d{2}-\d{2}$'
+                    - type: 'null'
+                  description: 'La fecha del documento en hora de Bolivia: la de la factura o el pago en SAP (`DocDate`), o la de la visita del informe. `null` en el aviso de catálogo; el campo va siempre. Con ella, el que manda el push frena un atraso del Sincronizador, que `creadoEn` no muestra.'
+                  example: '2026-10-10'
+    PreferenciasActualizadas:
+      description: '«Las preferencias cambiaron»: publica ms-comercial en `comercial-eventos`, escucha ms-maestros.'
+      allOf:
+        - $ref: '#/components/schemas/SobreDeEvento'
+        - type: object
+          properties:
+            tipo:
+              const: comercial.preferencias.actualizadas
+            origen:
+              example: ms-comercial
+            clave:
+              type: object
+              required: [objeto, persona]
+              properties:
+                objeto:
+                  const: preferencias
+                persona:
+                  type: string
+                  minLength: 1
+            datos:
+              type: object
+              required: [persona, facturas, pagos, reportes, catalogo]
+              properties:
+                persona:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  description: 'La persona, como la nombra el token: `n-` y el E.164 sin el `+`.'
+                  example: n-59170000000
+                facturas:
+                  type: boolean
+                pagos:
+                  type: boolean
+                reportes:
+                  type: boolean
+                catalogo:
+                  type: boolean
+    ProductoNuevo:
+      description: '«Hay un producto nuevo»: publica ms-maestros en `maestros-eventos`, una sola vez por producto; escucha ms-comercial.'
+      allOf:
+        - $ref: '#/components/schemas/SobreDeEvento'
+        - type: object
+          properties:
+            tipo:
+              const: maestros.producto.nuevo
+            origen:
+              example: ms-maestros
+            clave:
+              type: object
+              required: [objeto, itemCode]
+              properties:
+                objeto:
+                  const: producto
+                itemCode:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+            datos:
+              type: object
+              required: [itemCode, nombre, categoria]
+              properties:
+                itemCode:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                  description: OITM.ItemCode.
+                  example: A-0999
+                nombre:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  example: Gliforte 68 SG
+                categoria:
+                  type: object
+                  required: [codigo, nombre]
+                  properties:
+                    codigo:
+                      type: string
+                      minLength: 1
+                      example: herbicidas
+                    nombre:
+                      type: string
+                      minLength: 1
+                      example: Herbicidas
