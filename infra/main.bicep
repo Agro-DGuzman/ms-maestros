@@ -519,6 +519,8 @@ resource worker 'Microsoft.App/containerApps@2024-03-01' = {
           args: [
             'artisan'
             'queue:work'
+            // default primero: el código por WhatsApp no espera detrás de los pushes (NP23).
+            '--queue=default,push'
             '--tries=3'
             '--max-time=3600'
           ]

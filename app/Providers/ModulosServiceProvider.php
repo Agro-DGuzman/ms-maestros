@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Eventos\EventosDeIdentidad;
+use App\Push\EnviadorFirebase;
+use App\Push\EnviadorPushPorLog;
 use Identidad\Application\Auth\IniciarSesion\IniciarSesionHandler;
 use Identidad\Application\Auth\SolicitarDesafio\SolicitarDesafioHandler;
 use Identidad\Application\Contracts\BovedaDeContrasenas;
@@ -14,6 +16,7 @@ use Identidad\Application\Contracts\DirectorioDeContactos;
 use Identidad\Application\Contracts\DirectorioDeIdentidades;
 use Identidad\Application\Contracts\EmisorDeToken;
 use Identidad\Application\Contracts\EnviadorDeDesafio;
+use Identidad\Application\Contracts\EnviadorDePush;
 use Identidad\Application\Contracts\RelojDelSistema;
 use Identidad\Application\Contracts\VerificadorDeToken;
 use Identidad\Domain\Desafios\DesafioRepository;
@@ -142,6 +145,22 @@ final class ModulosServiceProvider extends ServiceProvider
                 Config::string('whatsapp.token'),
                 Config::string('whatsapp.plantilla'),
                 Config::string('whatsapp.idioma'),
+                $log,
+            );
+        });
+        // Como WhatsApp: cualquier valor que no sea `firebase` escribe al log (NP15).
+        $this->app->bind(EnviadorDePush::class, function ($app): EnviadorDePush {
+            $log = $app->make(LoggerInterface::class);
+
+            if (Config::string('push.driver') !== 'firebase') {
+                return new EnviadorPushPorLog($log);
+            }
+
+            return new EnviadorFirebase(
+                $app->make(Http::class),
+                $app->make(Cache::class),
+                Config::string('push.firebase.proyecto'),
+                Config::string('push.firebase.cuenta_de_servicio'),
                 $log,
             );
         });
