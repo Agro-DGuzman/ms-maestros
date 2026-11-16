@@ -19,6 +19,7 @@ use Identidad\Domain\Desafios\DesafioRepository;
 use Identidad\Domain\Dispositivos\Dispositivo;
 use Identidad\Domain\Dispositivos\IdDeInstalacion;
 use Identidad\Domain\Dispositivos\Plataforma;
+use Identidad\Domain\Dispositivos\TokenPush;
 use Identidad\Domain\Sesiones\IdDeSesion;
 use Identidad\Domain\Sesiones\SesionDeAplicacion;
 use Identidad\Domain\Sesiones\SesionRepository;
@@ -76,7 +77,17 @@ final readonly class IniciarSesionHandler implements RequestHandler
         $dispositivo = $peticion->instalacionId === null ? null : Dispositivo::registrar(
             IdDeInstalacion::desde($peticion->instalacionId),
             Plataforma::tryFrom((string) $peticion->plataforma) ?? Plataforma::Android,
+            $peticion->tokenPush === null ? null : TokenPush::desde($peticion->tokenPush),
         );
+
+        // Un teléfono es de la última sesión que lo registró (NP4): si no, en
+        // un teléfono compartido le llegarían a una persona los avisos de otra.
+        if ($dispositivo !== null) {
+            foreach ($this->sesiones->abiertasConInstalacion($dispositivo->instalacion(), $ahora) as $anterior) {
+                $anterior->desvincularDispositivo();
+                $this->sesiones->save($anterior);
+            }
+        }
 
         $sesion = SesionDeAplicacion::abrir(
             IdDeSesion::nueva(),

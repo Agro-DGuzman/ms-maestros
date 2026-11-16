@@ -7,8 +7,10 @@ use Identidad\Application\Contracts\EmisorDeToken;
 use Identidad\Application\Contracts\EnviadorDeDesafio;
 use Identidad\Domain\Desafios\DesafioRepository;
 use Identidad\Domain\Desafios\IdDeDesafio;
+use Identidad\Domain\Sesiones\SesionDeAplicacion;
 use Identidad\Domain\Sesiones\SesionRepository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Maestros\Domain\Contactos\IdDePersona;
 use Tests\Dobles\EmisorFalso;
 use Tests\Dobles\EnviadorQueRecuerda;
@@ -44,7 +46,8 @@ it('entrega token, sesion y contexto con el codigo correcto', function () {
     expect($respuesta->json('success'))->toBeTrue()
         ->and($respuesta->json('data.tokens.accessToken'))->toBe('jwt-de-prueba')
         ->and($respuesta->json('data.tokens.refreshToken'))->toBe('refresh-de-prueba')
-        ->and($respuesta->json('data.dispositivoRegistrado'))->toBeTrue()
+        // Sin tokenPush no hay a dónde mandar: registrar es guardar el token (NP3).
+        ->and($respuesta->json('data.dispositivoRegistrado'))->toBeFalse()
         ->and($respuesta->json('data.contexto.nombre'))->toBe('Grupo Monasterio')
         ->and($respuesta->json('data.contexto.grupoEconomico.socios'))->toHaveCount(1)
         ->and($this->emisor->pedidos)->toBe([ReplicaDeEjemplo::MONICA]);
@@ -136,4 +139,75 @@ it('un numero en dos grupos responde codigo invalido aunque tenga credencial', f
 
     expect($this->emisor->pedidos)->toBe([])
         ->and(app(SesionRepository::class)->abiertasDe(IdDePersona::desde(ReplicaDeEjemplo::MONICA)))->toBe([]);
+});
+
+const LUCIA = 'n-59170223344';
+const TELEFONO_COMPARTIDO = '3f1c9a20-8d44-4b6e-9d21-6a7f0c4b18ee';
+
+/** @param array<string, string> $dispositivo */
+function entrarCon(string $telefono, array $dispositivo): TestResponse
+{
+    $id = (string) test()->postJson('/v1/auth/otp', ['telefono' => $telefono])->json('data.otpId');
+
+    return test()->postJson('/v1/auth/login', [
+        'otpId' => $id,
+        'codigo' => test()->enviador->ultimoCodigo,
+        'dispositivo' => $dispositivo,
+    ]);
+}
+
+/** @return list<SesionDeAplicacion> */
+function abiertasDe(string $persona): array
+{
+    return app(SesionRepository::class)->abiertasDe(IdDePersona::desde($persona));
+}
+
+it('el login guarda el token push y responde dispositivoRegistrado true', function () {
+    $respuesta = entrarCon('70741828', ['instalacionId' => TELEFONO_COMPARTIDO, 'plataforma' => 'android', 'tokenPush' => 'fcm-token-de-prueba'])
+        ->assertStatus(200);
+
+    expect($respuesta->json('data.dispositivoRegistrado'))->toBeTrue()
+        ->and(abiertasDe(ReplicaDeEjemplo::MONICA)[0]->tokenPush()?->valor())->toBe('fcm-token-de-prueba');
+});
+
+it('sin tokenPush entra y responde dispositivoRegistrado false', function () {
+    $respuesta = entrarCon('70741828', ['instalacionId' => TELEFONO_COMPARTIDO, 'plataforma' => 'android'])
+        ->assertStatus(200);
+
+    expect($respuesta->json('data.dispositivoRegistrado'))->toBeFalse()
+        ->and(abiertasDe(ReplicaDeEjemplo::MONICA)[0]->dispositivo()?->instalacion()->value())->toBe(TELEFONO_COMPARTIDO);
+});
+
+it('un tokenPush mal formado es 400', function () {
+    entrarCon('70741828', ['instalacionId' => TELEFONO_COMPARTIDO, 'plataforma' => 'android', 'tokenPush' => 'con espacio'])
+        ->assertStatus(400)
+        ->assertJsonPath('error.structuredMessage.0.campo', 'dispositivo.tokenPush');
+
+    expect(abiertasDe(ReplicaDeEjemplo::MONICA))->toBe([]);
+});
+
+it('otra persona que entra en el mismo telefono le quita el dispositivo a la sesion anterior', function () {
+    app(BovedaDeContrasenas::class)->guardar(IdDePersona::desde(LUCIA), 'otra-contrasena');
+    entrarCon('70741828', ['instalacionId' => TELEFONO_COMPARTIDO, 'plataforma' => 'android', 'tokenPush' => 'fcm-de-monica']);
+
+    entrarCon('70223344', ['instalacionId' => TELEFONO_COMPARTIDO, 'plataforma' => 'android', 'tokenPush' => 'fcm-de-lucia'])
+        ->assertStatus(200);
+
+    expect(abiertasDe(ReplicaDeEjemplo::MONICA))->toHaveCount(1)
+        ->and(abiertasDe(ReplicaDeEjemplo::MONICA)[0]->dispositivo())->toBeNull()
+        ->and(abiertasDe(LUCIA)[0]->tokenPush()?->valor())->toBe('fcm-de-lucia');
+});
+
+it('la misma persona que vuelve a entrar en el mismo telefono deja el dispositivo solo en la sesion nueva', function () {
+    entrarCon('70741828', ['instalacionId' => TELEFONO_COMPARTIDO, 'plataforma' => 'android', 'tokenPush' => 'fcm-viejo']);
+    entrarCon('70741828', ['instalacionId' => TELEFONO_COMPARTIDO, 'plataforma' => 'android', 'tokenPush' => 'fcm-nuevo']);
+
+    $conDispositivo = array_values(array_filter(
+        abiertasDe(ReplicaDeEjemplo::MONICA),
+        fn ($s): bool => $s->dispositivo() !== null,
+    ));
+
+    expect(abiertasDe(ReplicaDeEjemplo::MONICA))->toHaveCount(2)
+        ->and($conDispositivo)->toHaveCount(1)
+        ->and($conDispositivo[0]->tokenPush()?->valor())->toBe('fcm-nuevo');
 });

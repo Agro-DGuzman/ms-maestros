@@ -6,6 +6,7 @@ use Identidad\Application\Contracts\BovedaDeContrasenas;
 use Identidad\Application\Contracts\EmisorDeToken;
 use Identidad\Application\Contracts\EnviadorDeDesafio;
 use Identidad\Application\Contracts\VerificadorDeToken;
+use Identidad\Domain\Dispositivos\TokenPush;
 use Identidad\Domain\Sesiones\SesionRepository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Maestros\Domain\Contactos\IdDePersona;
@@ -130,4 +131,15 @@ it('si el numero pasa a estar en dos grupos no renueva', function () {
     $this->postJson('/v1/auth/refresh', ['refreshToken' => $refresh])
         ->assertStatus(401)
         ->assertJsonPath('error.code', ['REFRESH_TOKEN_INVALIDO']);
+});
+
+it('el logout borra el token push de la sesion (NP5)', function () {
+    $repo = app(SesionRepository::class);
+    $sesion = $repo->abiertasDe(IdDePersona::desde(ReplicaDeEjemplo::MONICA))[0];
+    $sesion->cambiarTokenPush(TokenPush::desde('fcm-token-de-prueba'), new DateTimeImmutable);
+    $repo->save($sesion);
+
+    $this->postJson('/v1/auth/logout', ['instalacionId' => INSTALACION_DEL_LOGIN], CABECERAS_DE_LOGOUT)->assertStatus(200);
+
+    expect($repo->find($sesion->idDeSesion())?->tokenPush())->toBeNull();
 });

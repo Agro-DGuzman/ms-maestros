@@ -15,5 +15,6 @@ final readonly class IniciarSesion implements Request, RequiereTransaccion
         public string $codigo,
         public ?string $instalacionId,
         public ?string $plataforma,
+        public ?string $tokenPush = null,
     ) {}
 }

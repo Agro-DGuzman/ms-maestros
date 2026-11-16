@@ -10,9 +10,11 @@ use DateTimeImmutable;
 use Identidad\Domain\Dispositivos\Dispositivo;
 use Identidad\Domain\Dispositivos\IdDeInstalacion;
 use Identidad\Domain\Dispositivos\Plataforma;
+use Identidad\Domain\Dispositivos\TokenPush;
 use Identidad\Domain\Sesiones\IdDeSesion;
 use Identidad\Domain\Sesiones\SesionDeAplicacion;
 use Identidad\Domain\Sesiones\SesionRepository;
+use Illuminate\Database\Eloquent\Builder;
 use Maestros\Domain\Contactos\IdDePersona;
 
 final class EloquentSesionRepository implements SesionRepository
@@ -61,16 +63,50 @@ final class EloquentSesionRepository implements SesionRepository
         return $record === null ? null : $this->aDominio($record);
     }
 
+    /** @return list<SesionDeAplicacion> */
+    public function abiertasConInstalacion(IdDeInstalacion $instalacion, DateTimeImmutable $ahora): array
+    {
+        return $this->abiertas(
+            SesionRecord::query()->where('id_de_instalacion', $instalacion->value()),
+            $ahora,
+        );
+    }
+
+    /** @return list<SesionDeAplicacion> */
+    public function abiertasConTokenPush(DateTimeImmutable $ahora): array
+    {
+        return $this->abiertas(SesionRecord::query()->whereNotNull('token_push'), $ahora);
+    }
+
+    /**
+     * @param  Builder<SesionRecord>  $consulta
+     * @return list<SesionDeAplicacion>
+     */
+    private function abiertas(Builder $consulta, DateTimeImmutable $ahora): array
+    {
+        return array_values(
+            $consulta
+                ->whereNull('cerrada_en')
+                ->where('expira_en', '>=', $ahora->format('Y-m-d H:i:s'))
+                ->orderBy('id_de_sesion')
+                ->get()
+                ->map(fn (SesionRecord $r): SesionDeAplicacion => $this->aDominio($r))
+                ->all(),
+        );
+    }
+
     private function aDominio(SesionRecord $record): SesionDeAplicacion
     {
         $instalacion = $record->id_de_instalacion;
         $plataforma = $record->plataforma;
+        $token = $record->token_push;
 
         $dispositivo = $instalacion === null || $plataforma === null
             ? null
             : Dispositivo::registrar(
                 IdDeInstalacion::desde((string) $instalacion),
                 Plataforma::from((string) $plataforma),
+                $token === null ? null : TokenPush::desde((string) $token),
             );
 
         return SesionDeAplicacion::reconstituir(
@@ -81,6 +117,7 @@ final class EloquentSesionRepository implements SesionRepository
             $record->expira_en->toDateTimeImmutable(),
             $record->cerrada_en?->toDateTimeImmutable(),
             $record->refresh_token_hash === null ? null : (string) $record->refresh_token_hash,
+            $record->token_push_actualizado_en?->toDateTimeImmutable(),
         );
     }
 
@@ -94,6 +131,8 @@ final class EloquentSesionRepository implements SesionRepository
             'id_de_persona' => $sesion->persona()->value(),
             'id_de_instalacion' => $dispositivo?->instalacion()->value(),
             'plataforma' => $dispositivo?->plataforma()->value,
+            'token_push' => $sesion->tokenPush()?->valor(),
+            'token_push_actualizado_en' => $sesion->tokenPushActualizadoEn()?->format('Y-m-d H:i:s'),
             'refresh_token_hash' => $sesion->refreshHash(),
             'iniciada_en' => $sesion->iniciadaEn()->format('Y-m-d H:i:s'),
             'expira_en' => $sesion->expiraEn()->format('Y-m-d H:i:s'),

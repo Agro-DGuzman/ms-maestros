@@ -17,6 +17,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property CarbonImmutable $iniciada_en
  * @property CarbonImmutable $expira_en
  * @property CarbonImmutable|null $cerrada_en
+ * @property string|null $token_push
+ * @property CarbonImmutable|null $token_push_actualizado_en
  */
 final class SesionRecord extends Model
 {
@@ -36,6 +38,7 @@ final class SesionRecord extends Model
         'iniciada_en' => 'immutable_datetime',
         'expira_en' => 'immutable_datetime',
         'cerrada_en' => 'immutable_datetime',
+        'token_push_actualizado_en' => 'immutable_datetime',
     ];
 
     public function getTable(): string

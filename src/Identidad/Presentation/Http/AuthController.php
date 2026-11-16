@@ -71,9 +71,11 @@ final readonly class AuthController
             'dispositivo' => ['nullable', 'array'],
             'dispositivo.instalacionId' => ['required_with:dispositivo', 'uuid'],
             'dispositivo.plataforma' => ['required_with:dispositivo', 'in:android,ios'],
+            // Opcional (NP2): una versión de la App que todavía no lo manda tiene que poder entrar.
+            'dispositivo.tokenPush' => ['nullable', 'string', 'max:4096', 'regex:/^\S+$/'],
         ]);
 
-        /** @var array{instalacionId?: string, plataforma?: string} $dispositivo */
+        /** @var array{instalacionId?: string, plataforma?: string, tokenPush?: string|null} $dispositivo */
         $dispositivo = $datos['dispositivo'] ?? [];
 
         $resultado = $this->mediator->send(new IniciarSesion(
@@ -81,6 +83,7 @@ final readonly class AuthController
             (string) $datos['codigo'],
             $dispositivo['instalacionId'] ?? null,
             $dispositivo['plataforma'] ?? null,
+            $dispositivo['tokenPush'] ?? null,
         ));
 
         if ($resultado->isFailure()) {
@@ -99,8 +102,8 @@ final readonly class AuthController
             'contexto' => $salida['contexto']->aArray(),
             'iniciadaEn' => self::instante($sesion->iniciadaEn()),
             'expiraEn' => self::instante($sesion->expiraEn()),
-            // No hay registro push propio: lo que se guarda es la instalación.
-            'dispositivoRegistrado' => $sesion->dispositivo() !== null,
+            // Registrar es guardar el token (NP3): sin él no hay a dónde mandar.
+            'dispositivoRegistrado' => $sesion->tokenPush() !== null,
         ]);
     }
 
