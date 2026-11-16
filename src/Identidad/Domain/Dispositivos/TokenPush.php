@@ -14,7 +14,8 @@ use Core\Results\DomainException;
  */
 final readonly class TokenPush
 {
-    private const int LARGO_MAXIMO = 4096;
+    /** Lo que entra en un NVARCHAR de SQL Server; los de Firebase rondan los 160. */
+    private const int LARGO_MAXIMO = 4000;
 
     private function __construct(private string $valor) {}
 

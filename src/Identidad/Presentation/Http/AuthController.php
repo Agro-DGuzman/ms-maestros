@@ -72,7 +72,7 @@ final readonly class AuthController
             'dispositivo.instalacionId' => ['required_with:dispositivo', 'uuid'],
             'dispositivo.plataforma' => ['required_with:dispositivo', 'in:android,ios'],
             // Opcional (NP2): una versión de la App que todavía no lo manda tiene que poder entrar.
-            'dispositivo.tokenPush' => ['nullable', 'string', 'max:4096', 'regex:/^\S+$/'],
+            'dispositivo.tokenPush' => ['nullable', 'string', 'max:4000', 'regex:/^\S+$/'],
         ]);
 
         /** @var array{instalacionId?: string, plataforma?: string, tokenPush?: string|null} $dispositivo */

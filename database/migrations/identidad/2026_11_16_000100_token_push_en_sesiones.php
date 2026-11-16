@@ -17,7 +17,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table($this->tabla('sesiones'), function (Blueprint $tabla): void {
-            $tabla->string('token_push', 4096)->nullable();
+            $tabla->string('token_push', 4000)->nullable();
             $tabla->dateTimeTz('token_push_actualizado_en')->nullable();
         });
     }

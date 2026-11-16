@@ -17,5 +17,9 @@ it('rechaza un token vacio, con espacios o demasiado largo', function (string $v
     'vacio' => [''],
     'solo espacios' => ['   '],
     'con un espacio' => ['con espacio'],
-    'de 4097 caracteres' => [str_repeat('a', 4097)],
+    'de 4001 caracteres, mas de lo que entra en un NVARCHAR de SQL Server' => [str_repeat('a', 4001)],
 ]);
+
+it('acepta hasta 4000 caracteres, lo que entra en la columna de SQL Server', function () {
+    expect(strlen(TokenPush::desde(str_repeat('a', 4000))->valor()))->toBe(4000);
+});
