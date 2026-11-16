@@ -194,6 +194,42 @@ la línea siguiente ya dice, sobra.
   - **`eventos:publicar-socios`** encola una vez todos los socios con línea y
     sin baja, en la puesta en marcha y después de que ms-comercial borre los
     suyos (paso 3 del 12.3 de su guía).
+- **Las notificaciones push salen de ms-maestros, por Firebase**
+  (`docs/superpowers/specs/2026-11-10-notificaciones-push-design.md`).
+  - **Todo push nace de un aviso de la bandeja de ms-comercial**, que llega como
+    `comercial.aviso.creado`: el texto es el de la bandeja. El catálogo también
+    pasa por ahí. La ingesta de productos publica `maestros.producto.nuevo`;
+    ms-comercial crea el aviso para todos y lo anuncia de vuelta (NP10).
+  - **Los destinatarios se calculan desde los teléfonos** (NP7): sesiones
+    abiertas con token, de personas cuyo contexto ve el socio del aviso —o que
+    entran a la App, si es de catálogo— y con la categoría prendida en su copia
+    de `comercial.preferencias.actualizadas`. El alcance queda en un solo lugar
+    y coincide con la bandeja.
+  - **Un aviso viejo no se manda** (NP13): leído hace más de 24 horas, o con
+    `fechaDelDocumento` anterior a ayer **en hora de Bolivia**. Se mira al
+    recibirlo y otra vez al mandarlo.
+  - **El token push nunca se escribe**: ni en un log ni en el trabajo encolado,
+    que lleva el id de la sesión y toma el token del momento. `TokenPush` no
+    tiene `__toString` a propósito.
+  - **Un teléfono es de una sola sesión** (NP4): quien entra en él le quita el
+    dispositivo a toda otra sesión abierta con esa instalación, también de otra
+    persona. El logout borra el token.
+  - **Los pushes van en la cola `push`**, y el `worker` corre
+    `queue:work --queue=default,push`: el código por WhatsApp va primero. Solo
+    el `worker` lleva `PUSH_DRIVER` (`log` o `firebase`), `FIREBASE_PROYECTO` y
+    `FIREBASE_CUENTA_DE_SERVICIO` (el JSON entero, como secreto).
+  - **`anunciado_el` marca el producto ya anunciado.** La migración marcó una
+    vez todo lo que existía; la marca nunca va en `maestros-productos.sql`,
+    que se vuelve a correr entero y marcaría productos todavía no vistos.
+  - **Las suscripciones filtran por tipo, nombrando cada uno**, nunca con un
+    comodín: un tipo nuevo del otro lado iría a mensajes muertos.
+    `sub-ms-comercial` deja pasar
+    `tipo LIKE 'maestros.socio.%' OR tipo = 'maestros.producto.nuevo'`, y
+    `sub-ms-maestros`,
+    `tipo LIKE 'comercial.propiedad.%' OR tipo = 'comercial.aviso.creado' OR tipo = 'comercial.preferencias.actualizadas'`.
+  - **El registro del token depende del contrato de la App**: el login ya
+    acepta `dispositivo.tokenPush`, pero el endpoint para cambiarlo sin cerrar
+    sesión (NP18) espera a que el visor lo agregue al contrato.
 - **Cada sección del back-office exige su `Permiso`** (`accesos`, `catalogo`)
   con `backoffice.permiso:<valor>`. Hoy los autenticadores de desarrollo y
   contraseña dan todos; cuando entre Entra, cada permiso tiene que salir de un
@@ -502,6 +538,28 @@ de un **usuario de sistema**: el temporal del panel de desarrolladores vence a
 las 24 horas y el envío deja de andar sin avisar. Un rechazo queda en el log
 del `worker` como `WhatsApp rechazó el envío`, con el código y el mensaje de
 error de Meta; una plantilla que no existe en ese idioma es el `132001`.
+
+### El push
+
+Con `PUSH_DRIVER=log` (el de local), cada push que saldría queda en el log del
+`worker` como `Push que se mandaría`, sin el token: alcanza para probar el bus,
+los destinatarios y la cola sin Firebase.
+
+`tests/Manual/probar-push.php` manda un push de prueba a un token, sin pasar
+por el bus, e imprime lo que respondió Firebase. Lee `FIREBASE_PROYECTO` y
+`FIREBASE_CUENTA_DE_SERVICIO` del `.env` y no mira `PUSH_DRIVER`. El token se
+pasa como argumento y no se imprime. En Windows, con el bundle de Git (ver «El
+bus de eventos»):
+
+```sh
+php -d curl.cainfo=<bundle> -d openssl.cafile=<bundle> tests/Manual/probar-push.php <token de Firebase>
+```
+
+**Que Firebase acepte no es que llegue**: la prueba es que la notificación
+aparezca en el teléfono. En iOS hace falta además la clave `.p8` de Apple
+cargada en el proyecto de Firebase. Un rechazo queda en el log del `worker`
+como `Firebase rechazó el push`, con el estado, el código de Firebase
+(`UNREGISTERED`, `SENDER_ID_MISMATCH`…) y el mensaje.
 
 ### El bus de eventos, contra Azure
 
