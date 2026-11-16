@@ -13,15 +13,17 @@ use Maestros\Application\Ingesta\RegistroDeEventos;
 use Maestros\Application\Ingesta\ReplicaDePropiedades;
 
 /**
- * Hoy ms-maestros escucha un solo tipo. Cualquier otro lanza: no se completa
- * y termina en mensajes muertos, en vez de registrarse como procesado sin
- * haberse aplicado.
+ * Maestros atiende las propiedades; lo demás que le llega lo delega en
+ * OtrosEventos, sin saber quién lo atiende. Un tipo que nadie atiende lanza:
+ * no se completa y termina en mensajes muertos, en vez de registrarse como
+ * procesado sin haberse aplicado.
  */
 final readonly class ProcesarEventoHandler implements RequestHandler
 {
     public function __construct(
         private RegistroDeEventos $registro,
         private ReplicaDePropiedades $propiedades,
+        private OtrosEventos $otros,
     ) {}
 
     public function handle(Request $peticion): Result
@@ -34,13 +36,15 @@ final readonly class ProcesarEventoHandler implements RequestHandler
             return ResultWithValue::of(ResultadoDelEvento::Duplicado);
         }
 
-        if ($sobre->tipo !== TraductorDePropiedad::TIPO) {
+        if ($sobre->tipo === TraductorDePropiedad::TIPO) {
+            $resultado = $this->propiedades->guardarSiEsMasNueva(TraductorDePropiedad::traducir($sobre))
+                ? ResultadoDelEvento::Aplicado
+                : ResultadoDelEvento::IgnoradoPorViejo;
+        } elseif ($this->otros->atiende($sobre->tipo)) {
+            $resultado = $this->otros->atender($sobre);
+        } else {
             throw EventoInvalido::sinTraductor($sobre->tipo);
         }
-
-        $resultado = $this->propiedades->guardarSiEsMasNueva(TraductorDePropiedad::traducir($sobre))
-            ? ResultadoDelEvento::Aplicado
-            : ResultadoDelEvento::IgnoradoPorViejo;
 
         $this->registro->registrar($sobre->eventoId, $sobre->tipo, $resultado);
 

@@ -9,8 +9,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Maestros\Application\Eventos\EventoInvalido;
 use Maestros\Application\Eventos\Sobre;
+use Maestros\Application\Ingesta\ProcesarEvento\OtrosEventos;
 use Maestros\Application\Ingesta\ProcesarEvento\ProcesarEvento;
 use Maestros\Application\Ingesta\ProcesarEvento\ResultadoDelEvento;
+use Tests\Dobles\OtrosEventosFalsos;
 use Tests\Dobles\VerificadorFalso;
 use Tests\Soporte\Contrato;
 use Tests\Soporte\PropiedadesDeEjemplo;
@@ -143,4 +145,36 @@ it('una inactiva por evento sale de la lista de la App', function () {
     $respuesta = $this->getJson('/v1/socios/C-004871/propiedades', ['Authorization' => 'Bearer token-bueno'])->assertStatus(200);
 
     expect($respuesta->json('data.items'))->toBe([['id' => 'PROP-007', 'nombre' => 'Lote 07 · Cuatro Cañadas']]);
+});
+
+it('un tipo que atiende otro modulo se delega y queda registrado', function () {
+    $otros = new OtrosEventosFalsos(['comercial.aviso.creado' => ResultadoDelEvento::Aplicado]);
+    app()->instance(OtrosEventos::class, $otros);
+
+    $resultado = procesarSobre(SobresDePropiedad::de(sobre: ['tipo' => 'comercial.aviso.creado']));
+
+    expect($resultado->value())->toBe(ResultadoDelEvento::Aplicado)
+        ->and($otros->atendidos)->toHaveCount(1)
+        ->and(DB::table('maestros_evento_procesado')->where('evento_id', $otros->atendidos[0]->eventoId)->value('tipo'))
+        ->toBe('comercial.aviso.creado');
+});
+
+it('un duplicado no le llega al otro modulo', function () {
+    $otros = new OtrosEventosFalsos(['comercial.aviso.creado' => ResultadoDelEvento::Aplicado]);
+    app()->instance(OtrosEventos::class, $otros);
+    $sobre = SobresDePropiedad::de(sobre: ['tipo' => 'comercial.aviso.creado']);
+
+    procesarSobre($sobre);
+    $segundo = procesarSobre($sobre);
+
+    expect($segundo->value())->toBe(ResultadoDelEvento::Duplicado)
+        ->and($otros->atendidos)->toHaveCount(1);
+});
+
+it('un tipo que ni Maestros ni el otro modulo atienden sigue siendo invalido', function () {
+    app()->instance(OtrosEventos::class, new OtrosEventosFalsos(['comercial.aviso.creado' => ResultadoDelEvento::Aplicado]));
+
+    expect(fn () => procesarSobre(SobresDePropiedad::de(sobre: ['tipo' => 'comercial.otra.cosa'])))
+        ->toThrow(EventoInvalido::class)
+        ->and(eventosProcesados())->toBe(0);
 });

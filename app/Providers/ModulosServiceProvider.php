@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Eventos\EventosDeIdentidad;
 use Identidad\Application\Auth\IniciarSesion\IniciarSesionHandler;
 use Identidad\Application\Auth\SolicitarDesafio\SolicitarDesafioHandler;
 use Identidad\Application\Contracts\BovedaDeContrasenas;
@@ -42,6 +43,7 @@ use Maestros\Application\Eventos\BuzonDeEntrada;
 use Maestros\Application\Eventos\PublicadorDeEventos;
 use Maestros\Application\Eventos\SalidaDeEventos;
 use Maestros\Application\Eventos\SaludDeLaBase;
+use Maestros\Application\Ingesta\ProcesarEvento\OtrosEventos;
 use Maestros\Application\Ingesta\RegistroDeEventos;
 use Maestros\Application\Ingesta\ReplicaDeProductos;
 use Maestros\Application\Ingesta\ReplicaDePropiedades;
@@ -91,6 +93,7 @@ final class ModulosServiceProvider extends ServiceProvider
         $this->app->bind(SalidaDeEventos::class, EloquentSalidaDeEventos::class);
         $this->app->bind(RegistroDeEventos::class, EloquentRegistroDeEventos::class);
         $this->app->bind(ReplicaDePropiedades::class, EloquentReplicaDePropiedades::class);
+        $this->app->bind(OtrosEventos::class, EventosDeIdentidad::class);
         $this->app->bind(SaludDeLaBase::class, SaludDeLaBaseEloquent::class);
 
         // Se arman al usarse: eventos:consumir comprueba antes que la
