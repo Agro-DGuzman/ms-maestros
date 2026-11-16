@@ -8,6 +8,7 @@ use App\Eventos\EventosDeIdentidad;
 use Identidad\Application\Auth\IniciarSesion\IniciarSesionHandler;
 use Identidad\Application\Auth\SolicitarDesafio\SolicitarDesafioHandler;
 use Identidad\Application\Contracts\BovedaDeContrasenas;
+use Identidad\Application\Contracts\ColaDePush;
 use Identidad\Application\Contracts\DespachadorDeDesafio;
 use Identidad\Application\Contracts\DirectorioDeContactos;
 use Identidad\Application\Contracts\DirectorioDeIdentidades;
@@ -29,6 +30,7 @@ use Identidad\Infrastructure\Persistence\BovedaCifrada;
 use Identidad\Infrastructure\Persistence\EloquentDesafioRepository;
 use Identidad\Infrastructure\Persistence\EloquentPreferenciasDePushRepository;
 use Identidad\Infrastructure\Persistence\EloquentSesionRepository;
+use Identidad\Infrastructure\Push\ColaDePushEnLaravel;
 use Identidad\Infrastructure\RelojReal;
 use Identidad\Infrastructure\Whatsapp\DespachadorEnCola;
 use Identidad\Infrastructure\Whatsapp\EnviadorCloudApi;
@@ -97,6 +99,7 @@ final class ModulosServiceProvider extends ServiceProvider
         $this->app->bind(ReplicaDePropiedades::class, EloquentReplicaDePropiedades::class);
         $this->app->bind(OtrosEventos::class, EventosDeIdentidad::class);
         $this->app->bind(PreferenciasDePushRepository::class, EloquentPreferenciasDePushRepository::class);
+        $this->app->bind(ColaDePush::class, ColaDePushEnLaravel::class);
         $this->app->bind(SaludDeLaBase::class, SaludDeLaBaseEloquent::class);
 
         // Se arman al usarse: eventos:consumir comprueba antes que la

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Eventos;
 
 use Core\Contracts\Mediator;
+use Core\Results\Result;
 use Core\Results\ResultWithValue;
 use LogicException;
 use Maestros\Application\Eventos\EventoInvalido;
@@ -19,7 +20,7 @@ use Maestros\Application\Ingesta\ProcesarEvento\ResultadoDelEvento;
  */
 final readonly class EventosDeIdentidad implements OtrosEventos
 {
-    private const array TIPOS = [TraductorDePreferencias::TIPO];
+    private const array TIPOS = [TraductorDePreferencias::TIPO, TraductorDeAviso::TIPO];
 
     public function __construct(private Mediator $mediator) {}
 
@@ -32,17 +33,31 @@ final readonly class EventosDeIdentidad implements OtrosEventos
     {
         return match ($sobre->tipo) {
             TraductorDePreferencias::TIPO => $this->foto($this->mediator->send(TraductorDePreferencias::traducir($sobre))),
+            // Un aviso es un hecho: queda aplicado aunque no le llegue a nadie (viejo, o sin destinatarios).
+            TraductorDeAviso::TIPO => $this->hecho($this->mediator->send(TraductorDeAviso::traducir($sobre))),
             default => throw EventoInvalido::sinTraductor($sobre->tipo),
         };
     }
 
     /** Una foto se aplica o se ignora por vieja. */
-    private function foto(mixed $resultado): ResultadoDelEvento
+    private function foto(Result $resultado): ResultadoDelEvento
+    {
+        return $this->valor($resultado) === true ? ResultadoDelEvento::Aplicado : ResultadoDelEvento::IgnoradoPorViejo;
+    }
+
+    private function hecho(Result $resultado): ResultadoDelEvento
+    {
+        $this->valor($resultado);
+
+        return ResultadoDelEvento::Aplicado;
+    }
+
+    private function valor(Result $resultado): mixed
     {
         if (! $resultado instanceof ResultWithValue || $resultado->isFailure()) {
-            throw new LogicException('Identidad no pudo registrar el evento');
+            throw new LogicException('Identidad no pudo atender el evento');
         }
 
-        return $resultado->value() === true ? ResultadoDelEvento::Aplicado : ResultadoDelEvento::IgnoradoPorViejo;
+        return $resultado->value();
     }
 }
