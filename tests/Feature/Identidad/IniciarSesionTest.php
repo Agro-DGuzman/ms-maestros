@@ -211,3 +211,17 @@ it('la misma persona que vuelve a entrar en el mismo telefono deja el dispositiv
         ->and($conDispositivo)->toHaveCount(1)
         ->and($conDispositivo[0]->tokenPush()?->valor())->toBe('fcm-nuevo');
 });
+
+it('un token que ya tenia otra persona en otra instalacion solo le queda a la sesion nueva', function () {
+    // Reinstalar la App da otra instalación, pero Firebase puede devolver el mismo
+    // token: si la sesión vieja lo conservara, el push de una persona sonaría en
+    // el teléfono de otra.
+    app(BovedaDeContrasenas::class)->guardar(IdDePersona::desde(LUCIA), 'otra-contrasena');
+    entrarCon('70741828', ['instalacionId' => TELEFONO_COMPARTIDO, 'plataforma' => 'android', 'tokenPush' => 'fcm-del-telefono']);
+
+    entrarCon('70223344', ['instalacionId' => '9a2b7c10-1d2e-4f3a-8b4c-5d6e7f8a9b0c', 'plataforma' => 'android', 'tokenPush' => 'fcm-del-telefono'])
+        ->assertStatus(200);
+
+    expect(abiertasDe(ReplicaDeEjemplo::MONICA)[0]->tokenPush())->toBeNull()
+        ->and(abiertasDe(LUCIA)[0]->tokenPush()?->valor())->toBe('fcm-del-telefono');
+});

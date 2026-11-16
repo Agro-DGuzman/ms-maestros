@@ -7,6 +7,7 @@ namespace Identidad\Domain\Sesiones;
 use Core\Contracts\Repository;
 use DateTimeImmutable;
 use Identidad\Domain\Dispositivos\IdDeInstalacion;
+use Identidad\Domain\Dispositivos\TokenPush;
 use Maestros\Domain\Contactos\IdDePersona;
 
 interface SesionRepository extends Repository
@@ -30,4 +31,13 @@ interface SesionRepository extends Repository
      * @return list<SesionDeAplicacion>
      */
     public function abiertasConTokenPush(DateTimeImmutable $ahora): array;
+
+    /**
+     * Las abiertas con ese mismo token, de cualquier persona: reinstalar la
+     * App da otra instalación, pero Firebase puede devolver el mismo token, y
+     * un token es de la última sesión que lo registró.
+     *
+     * @return list<SesionDeAplicacion>
+     */
+    public function abiertasConEsteTokenPush(TokenPush $token, DateTimeImmutable $ahora): array;
 }

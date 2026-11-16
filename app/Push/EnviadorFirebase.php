@@ -103,7 +103,9 @@ final readonly class EnviadorFirebase implements EnviadorDePush
         $reintentoIndicado = self::retryAfter($respuesta);
 
         return match (true) {
-            $codigo === 'UNREGISTERED' || $status === 404 => ResultadoDeEnvio::tokenMuerto(),
+            // Solo UNREGISTERED dice que el token murió: un proyecto mal escrito también da 404,
+            // y borrar ahí dejaría sin avisos a cada persona alcanzada.
+            $codigo === 'UNREGISTERED' => ResultadoDeEnvio::tokenMuerto(),
             $status === 429 => ResultadoDeEnvio::reintentarEn(max(self::ESPERA_POR_CUOTA, $reintentoIndicado ?? 0)),
             $status >= 500 => ResultadoDeEnvio::reintentarEn($reintentoIndicado),
             // UNAUTHENTICATED sin THIRD_PARTY_AUTH_ERROR es nuestro token de acceso: con otro, puede pasar.

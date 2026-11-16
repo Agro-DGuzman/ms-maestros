@@ -36,10 +36,23 @@ final class TraductorDeAviso
             throw EventoInvalido::porDatos('categoria no es una de las de la bandeja');
         }
 
-        $cardCode = $datos['cardCode'] ?? null;
+        // Las dos son obligatorias en el contrato, aunque valgan null: una que
+        // falta no se lee como null, porque cardCode null es «para todos».
+        foreach (['cardCode', 'fechaDelDocumento'] as $obligatorio) {
+            if (! array_key_exists($obligatorio, $datos)) {
+                throw EventoInvalido::porDatos("falta {$obligatorio}");
+            }
+        }
+
+        $cardCode = $datos['cardCode'];
 
         if ($cardCode !== null && (! is_string($cardCode) || trim($cardCode) === '')) {
             throw EventoInvalido::porDatos('cardCode tiene que ser texto o null');
+        }
+
+        // Solo el catálogo es para todos: una factura sin socio sonaría en cada teléfono.
+        if (($cardCode === null) !== ($categoria === CategoriaDeAviso::Catalogo)) {
+            throw EventoInvalido::porDatos('cardCode es null si y solo si el aviso es de catálogo');
         }
 
         return new AnunciarAviso(new AvisoParaPush(
@@ -49,7 +62,7 @@ final class TraductorDeAviso
             self::texto($datos, 'titulo', 65),
             self::texto($datos, 'cuerpo', 240),
             self::instante($datos['creadoEn'] ?? null),
-            self::fecha($datos['fechaDelDocumento'] ?? null),
+            self::fecha($datos['fechaDelDocumento']),
         ));
     }
 

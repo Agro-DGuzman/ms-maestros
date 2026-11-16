@@ -15,6 +15,7 @@ use Identidad\Domain\Sesiones\IdDeSesion;
 use Identidad\Domain\Sesiones\SesionDeAplicacion;
 use Identidad\Domain\Sesiones\SesionRepository;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\QueryException;
 use Maestros\Domain\Contactos\IdDePersona;
 
 final class EloquentSesionRepository implements SesionRepository
@@ -29,16 +30,37 @@ final class EloquentSesionRepository implements SesionRepository
     public function add(AggregateRoot $agregado): void
     {
         assert($agregado instanceof SesionDeAplicacion);
-        SesionRecord::query()->create($this->aFila($agregado));
+        self::sinValoresEnElError(fn () => SesionRecord::query()->create($this->aFila($agregado)));
     }
 
     public function save(AggregateRoot $agregado): void
     {
         assert($agregado instanceof SesionDeAplicacion);
-        SesionRecord::query()->updateOrCreate(
+        self::sinValoresEnElError(fn () => SesionRecord::query()->updateOrCreate(
             ['id_de_sesion' => $agregado->idDeSesion()->value()],
             $this->aFila($agregado),
-        );
+        ));
+    }
+
+    /**
+     * Laravel arma el mensaje de una QueryException con los valores de la
+     * consulta, y ese mensaje va al log: entre ellos está el token push, que no
+     * se escribe nunca (NP16). Se relanza la misma excepción con los valores
+     * tapados; el SQL y el error del motor siguen ahí.
+     */
+    private static function sinValoresEnElError(callable $escritura): void
+    {
+        try {
+            $escritura();
+        } catch (QueryException $e) {
+            throw new QueryException(
+                $e->getConnectionName(),
+                $e->getSql(),
+                $e->getBindings(),
+                $e->getPrevious() ?? $e,
+                maskBindings: true,
+            );
+        }
     }
 
     /** @return list<SesionDeAplicacion> */
@@ -76,6 +98,12 @@ final class EloquentSesionRepository implements SesionRepository
     public function abiertasConTokenPush(DateTimeImmutable $ahora): array
     {
         return $this->abiertas(SesionRecord::query()->whereNotNull('token_push'), $ahora);
+    }
+
+    /** @return list<SesionDeAplicacion> */
+    public function abiertasConEsteTokenPush(TokenPush $token, DateTimeImmutable $ahora): array
+    {
+        return $this->abiertas(SesionRecord::query()->where('token_push', $token->valor()), $ahora);
     }
 
     /**

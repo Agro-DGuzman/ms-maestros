@@ -86,6 +86,14 @@ it('cada respuesta de Firebase se clasifica como pide NP20', function (int $stat
     'INTERNAL' => [500, 'INTERNAL', 'INTERNAL', EstadoDeEnvio::Reintentar],
 ]);
 
+it('un 404 sin UNREGISTERED no borra el token', function () {
+    // Un proyecto mal escrito también responde 404: borrar el token ahí dejaría
+    // sin avisos a cada persona alcanzada, hasta que vuelva a entrar.
+    [$enviador] = firebaseQueResponde(['error' => ['code' => 404, 'status' => 'NOT_FOUND', 'message' => 'Requested entity was not found.']], 404);
+
+    expect($enviador->enviar(TokenPush::desde(TOKEN_DEL_TELEFONO), avisoDeFactura())->estado)->toBe(EstadoDeEnvio::Rechazado);
+});
+
 it('la cuota excedida espera al menos un minuto', function () {
     [$enviador] = firebaseQueResponde(errorDeFirebase(429, 'RESOURCE_EXHAUSTED', 'QUOTA_EXCEEDED'), 429, ['Retry-After' => '10']);
 

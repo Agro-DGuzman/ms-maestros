@@ -89,6 +89,18 @@ final readonly class IniciarSesionHandler implements RequestHandler
             }
         }
 
+        // Y el token también: reinstalar da otra instalación, pero Firebase puede
+        // devolver el mismo token, y entonces el push de quien estaba antes
+        // sonaría en el teléfono de quien entra.
+        $tokenPush = $dispositivo?->tokenPush();
+
+        if ($tokenPush !== null) {
+            foreach ($this->sesiones->abiertasConEsteTokenPush($tokenPush, $ahora) as $conElMismo) {
+                $conElMismo->quitarTokenPush();
+                $this->sesiones->save($conElMismo);
+            }
+        }
+
         $sesion = SesionDeAplicacion::abrir(
             IdDeSesion::nueva(),
             $persona,

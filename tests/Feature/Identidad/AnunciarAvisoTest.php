@@ -205,7 +205,23 @@ it('un aviso mal formado es invalido y no encola nada', function (array $datos, 
     'fecha del documento mal escrita' => [['fechaDelDocumento' => '16/11/2026'], []],
     'creadoEn sin zona' => [['creadoEn' => '2026-11-16T14:00:00'], []],
     'avisoId de 61 caracteres' => [['avisoId' => str_repeat('A', 61)], ['clave' => ['avisoId' => str_repeat('A', 61)]]],
+    // null es «para todos»: una factura con cardCode null sonaría en cada teléfono.
+    'una factura con cardCode null' => [['cardCode' => null], []],
+    'un aviso de catalogo con cardCode' => [['categoria' => 'catalogo', 'fechaDelDocumento' => null], []],
 ]);
+
+it('un aviso al que le falta cardCode o fechaDelDocumento es invalido, no un aviso para todos', function (string $falta) {
+    sesionConToken('monica', MONICA_PUSH, 'fcm-1');
+    sesionConToken('javier', JAVIER_PUSH, 'fcm-2');
+
+    $ejemplo = json_decode((string) file_get_contents(base_path('tests/Soporte/eventos/comercial-aviso-creado.json')), true);
+    $ejemplo['datos']['creadoEn'] = '2026-11-16T14:00:00.000000Z';
+    $ejemplo['datos']['fechaDelDocumento'] = '2026-11-16';
+    unset($ejemplo['datos'][$falta]);
+
+    expect(fn () => app(Mediator::class)->send(new ProcesarEvento(Sobre::desdeArreglo($ejemplo))))->toThrow(EventoInvalido::class)
+        ->and($this->cola->encolados)->toBe([]);
+})->with(['cardCode', 'fechaDelDocumento']);
 
 it('el trabajo real va a la cola push y no lleva el token', function () {
     Queue::fake();

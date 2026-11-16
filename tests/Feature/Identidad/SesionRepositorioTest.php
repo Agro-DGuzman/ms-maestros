@@ -9,7 +9,9 @@ use Identidad\Domain\Dispositivos\TokenPush;
 use Identidad\Domain\Sesiones\IdDeSesion;
 use Identidad\Domain\Sesiones\SesionDeAplicacion;
 use Identidad\Domain\Sesiones\SesionRepository;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Maestros\Domain\Contactos\IdDePersona;
 
 uses(RefreshDatabase::class);
@@ -119,4 +121,21 @@ it('abiertasConInstalacion trae las de cualquier persona con esa instalacion', f
     sort($ids);
 
     expect($ids)->toBe(['de-otra', 'de-una']);
+});
+
+it('si la base falla al guardar, el token push no queda en el mensaje del error', function () {
+    // Laravel arma el mensaje de una QueryException con los valores del INSERT,
+    // y ese mensaje va al log (NP16).
+    // Sin una columna, la consulta previa anda y el que falla es el INSERT, con el token entre sus valores.
+    Schema::table('identidad_sesiones', fn (Blueprint $t) => $t->dropColumn('plataforma'));
+
+    try {
+        sesionGuardada('s-1', 'n-59170741828', 'inst-1', 'fcm-token-de-prueba');
+        $mensaje = 'no lanzó';
+    } catch (Throwable $e) {
+        $mensaje = $e->getMessage();
+    }
+
+    expect($mensaje)->not->toBe('no lanzó')
+        ->and($mensaje)->not->toContain('fcm-token-de-prueba');
 });
