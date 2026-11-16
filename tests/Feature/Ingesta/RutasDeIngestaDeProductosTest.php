@@ -195,3 +195,63 @@ it('cada pedido deja su linea en el log', function () {
             && $contexto['eventoId'] === 5120,
     );
 });
+
+/** @return list<array<string, mixed>> los sobres de maestros.producto.nuevo que quedaron en el outbox */
+function productosAnunciados(): array
+{
+    return DB::table('maestros_evento_saliente')
+        ->where('tipo', 'maestros.producto.nuevo')
+        ->orderBy('creado_en')
+        ->pluck('sobre')
+        ->map(fn ($sobre): array => (array) json_decode((string) $sobre, true))
+        ->all();
+}
+
+it('un producto que llega visible por primera vez deja su evento en el outbox', function () {
+    crearProductoPorIngesta(['itemCode' => 'N-0001', 'nombre' => 'NUEVO 1 L'])->assertStatus(201);
+
+    expect(productosAnunciados())->toHaveCount(1)
+        ->and(productosAnunciados()[0]['datos'])->toBe([
+            'itemCode' => 'N-0001',
+            'nombre' => 'NUEVO 1 L',
+            'categoria' => ['codigo' => 'insecticidas', 'nombre' => 'Insecticidas'],
+        ])
+        ->and(columnasDelProducto('N-0001')['anunciado_el'])->not->toBeNull();
+});
+
+it('el mismo producto reenviado no se anuncia de nuevo', function () {
+    crearProductoPorIngesta(['itemCode' => 'N-0001'])->assertStatus(201);
+    reemplazarProductoPorIngesta('N-0001', ['itemCode' => 'N-0001', 'vigenteDesde' => '2026-10-17T12:00:00Z'])->assertStatus(200);
+
+    expect(productosAnunciados())->toHaveCount(1);
+});
+
+it('uno que llega inactivo no se anuncia, y se anuncia cuando se activa', function () {
+    crearProductoPorIngesta(['itemCode' => 'N-0001', 'activo' => false])->assertStatus(201);
+
+    expect(productosAnunciados())->toBe([]);
+
+    reemplazarProductoPorIngesta('N-0001', ['itemCode' => 'N-0001', 'activo' => true, 'vigenteDesde' => '2026-10-17T12:00:00Z'])->assertStatus(200);
+
+    expect(productosAnunciados())->toHaveCount(1);
+});
+
+it('uno que vuelve de una baja, ya anunciado, no se anuncia', function () {
+    crearProductoPorIngesta(['itemCode' => 'N-0001'])->assertStatus(201);
+    darDeBajaProductoPorIngesta('N-0001')->assertStatus(204);
+    crearProductoPorIngesta(['itemCode' => 'N-0001', 'vigenteDesde' => now()->addMinute()->toIso8601ZuluString()])->assertStatus(201);
+
+    expect(productosAnunciados())->toHaveCount(1);
+});
+
+it('un producto sin categoria no se anuncia', function () {
+    crearProductoPorIngesta(['itemCode' => 'N-0001', 'categoria' => null])->assertStatus(201);
+
+    expect(productosAnunciados())->toBe([]);
+});
+
+it('un producto que ya estaba en el catalogo antes no se anuncia al reemplazarse', function () {
+    reemplazarProductoPorIngesta('A-0142', ['itemCode' => 'A-0142', 'vigenteDesde' => '2026-10-17T12:00:00Z'])->assertStatus(200);
+
+    expect(productosAnunciados())->toBe([]);
+});

@@ -19,10 +19,8 @@ use Maestros\Application\Productos\TipoDeDocumento;
  * por `vigenteDesde`, con la misma regla que los socios, mientras la
  * descripción y los cuatro enlaces los carga el back-office.
  *
- * De eso cuelga `visibles()`, que es la única definición de lo que la App
- * muestra: activo, **sin baja**, con código de artículo y con una categoría que
- * existe. `ProductoAdministrable::porQueNoSeVe()` dice esa misma regla en
- * palabras, así que las dos se cambian juntas.
+ * Lo que la App muestra lo decide `VisibilidadDeProductos`, que también usa el
+ * anuncio de productos nuevos.
  */
 final class EloquentCatalogoDeProductos implements CatalogoDeProductos
 {
@@ -106,25 +104,9 @@ final class EloquentCatalogoDeProductos implements CatalogoDeProductos
         );
     }
 
-    /**
-     * La única definición de «lo que la App puede ver». El join interno con la
-     * categoría deja afuera tanto al producto sin categoría como a uno que
-     * apunte a una que no existe.
-     */
     private function visibles(): Builder
     {
-        return DB::table($this->tabla('producto').' as p')
-            ->join($this->tabla('categoria').' as c', 'c.codigo', '=', 'p.codigo_categoria')
-            ->where('p.activo', true)
-            ->whereNull('p.dado_de_baja_el')
-            ->whereNotNull('p.codigo_articulo')
-            ->select([
-                'p.id_producto', 'p.codigo_articulo', 'p.nombre', 'p.presentacion', 'p.imagen_url',
-                'p.descripcion', 'p.ingrediente_activo', 'p.formulacion', 'p.dosis_referencial',
-                'p.registro_entidad', 'p.registro_numero',
-                'p.ficha_tecnica_url', 'p.hoja_seguridad_url', 'p.registro_sanitario_url',
-                'c.codigo as categoria_codigo', 'c.nombre as categoria_nombre',
-            ]);
+        return VisibilidadDeProductos::consulta();
     }
 
     /**

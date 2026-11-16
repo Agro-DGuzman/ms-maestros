@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Soporte;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 /**
@@ -90,9 +91,19 @@ final class CatalogoDeEjemplo
         return DB::getDriverName() === 'sqlsrv' ? "maestros.{$nombre}" : "maestros_{$nombre}";
     }
 
-    /** @param array<string, mixed> $columnas */
+    /**
+     * El catálogo de ejemplo es el que ya existía cuando se migró: la
+     * migración lo marcó como anunciado (NP12). Sin la columna —la prueba de
+     * esa misma migración la quita— se siembra sin marca.
+     *
+     * @param  array<string, mixed>  $columnas
+     */
     private static function producto(array $columnas): int
     {
+        if (Schema::hasColumn(self::tabla('producto'), 'anunciado_el')) {
+            $columnas += ['anunciado_el' => '2026-11-01 00:00:00'];
+        }
+
         return (int) DB::table(self::tabla('producto'))->insertGetId($columnas, 'id_producto');
     }
 

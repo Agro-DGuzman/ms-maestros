@@ -138,3 +138,13 @@ ALTER TABLE maestros.producto ADD origen_esquema NVARCHAR(20) NULL;
 IF COL_LENGTH('maestros.producto', 'origen_evento_id') IS NULL
 ALTER TABLE maestros.producto ADD origen_evento_id BIGINT NULL;
 GO
+
+/* ---------- El anuncio de los productos nuevos -------------------------- */
+-- Cuándo se anunció el producto por el bus (maestros.producto.nuevo): la
+-- ingesta lo marca una sola vez, la primera vez que la App lo puede ver
+-- (NP11). Los que ya existían se marcan en la migración que agrega esta
+-- columna, nunca acá: el script se vuelve a correr entero cada vez que se
+-- toca, y marcaría como anunciados productos que todavía no se vieron.
+IF COL_LENGTH('maestros.producto', 'anunciado_el') IS NULL
+ALTER TABLE maestros.producto ADD anunciado_el DATETIMEOFFSET NULL;
+GO

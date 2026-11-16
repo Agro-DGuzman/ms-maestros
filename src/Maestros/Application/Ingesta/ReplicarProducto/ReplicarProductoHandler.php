@@ -8,6 +8,8 @@ use Core\Contracts\Request;
 use Core\Contracts\RequestHandler;
 use Core\Results\Result;
 use Core\Results\ResultWithValue;
+use Maestros\Application\Eventos\ProductoNuevo;
+use Maestros\Application\Eventos\SalidaDeEventos;
 use Maestros\Application\Ingesta\EstadoDeProductoReplicado;
 use Maestros\Application\Ingesta\IngestaErrors;
 use Maestros\Application\Ingesta\OperacionDeIngesta;
@@ -25,7 +27,10 @@ use Maestros\Application\Ingesta\Vigencia;
  */
 final readonly class ReplicarProductoHandler implements RequestHandler
 {
-    public function __construct(private ReplicaDeProductos $productos) {}
+    public function __construct(
+        private ReplicaDeProductos $productos,
+        private SalidaDeEventos $salida,
+    ) {}
 
     public function handle(Request $peticion): Result
     {
@@ -58,6 +63,14 @@ final readonly class ReplicarProductoHandler implements RequestHandler
         }
 
         $this->productos->replicar($cuerpo);
+
+        // En la misma transacción que lo vuelve visible: si el outbox falla,
+        // no queda un producto anunciado sin su evento (NP11).
+        $anunciado = $this->productos->anunciarSiEsNuevo($cuerpo->itemCode, $cuerpo->vigenteDesde);
+
+        if ($anunciado !== null) {
+            $this->salida->registrar(ProductoNuevo::de($anunciado, $cuerpo->vigenteDesde));
+        }
 
         return ResultWithValue::of(ResultadoDeIngesta::Aplicado);
     }

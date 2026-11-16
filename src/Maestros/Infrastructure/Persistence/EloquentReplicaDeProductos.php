@@ -9,6 +9,7 @@ use DateTimeImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Maestros\Application\Ingesta\EstadoDeProductoReplicado;
+use Maestros\Application\Ingesta\ProductoAnunciado;
 use Maestros\Application\Ingesta\ProductoIngresado;
 use Maestros\Application\Ingesta\ReplicaDeProductos;
 
@@ -100,6 +101,46 @@ final class EloquentReplicaDeProductos implements ReplicaDeProductos
             'vigente_desde' => self::enUtc($momento),
             'actualizado_en' => now(),
         ]);
+    }
+
+    public function anunciarSiEsNuevo(string $itemCode, DateTimeImmutable $momento): ?ProductoAnunciado
+    {
+        $fila = VisibilidadDeProductos::consulta()
+            ->where('p.codigo_articulo', $itemCode)
+            ->whereNull('p.anunciado_el')
+            ->first();
+
+        if ($fila === null) {
+            return null;
+        }
+
+        $columnas = (array) $fila;
+
+        // El whereNull repetido es la garantía de «una sola vez»: si otro
+        // envío lo marcó entre la consulta y esta escritura, no toca nada.
+        $marcadas = DB::table($this->tabla('producto'))
+            ->where('id_producto', $columnas['id_producto'])
+            ->whereNull('anunciado_el')
+            ->update(['anunciado_el' => self::enUtc($momento)]);
+
+        if ($marcadas !== 1) {
+            return null;
+        }
+
+        return new ProductoAnunciado(
+            $itemCode,
+            self::texto($columnas, 'nombre'),
+            self::texto($columnas, 'categoria_codigo'),
+            self::texto($columnas, 'categoria_nombre'),
+        );
+    }
+
+    /** @param array<string, mixed> $columnas */
+    private static function texto(array $columnas, string $clave): string
+    {
+        $valor = $columnas[$clave] ?? '';
+
+        return is_string($valor) ? $valor : '';
     }
 
     /**
