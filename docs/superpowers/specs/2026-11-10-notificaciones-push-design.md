@@ -93,7 +93,7 @@ Lo que dijo el usuario:
 | NP10 | **El catálogo también pasa por la bandeja.** ms-maestros publica `maestros.producto.nuevo`; ms-comercial crea el aviso para todos y publica su `comercial.aviso.creado`; ms-maestros manda el push con eso. | Así todo push nace de un aviso de la bandeja, con el mismo id y el mismo texto, y hay un solo camino de envío. |
 | NP11 | **Un producto es nuevo la primera vez que la App lo ve**: activo, sin baja, con código de artículo y con categoría. Una columna `anunciado_el` en `maestros.producto` lo marca una sola vez, en la misma transacción de la ingesta que lo vuelve visible, y el evento sale por el outbox. Un producto que vuelve de una baja no se anuncia. | La visibilidad solo cambia por la ingesta: el back-office toca la descripción y los enlaces, que no la deciden. |
 | NP12 | **La migración marca como anunciados todos los productos que ya existen, visibles o no.** Solo se anuncia un artículo que llega por primera vez después de la migración. *(Ampliada el 13/11: antes marcaba solo los visibles.)* | Si no, el primer envío de SAP anunciaría los 226 productos de la carga inicial. Y uno de los 5 inactivos que se reactive, o uno que reciba su categoría, se anunciaría como nuevo sin serlo. |
-| NP13 | **Un aviso con más de 24 horas no se manda por push**: queda solo en la bandeja. Se mira al recibir el evento **y otra vez antes de cada envío**, así un reintento tardío tampoco lo manda. Las 24 horas se cuentan desde el `creadoEn` del aviso, que en ms-comercial es el `ocurridoEn` del documento —la factura, el pago, el informe—, no el momento en que se creó la fila (verificado en `Aviso::deFactura()` el 13/11). | Que un bus caído o un Firebase caído no hagan sonar el teléfono por cosas viejas al volver. Como la fecha es la del documento, también frena un atraso del Sincronizador. |
+| NP13 | **Un aviso viejo no se manda por push**: queda solo en la bandeja. Se mira al recibir el evento **y otra vez antes de cada envío**, así un reintento tardío tampoco lo manda. Un aviso es viejo si se cumple cualquiera de estas dos condiciones: **su `creadoEn` tiene más de 24 horas**, o **su `fechaDelDocumento` es anterior a ayer** en hora de Bolivia. Con `fechaDelDocumento` en `null` (el catálogo, o un informe sin fecha de visita) vale solo la primera. *(Corregida el 16/11: el `creadoEn` no es la fecha del documento sino el instante en que el Sincronizador leyó SAP, según ms-comercial; y `fechaDelDocumento` entró a pedido de ms-maestros.)* | Las 24 horas frenan un bus o un Firebase caídos. La fecha del documento frena lo que las 24 horas no ven: un atraso del Sincronizador o una carga masiva, cuyos avisos nacen con la hora de la lectura. **Consecuencia aceptada:** una factura cargada en SAP con fecha de hace más de un día queda solo en la bandeja. |
 | NP14 | **El envío va encolado, un trabajo por teléfono.** Al procesar `comercial.aviso.creado`, el consumidor calcula los destinatarios, registra el evento y encola un trabajo por cada token, todo en la misma transacción. El `worker` los corre. *(Cambió el 13/11: antes era un trabajo por aviso.)* | El consumidor es de una réplica y no debe trabarse esperando a Firebase. Firebase manda de a un token por pedido: con un trabajo por aviso, reintentarlo le repetiría el push a quien ya lo recibió. |
 | NP15 | **Un driver `log` para local**, como WhatsApp: `PUSH_DRIVER=log` escribe en el log lo que se mandaría, sin el token. `firebase` es el real. | Se prueba todo sin Firebase y sin teléfono. |
 | NP16 | **Si Firebase rechaza un envío, el log guarda su motivo**: el estado HTTP, el código de error de Firebase (`UNREGISTERED`, `INVALID_ARGUMENT`…) y el mensaje. **Nunca se escribe el token push**, ni en el log ni en el contexto de un trabajo fallido. | Lo que aprendimos con el bus y con WhatsApp: un rechazo sin motivo obliga a adivinar. |
@@ -146,7 +146,8 @@ datos:
   cardCode:  CardCode | null   # null: aviso para todos (catálogo)
   titulo:    string, 1..65
   cuerpo:    string, 1..240
-  creadoEn:  date-time         # el creadoEn del aviso: el ocurridoEn del documento (NP13)
+  creadoEn:  date-time         # el instante en que el Sincronizador leyó SAP; igual al ocurridoEn del sobre
+  fechaDelDocumento: date | null   # en hora de Bolivia; null en catálogo y en un informe sin fecha (NP13, 16/11)
 
 # comercial.preferencias.actualizadas — foto completa; `ocurridoEn` ordena (NP8).
 clave: { objeto: preferencias, persona }
@@ -240,6 +241,14 @@ Lo hace la sesión de ms-comercial; esta entrega depende de ello.
   trabajo lleva la sesión y no el token) y NP23 (una cola propia); la forma propuesta de los eventos y del contrato
   en §6; y en NP7 y NP13, lo verificado en el código de ms-comercial.
 - **El push del estado de cuenta se reconsideró el 13/11** y sigue afuera, por la misma razón del 10/11.
+- **El 16/11, con la respuesta de ms-comercial**
+  (`ms-comercial/docs/superpowers/handoffs/2026-11-16-respuesta-de-ms-comercial-push.md`):
+  - NP13 se corrige: el `creadoEn` del aviso es la hora de lectura del Sincronizador, no la del documento.
+  - El usuario pidió sumar `fechaDelDocumento` al evento para frenar los atrasos.
+  - Su contrato de eventos ya trae los tres tipos, y se copia tal cual. Detalles:
+    - `avisoId` hasta 60 caracteres;
+    - `cardCode` en `null` en el catálogo;
+    - los textos se cortan con «…».
 
 ## 10. Lo que tiene que decidir alguien más
 
