@@ -16,6 +16,7 @@ use Identidad\Application\Contracts\EnviadorDeDesafio;
 use Identidad\Application\Contracts\RelojDelSistema;
 use Identidad\Application\Contracts\VerificadorDeToken;
 use Identidad\Domain\Desafios\DesafioRepository;
+use Identidad\Domain\Push\PreferenciasDePushRepository;
 use Identidad\Domain\Sesiones\SesionRepository;
 use Identidad\Infrastructure\Habilitacion\ConciliarIdentidadesCommand;
 use Identidad\Infrastructure\Habilitacion\DeshabilitarPersonaCommand;
@@ -26,6 +27,7 @@ use Identidad\Infrastructure\Keycloak\VerificadorJwks;
 use Identidad\Infrastructure\Maestros\DirectorioDeContactosEnProceso;
 use Identidad\Infrastructure\Persistence\BovedaCifrada;
 use Identidad\Infrastructure\Persistence\EloquentDesafioRepository;
+use Identidad\Infrastructure\Persistence\EloquentPreferenciasDePushRepository;
 use Identidad\Infrastructure\Persistence\EloquentSesionRepository;
 use Identidad\Infrastructure\RelojReal;
 use Identidad\Infrastructure\Whatsapp\DespachadorEnCola;
@@ -94,6 +96,7 @@ final class ModulosServiceProvider extends ServiceProvider
         $this->app->bind(RegistroDeEventos::class, EloquentRegistroDeEventos::class);
         $this->app->bind(ReplicaDePropiedades::class, EloquentReplicaDePropiedades::class);
         $this->app->bind(OtrosEventos::class, EventosDeIdentidad::class);
+        $this->app->bind(PreferenciasDePushRepository::class, EloquentPreferenciasDePushRepository::class);
         $this->app->bind(SaludDeLaBase::class, SaludDeLaBaseEloquent::class);
 
         // Se arman al usarse: eventos:consumir comprueba antes que la

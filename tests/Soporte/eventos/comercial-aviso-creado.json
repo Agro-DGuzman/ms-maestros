@@ -1,0 +1,17 @@
+{
+  "eventoId": "3c9a7e21-5b4d-4f6a-8e2c-9d1b0a7f6e54",
+  "tipo": "comercial.aviso.creado",
+  "ocurridoEn": "2026-10-10T15:30:00.000000Z",
+  "origen": "ms-comercial",
+  "clave": { "objeto": "aviso", "avisoId": "AV-F-1990" },
+  "version": 1,
+  "datos": {
+    "avisoId": "AV-F-1990",
+    "categoria": "factura",
+    "cardCode": "C-004871",
+    "titulo": "Factura N° 1990 disponible",
+    "cuerpo": "Ya puedes ver la factura de Sebastian Monasterio.",
+    "fechaDelDocumento": "2026-10-10",
+    "creadoEn": "2026-10-10T15:30:00.000000Z"
+  }
+}

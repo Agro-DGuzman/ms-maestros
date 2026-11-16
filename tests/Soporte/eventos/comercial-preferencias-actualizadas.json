@@ -1,0 +1,15 @@
+{
+  "eventoId": "b8e4f2c1-6a3d-4b9e-a7f5-2c8d1e0b9a43",
+  "tipo": "comercial.preferencias.actualizadas",
+  "ocurridoEn": "2026-10-11T18:00:00.000000Z",
+  "origen": "ms-comercial",
+  "clave": { "objeto": "preferencias", "persona": "n-59170000000" },
+  "version": 1,
+  "datos": {
+    "persona": "n-59170000000",
+    "facturas": true,
+    "pagos": false,
+    "reportes": true,
+    "catalogo": true
+  }
+}

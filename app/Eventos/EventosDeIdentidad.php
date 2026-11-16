@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Eventos;
 
+use Core\Contracts\Mediator;
+use Core\Results\ResultWithValue;
 use LogicException;
+use Maestros\Application\Eventos\EventoInvalido;
 use Maestros\Application\Eventos\Sobre;
 use Maestros\Application\Ingesta\ProcesarEvento\OtrosEventos;
 use Maestros\Application\Ingesta\ProcesarEvento\ResultadoDelEvento;
@@ -16,13 +19,30 @@ use Maestros\Application\Ingesta\ProcesarEvento\ResultadoDelEvento;
  */
 final readonly class EventosDeIdentidad implements OtrosEventos
 {
+    private const array TIPOS = [TraductorDePreferencias::TIPO];
+
+    public function __construct(private Mediator $mediator) {}
+
     public function atiende(string $tipo): bool
     {
-        return false;
+        return in_array($tipo, self::TIPOS, true);
     }
 
     public function atender(Sobre $sobre): ResultadoDelEvento
     {
-        throw new LogicException("EventosDeIdentidad no atiende {$sobre->tipo}");
+        return match ($sobre->tipo) {
+            TraductorDePreferencias::TIPO => $this->foto($this->mediator->send(TraductorDePreferencias::traducir($sobre))),
+            default => throw EventoInvalido::sinTraductor($sobre->tipo),
+        };
+    }
+
+    /** Una foto se aplica o se ignora por vieja. */
+    private function foto(mixed $resultado): ResultadoDelEvento
+    {
+        if (! $resultado instanceof ResultWithValue || $resultado->isFailure()) {
+            throw new LogicException('Identidad no pudo registrar el evento');
+        }
+
+        return $resultado->value() === true ? ResultadoDelEvento::Aplicado : ResultadoDelEvento::IgnoradoPorViejo;
     }
 }
