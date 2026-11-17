@@ -46,12 +46,18 @@ final class EloquentSesionRepository implements SesionRepository
      * Laravel arma el mensaje de una QueryException con los valores de la
      * consulta, y ese mensaje va al log: entre ellos está el token push, que no
      * se escribe nunca (NP16). Se relanza la misma excepción con los valores
-     * tapados; el SQL y el error del motor siguen ahí.
+     * tapados; el SQL y el error del motor siguen ahí. Va en toda consulta que
+     * lleva el token, también en las que solo leen.
+     *
+     * @template T
+     *
+     * @param  callable(): T  $consulta
+     * @return T
      */
-    private static function sinValoresEnElError(callable $escritura): void
+    private static function sinValoresEnElError(callable $consulta): mixed
     {
         try {
-            $escritura();
+            return $consulta();
         } catch (QueryException $e) {
             throw new QueryException(
                 $e->getConnectionName(),
@@ -103,7 +109,46 @@ final class EloquentSesionRepository implements SesionRepository
     /** @return list<SesionDeAplicacion> */
     public function abiertasConEsteTokenPush(TokenPush $token, DateTimeImmutable $ahora): array
     {
-        return $this->abiertas(SesionRecord::query()->where('token_push', $token->valor()), $ahora);
+        return self::sinValoresEnElError(
+            fn (): array => $this->abiertas(SesionRecord::query()->where('token_push', $token->valor()), $ahora),
+        );
+    }
+
+    public function guardarTokenPushSiSigueAbierta(SesionDeAplicacion $sesion, DateTimeImmutable $ahora): bool
+    {
+        $instalacion = $sesion->dispositivo()?->instalacion()->value();
+
+        if ($instalacion === null) {
+            return false;
+        }
+
+        $cambiadas = self::sinValoresEnElError(fn (): int => SesionRecord::query()
+            ->where('id_de_sesion', $sesion->idDeSesion()->value())
+            ->where('id_de_instalacion', $instalacion)
+            ->whereNull('cerrada_en')
+            ->where('expira_en', '>=', $ahora->format('Y-m-d H:i:s'))
+            ->update([
+                'token_push' => $sesion->tokenPush()?->valor(),
+                'token_push_actualizado_en' => $sesion->tokenPushActualizadoEn()?->format('Y-m-d H:i:s'),
+            ]));
+
+        return $cambiadas > 0;
+    }
+
+    public function quitarEsteTokenPushDeOtras(TokenPush $token, IdDeSesion $excepto): void
+    {
+        self::sinValoresEnElError(fn (): int => SesionRecord::query()
+            ->where('token_push', $token->valor())
+            ->where('id_de_sesion', '<>', $excepto->value())
+            ->update(['token_push' => null, 'token_push_actualizado_en' => null]));
+    }
+
+    public function quitarTokenPushSiSigueSiendo(IdDeSesion $sesion, TokenPush $token): void
+    {
+        self::sinValoresEnElError(fn (): int => SesionRecord::query()
+            ->where('id_de_sesion', $sesion->value())
+            ->where('token_push', $token->valor())
+            ->update(['token_push' => null, 'token_push_actualizado_en' => null]));
     }
 
     /**

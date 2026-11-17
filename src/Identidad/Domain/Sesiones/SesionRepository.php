@@ -40,4 +40,23 @@ interface SesionRepository extends Repository
      * @return list<SesionDeAplicacion>
      */
     public function abiertasConEsteTokenPush(TokenPush $token, DateTimeImmutable $ahora): array;
+
+    /*
+     * Los tres que siguen cambian solo el token y solo si la fila sigue como
+     * se la leyó. Guardar la sesión entera pisaría lo que otro pedido confirmó
+     * mientras tanto: un logout quedaría deshecho, o un token recién
+     * registrado, borrado.
+     */
+
+    /**
+     * Escribe el token de la sesión si sigue abierta y con la misma
+     * instalación. Dice si lo escribió.
+     */
+    public function guardarTokenPushSiSigueAbierta(SesionDeAplicacion $sesion, DateTimeImmutable $ahora): bool;
+
+    /** Un token es de la última sesión que lo registró: se lo quita a todas las demás, de cualquier persona. */
+    public function quitarEsteTokenPushDeOtras(TokenPush $token, IdDeSesion $excepto): void;
+
+    /** Borra el token de la sesión solo si sigue siendo ese: el que Firebase dio por muerto. */
+    public function quitarTokenPushSiSigueSiendo(IdDeSesion $sesion, TokenPush $token): void;
 }

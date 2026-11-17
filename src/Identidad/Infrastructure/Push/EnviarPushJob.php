@@ -71,9 +71,10 @@ final class EnviarPushJob implements ShouldQueue
 
         $resultado = $enviador->enviar($token, $aviso);
 
+        // Solo si sigue siendo el que murió: Firebase lo da por muerto al
+        // rotarlo, y la App pudo haber registrado el nuevo mientras tanto (NP18).
         if ($resultado->estado === EstadoDeEnvio::TokenMuerto) {
-            $sesion->quitarTokenPush();
-            $sesiones->save($sesion);
+            $sesiones->quitarTokenPushSiSigueSiendo($sesion->idDeSesion(), $token);
         }
 
         if ($resultado->estado === EstadoDeEnvio::Reintentar) {

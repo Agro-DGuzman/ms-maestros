@@ -123,6 +123,102 @@ it('abiertasConInstalacion trae las de cualquier persona con esa instalacion', f
     expect($ids)->toBe(['de-otra', 'de-una']);
 });
 
+it('guarda el token nuevo de una sesion que sigue abierta', function () {
+    $repo = app(SesionRepository::class);
+    $sesion = sesionGuardada('s-1', 'n-59170741828', 'inst-1');
+    $sesion->cambiarTokenPush(TokenPush::desde('fcm-nuevo'), new DateTimeImmutable('2026-11-17T12:00:00Z'));
+
+    expect($repo->guardarTokenPushSiSigueAbierta($sesion, new DateTimeImmutable('2026-11-17T12:00:00Z')))->toBeTrue()
+        ->and($repo->find($sesion->idDeSesion())?->tokenPush()?->valor())->toBe('fcm-nuevo');
+});
+
+it('no reabre una sesion que se cerro despues de leerla', function () {
+    $repo = app(SesionRepository::class);
+    sesionGuardada('s-1', 'n-59170741828', 'inst-1');
+    $leida = $repo->find(IdDeSesion::desde('s-1'));
+
+    $cerrada = $repo->find(IdDeSesion::desde('s-1'));
+    $cerrada?->cerrar(new DateTimeImmutable('2026-11-17T12:00:00Z'));
+    $repo->save($cerrada);
+
+    $leida?->cambiarTokenPush(TokenPush::desde('fcm-nuevo'), new DateTimeImmutable('2026-11-17T12:00:01Z'));
+
+    expect($repo->guardarTokenPushSiSigueAbierta($leida, new DateTimeImmutable('2026-11-17T12:00:01Z')))->toBeFalse()
+        ->and($repo->find(IdDeSesion::desde('s-1'))?->cerradaEn())->not->toBeNull()
+        ->and($repo->find(IdDeSesion::desde('s-1'))?->tokenPush())->toBeNull();
+});
+
+it('no guarda el token si el telefono paso a otra sesion despues de leerla', function () {
+    $repo = app(SesionRepository::class);
+    sesionGuardada('s-1', 'n-59170741828', 'inst-1');
+    $leida = $repo->find(IdDeSesion::desde('s-1'));
+
+    $desvinculada = $repo->find(IdDeSesion::desde('s-1'));
+    $desvinculada?->desvincularDispositivo();
+    $repo->save($desvinculada);
+
+    $leida?->cambiarTokenPush(TokenPush::desde('fcm-nuevo'), new DateTimeImmutable('2026-11-17T12:00:00Z'));
+
+    expect($repo->guardarTokenPushSiSigueAbierta($leida, new DateTimeImmutable('2026-11-17T12:00:00Z')))->toBeFalse()
+        ->and($repo->find(IdDeSesion::desde('s-1'))?->dispositivo())->toBeNull();
+});
+
+it('quitarEsteTokenPushDeOtras se lo quita a las de cualquier persona, menos a la indicada', function () {
+    $repo = app(SesionRepository::class);
+    sesionGuardada('mia', 'n-59170741828', 'inst-1', 'fcm-repetido');
+    sesionGuardada('de-otra', 'n-59171112233', 'inst-2', 'fcm-repetido');
+    sesionGuardada('con-otro', 'n-59171112233', 'inst-3', 'fcm-distinto');
+
+    $repo->quitarEsteTokenPushDeOtras(TokenPush::desde('fcm-repetido'), IdDeSesion::desde('mia'));
+
+    expect($repo->find(IdDeSesion::desde('mia'))?->tokenPush()?->valor())->toBe('fcm-repetido')
+        ->and($repo->find(IdDeSesion::desde('de-otra'))?->tokenPush())->toBeNull()
+        ->and($repo->find(IdDeSesion::desde('de-otra'))?->cerradaEn())->toBeNull()
+        ->and($repo->find(IdDeSesion::desde('con-otro'))?->tokenPush()?->valor())->toBe('fcm-distinto');
+});
+
+it('quitarTokenPushSiSigueSiendo no borra un token que ya cambio', function () {
+    $repo = app(SesionRepository::class);
+    sesionGuardada('s-1', 'n-59170741828', 'inst-1', 'fcm-rotado');
+
+    $repo->quitarTokenPushSiSigueSiendo(IdDeSesion::desde('s-1'), TokenPush::desde('fcm-viejo'));
+    expect($repo->find(IdDeSesion::desde('s-1'))?->tokenPush()?->valor())->toBe('fcm-rotado');
+
+    $repo->quitarTokenPushSiSigueSiendo(IdDeSesion::desde('s-1'), TokenPush::desde('fcm-rotado'));
+    expect($repo->find(IdDeSesion::desde('s-1'))?->tokenPush())->toBeNull();
+});
+
+it('si la base falla en una consulta con el token, el token no queda en el mensaje del error', function (Closure $consulta) {
+    // Toda consulta que lleva el token entre sus valores, no solo las que
+    // guardan: Laravel arma el mensaje con ellos y ese mensaje va al log (NP16).
+    Schema::rename('identidad_sesiones', 'identidad_sesiones_fuera');
+
+    try {
+        $consulta(app(SesionRepository::class), TokenPush::desde('fcm-token-de-prueba'));
+        $mensaje = 'no lanzó';
+    } catch (Throwable $e) {
+        $mensaje = $e->getMessage();
+    }
+
+    expect($mensaje)->not->toBe('no lanzó')
+        ->and($mensaje)->not->toContain('fcm-token-de-prueba');
+})->with([
+    'abiertasConEsteTokenPush' => [fn (SesionRepository $r, TokenPush $t) => $r->abiertasConEsteTokenPush($t, new DateTimeImmutable)],
+    'quitarEsteTokenPushDeOtras' => [fn (SesionRepository $r, TokenPush $t) => $r->quitarEsteTokenPushDeOtras($t, IdDeSesion::desde('s-1'))],
+    'quitarTokenPushSiSigueSiendo' => [fn (SesionRepository $r, TokenPush $t) => $r->quitarTokenPushSiSigueSiendo(IdDeSesion::desde('s-1'), $t)],
+    'guardarTokenPushSiSigueAbierta' => [function (SesionRepository $r, TokenPush $t) {
+        $sesion = SesionDeAplicacion::abrir(
+            IdDeSesion::desde('s-1'),
+            IdDePersona::desde('n-59170741828'),
+            Dispositivo::registrar(IdDeInstalacion::desde('inst-1'), Plataforma::Android, $t),
+            new DateTimeImmutable('2026-11-16T12:00:00Z'),
+            new DateTimeImmutable('2036-11-16T12:00:00Z'),
+        );
+
+        return $r->guardarTokenPushSiSigueAbierta($sesion, new DateTimeImmutable);
+    }],
+]);
+
 it('si la base falla al guardar, el token push no queda en el mensaje del error', function () {
     // Laravel arma el mensaje de una QueryException con los valores del INSERT,
     // y ese mensaje va al log (NP16).

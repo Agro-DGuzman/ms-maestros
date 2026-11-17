@@ -34,17 +34,17 @@ final readonly class CambiarTokenPushHandler implements RequestHandler
                 continue;
             }
 
-            // Igual que en el login: un token es de la última sesión que lo
-            // registró, o el push de otra sonaría en este teléfono.
-            foreach ($this->sesiones->abiertasConEsteTokenPush($token, $ahora) as $conElMismo) {
-                if (! $conElMismo->idDeSesion()->equals($sesion->idDeSesion())) {
-                    $conElMismo->quitarTokenPush();
-                    $this->sesiones->save($conElMismo);
-                }
+            $sesion->cambiarTokenPush($token, $ahora);
+
+            // Un logout, o alguien que entró en el teléfono, pudo confirmar
+            // después de la lectura: entonces gana él, y la App vuelve a entrar.
+            if (! $this->sesiones->guardarTokenPushSiSigueAbierta($sesion, $ahora)) {
+                return Result::failure(DispositivoErrors::noEncontrado());
             }
 
-            $sesion->cambiarTokenPush($token, $ahora);
-            $this->sesiones->save($sesion);
+            // Igual que en el login: un token es de la última sesión que lo
+            // registró, o el push de otra sonaría en este teléfono.
+            $this->sesiones->quitarEsteTokenPushDeOtras($token, $sesion->idDeSesion());
 
             return Result::success();
         }

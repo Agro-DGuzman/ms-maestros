@@ -108,6 +108,22 @@ it('un token muerto se borra de la sesion y no se reintenta', function () {
     $trabajo->assertNotFailed();
 });
 
+it('un token muerto no borra el que la App registro mientras se mandaba', function () {
+    // Firebase rota el token: el viejo responde UNREGISTERED, y la App manda
+    // el nuevo por NP18 mientras este trabajo espera la respuesta.
+    $enviador = new EnviadorDePushFalso(ResultadoDeEnvio::tokenMuerto(), function (): void {
+        $repo = app(SesionRepository::class);
+        $sesion = $repo->find(IdDeSesion::desde('s-monica'));
+        $sesion?->cambiarTokenPush(TokenPush::desde('fcm-rotado'), new DateTimeImmutable('2026-11-16T15:00:00Z'));
+        $repo->save($sesion);
+    });
+    app()->instance(EnviadorDePush::class, $enviador);
+
+    app()->call([trabajoDeFactura(), 'handle']);
+
+    expect(app(SesionRepository::class)->find(IdDeSesion::desde('s-monica'))?->tokenPush()?->valor())->toBe('fcm-rotado');
+});
+
 it('un rechazo no se reintenta ni borra el token', function () {
     $trabajo = trabajoDeFactura();
 

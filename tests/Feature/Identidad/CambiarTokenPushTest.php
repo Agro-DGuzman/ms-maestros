@@ -8,11 +8,13 @@ use Identidad\Application\Contracts\EnviadorDeDesafio;
 use Identidad\Application\Contracts\VerificadorDeToken;
 use Identidad\Domain\Sesiones\SesionDeAplicacion;
 use Identidad\Domain\Sesiones\SesionRepository;
+use Identidad\Infrastructure\Persistence\SesionRecord;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
 use Maestros\Domain\Contactos\IdDePersona;
 use Tests\Dobles\EmisorFalso;
 use Tests\Dobles\EnviadorQueRecuerda;
+use Tests\Dobles\SesionesQueSeCierranAlLeerlas;
 use Tests\Dobles\VerificadorFalso;
 use Tests\Soporte\ReplicaDeEjemplo;
 
@@ -118,6 +120,21 @@ it('una sesion cerrada responde 404', function () {
     cambiarToken(ESTE_TELEFONO, 'fcm-token-nuevo')
         ->assertStatus(404)
         ->assertJsonPath('error.code', ['DISPOSITIVO_NO_ENCONTRADO']);
+});
+
+it('un logout que confirma mientras tanto gana: responde 404 y la sesion sigue cerrada', function () {
+    // Si el handler guardara la sesión que leyó, entera, reabriría la que el
+    // logout acaba de cerrar y el teléfono seguiría recibiendo avisos.
+    $this->app->instance(SesionRepository::class, new SesionesQueSeCierranAlLeerlas);
+
+    cambiarToken(ESTE_TELEFONO, 'fcm-token-nuevo')
+        ->assertStatus(404)
+        ->assertJsonPath('error.code', ['DISPOSITIVO_NO_ENCONTRADO']);
+
+    $sesiones = SesionRecord::query()->where('id_de_instalacion', ESTE_TELEFONO)->get();
+    expect($sesiones)->toHaveCount(1)
+        ->and($sesiones[0]->cerrada_en)->not->toBeNull()
+        ->and($sesiones[0]->token_push)->toBeNull();
 });
 
 it('un token mal formado es 400 y no cambia nada', function (mixed $token, string $codigo) {
