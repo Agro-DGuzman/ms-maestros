@@ -819,3 +819,11 @@ curl -s localhost:8082/realms/master/.well-known/openid-configuration
   con el eco cualquiera que conozca el número entra como esa persona.
 - **Prender `GATEWAY_SECRETO_EN_V1`** cuando el APIM mande `X-Gateway-Secret`
   también en `/v1`. Hasta entonces la App se puede llamar saltándose el APIM.
+- **El contrato del repo va adelante del visor (17/11/2026).** Por única vez,
+  con la cuenta del visor vencida, los cambios del token push se aplicaron a
+  mano en `contrato/agropartners-api-v1.yaml`, tal como los escribe
+  `docs/superpowers/handoffs/2026-11-17-contrato-de-la-app-token-push.md`.
+  Hay que cargarlos en el visor cuando vuelva a haber cuenta, y pasarle el
+  handoff al equipo de la App, que construye contra el visor. Si alguien
+  regenera el contrato sin ellos, `ContratoTest` falla por
+  `PUT /dispositivos/{instalacionId}/token`: no es un error del test.

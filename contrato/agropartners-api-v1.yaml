@@ -96,7 +96,17 @@ tags:
 - name: Visitas técnicas
   description: Solicitud de visita técnica al lote.
 - name: Avisos
-  description: Bandeja de avisos del usuario del portal.
+  description: |-
+    Bandeja de avisos del usuario del portal.
+
+    Cada aviso nuevo llega además como notificación push, por Firebase Cloud Messaging, a los
+    teléfonos con sesión abierta y token registrado de quien ve ese socio, si tiene prendida su
+    categoría. La notificación trae el título y el cuerpo del aviso, y en `data`:
+    - `avisoId`: el id del aviso en la bandeja;
+    - `categoria`: `factura`, `vencimiento`, `pago`, `reporte_campo` o `catalogo`;
+    - `cardCode`: el socio del aviso, vacío en los de catálogo.
+
+    Un aviso de más de 24 horas, o de un documento de antes de ayer, queda solo en la bandeja.
 - name: Contacto
   description: El canal de WhatsApp de Control de Calidad.
 security:
@@ -393,8 +403,10 @@ paths:
         authentication extension*, actuando como cliente confidencial. Devuelve los tokens con el contexto
         de negocio, de modo que la App pinta la pantalla de Inicio sin llamadas adicionales.
 
-        Registra el dispositivo para notificaciones push si se envía el bloque `dispositivo`. **Es el único
-        punto de registro del token push**: si la plataforma lo rota, hay que volver a iniciar sesión.
+        Registra la instalación en la sesión, y el token push si viene `dispositivo.tokenPush`. Una
+        instalación es de la última sesión que la registró: si otra persona entra en el mismo teléfono,
+        la sesión anterior deja de recibir notificaciones. Si Firebase rota el token, la App lo cambia con
+        `PUT /dispositivos/{instalacionId}/token`, sin volver a iniciar sesión.
 
         Código incorrecto, código de otro desafío y número no habilitado devuelven `CODIGO_INVALIDO`, con el
         mismo texto y el mismo tiempo de respuesta. `DESAFIO_EXPIRADO` e `INTENTOS_AGOTADOS` sí se
@@ -416,18 +428,22 @@ paths:
               $ref: '#/components/schemas/CodigoDeAcceso'
             examples:
               conDispositivo:
-                summary: Ingreso desde Android con notificaciones
+                summary: Ingreso desde Android con permiso de notificaciones
                 value:
                   otpId: e2b5a4d1-0c67-4f3a-9b18-5d2c7e91f306
                   codigo: '0421'
                   dispositivo:
                     instalacionId: 3f1c9a20-8d44-4b6e-9d21-6a7f0c4b18ee
                     plataforma: android
-              sinDispositivo:
-                summary: Ingreso sin habilitar notificaciones
+                    tokenPush: fXk3Q9pL2sA:APA91bE-token-de-ejemplo
+              sinPermiso:
+                summary: Ingreso sin permiso de notificaciones (el bloque va igual, sin token)
                 value:
                   otpId: e2b5a4d1-0c67-4f3a-9b18-5d2c7e91f306
                   codigo: '0421'
+                  dispositivo:
+                    instalacionId: 3f1c9a20-8d44-4b6e-9d21-6a7f0c4b18ee
+                    plataforma: ios
       responses:
         '200':
           description: Código correcto. Sesión abierta.
@@ -503,6 +519,20 @@ paths:
                       - campo: codigo
                         codigo: PARAMETRO_INVALIDO
                         mensaje: Se esperan 4 dígitos, sin espacios ni separadores.
+                      type: VALIDATION
+                tokenPushInvalido:
+                  summary: Token push con espacios
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - PARAMETRO_INVALIDO
+                      description: Parámetros mal formados.
+                      structuredMessage:
+                      - campo: dispositivo.tokenPush
+                        codigo: PARAMETRO_INVALIDO
+                        mensaje: Valor inválido.
                       type: VALIDATION
         '401':
           description: Código inválido, desafío vencido o intentos agotados.
@@ -691,6 +721,124 @@ paths:
                     error: null
         '401':
           $ref: '#/components/responses/NoAutenticado'
+  /dispositivos/{instalacionId}/token:
+    x-agropartners-servicio: maestros
+    put:
+      tags:
+      - Autenticación
+      summary: Cambiar el token push del dispositivo
+      description: |-
+        Guarda el token push nuevo en la sesión abierta de la persona con esa instalación, sin cerrar
+        sesión. La App lo llama cada vez que Firebase le entrega un token nuevo (`onNewToken` en
+        Android, `messaging(_:didReceiveRegistrationToken:)` en iOS) y cuando la persona concede el
+        permiso de notificaciones después de haber entrado.
+
+        La sesión se busca por la persona del token de acceso y por `instalacionId`. Si esa persona no
+        tiene una sesión abierta con esa instalación —la cerró, venció, u otra persona entró después en
+        el mismo teléfono—, responde 404 y la App tiene que volver a iniciar sesión para registrarlo.
+      operationId: cambiarTokenPush
+      parameters:
+      - name: instalacionId
+        in: path
+        required: true
+        description: La misma `instalacionId` que se mandó en `POST /auth/login`.
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - tokenPush
+              properties:
+                tokenPush:
+                  type: string
+                  minLength: 1
+                  maxLength: 4000
+                  pattern: ^\S+$
+                  description: El token de registro nuevo de Firebase Cloud Messaging.
+            examples:
+              tokenNuevo:
+                summary: Firebase rotó el token
+                value:
+                  tokenPush: fXk3Q9pL2sA:APA91bE-token-nuevo-de-ejemplo
+      responses:
+        '200':
+          description: Token guardado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - success
+                - error
+                properties:
+                  data:
+                    type: object
+                    required:
+                    - dispositivoRegistrado
+                    properties:
+                      dispositivoRegistrado:
+                        type: boolean
+                        const: true
+                  success:
+                    type: boolean
+                    const: true
+                  error:
+                    type: 'null'
+                    description: Siempre null cuando `success` es true.
+              examples:
+                guardado:
+                  value:
+                    data:
+                      dispositivoRegistrado: true
+                    success: true
+                    error: null
+        '400':
+          description: Parámetros mal formados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                tokenPushInvalido:
+                  summary: Token push con espacios
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - PARAMETRO_INVALIDO
+                      description: Parámetros mal formados.
+                      structuredMessage:
+                      - campo: tokenPush
+                        codigo: PARAMETRO_INVALIDO
+                        mensaje: Valor inválido.
+                      type: VALIDATION
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          description: Esa persona no tiene una sesión abierta con esa instalación.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                dispositivoNoEncontrado:
+                  summary: La sesión de ese teléfono se cerró, venció o pasó a otra persona
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - DISPOSITIVO_NO_ENCONTRADO
+                      description: No hay una sesión abierta en este dispositivo.
+                      structuredMessage: []
+                      type: NOT_FOUND
   /resumen:
     x-agropartners-servicio: comercial
     get:
@@ -3302,12 +3450,25 @@ components:
         instalacionId:
           type: string
           format: uuid
+          description: La genera la App una sola vez por instalación y la guarda. Es la misma en cada
+            ingreso desde ese teléfono.
         plataforma:
           type: string
           enum:
           - android
           - ios
-      description: La instalación desde la que se inició sesión. Se envía solo en `POST /auth/login`.
+        tokenPush:
+          type: string
+          minLength: 1
+          maxLength: 4000
+          pattern: ^\S+$
+          description: Token de registro de Firebase Cloud Messaging, en Android y en iOS (en iOS es el
+            de FCM, no el de APNs). Va solo si la persona concedió permiso de notificaciones. Si Firebase
+            lo rota, se cambia con `PUT /dispositivos/{instalacionId}/token`, sin cerrar sesión.
+          examples:
+          - fXk3Q9pL2sA:APA91bE-token-de-ejemplo
+      description: La instalación desde la que se inició sesión, con su token push si hay permiso de
+        notificaciones. Se envía en `POST /auth/login`.
     Socio:
       type: object
       required:
@@ -4159,7 +4320,8 @@ components:
           description: Caducidad de la sesión de aplicación, distinta de la del token de Entra.
         dispositivoRegistrado:
           type: boolean
-          description: False si no se envió el bloque `dispositivo` o si el registro push fue rechazado.
+          description: True si la sesión quedó con un token push y va a recibir notificaciones. False si
+            no vino `dispositivo.tokenPush`. Un token mal formado no da false, responde 400.
     CierreSesion:
       type: object
       properties:
@@ -4489,7 +4651,9 @@ components:
         dispositivo:
           allOf:
           - $ref: '#/components/schemas/RegistroDispositivo'
-          description: Omitir si el usuario no concedió permiso de notificaciones.
+          description: Se envía siempre, haya o no permiso de notificaciones; `tokenPush` va solo si lo hay.
+            Sin este bloque la sesión no queda atada a la instalación, y la App no puede registrar el
+            token más tarde.
     FotografiaDelLote:
       type: object
       required:
