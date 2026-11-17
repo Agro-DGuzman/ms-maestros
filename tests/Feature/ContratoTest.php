@@ -16,9 +16,7 @@ use Symfony\Component\Yaml\Yaml;
  * Lo que el contrato le asigna a este servicio y todavía no existe. Se achica:
  * implementar una hace fallar el test hasta sacarla de acá.
  */
-const PENDIENTES = [
-    'PUT v1/dispositivos/{instalacionId}/token',
-];
+const PENDIENTES = [];
 
 /** @return list<string> las operaciones del contrato que son de maestros */
 function operacionesDelContrato(): array

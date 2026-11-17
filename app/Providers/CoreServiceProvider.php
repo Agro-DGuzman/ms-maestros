@@ -36,6 +36,8 @@ use Identidad\Application\Habilitacion\HabilitarPersona\HabilitarPersona;
 use Identidad\Application\Habilitacion\HabilitarPersona\HabilitarPersonaHandler;
 use Identidad\Application\Push\AnunciarAviso\AnunciarAviso;
 use Identidad\Application\Push\AnunciarAviso\AnunciarAvisoHandler;
+use Identidad\Application\Push\CambiarTokenPush\CambiarTokenPush;
+use Identidad\Application\Push\CambiarTokenPush\CambiarTokenPushHandler;
 use Identidad\Application\Push\RegistrarPreferencias\RegistrarPreferencias;
 use Identidad\Application\Push\RegistrarPreferencias\RegistrarPreferenciasHandler;
 use Illuminate\Support\ServiceProvider;
@@ -94,6 +96,7 @@ final class CoreServiceProvider extends ServiceProvider
         SolicitarDesafio::class => SolicitarDesafioHandler::class,
         RegistrarPreferencias::class => RegistrarPreferenciasHandler::class,
         AnunciarAviso::class => AnunciarAvisoHandler::class,
+        CambiarTokenPush::class => CambiarTokenPushHandler::class,
     ];
 
     /**

@@ -118,6 +118,21 @@ it('POST /auth/logout', function () {
         ->and(Contrato::diferencias($sinToken, 'POST', '/auth/logout'))->toBe([]);
 });
 
+it('PUT /dispositivos/{instalacionId}/token', function (string $instalacion, array $cuerpo, array $cabeceras, int $status, ?string $codigo) {
+    iniciarSesion()->assertStatus(200);
+
+    $respuesta = $this->putJson("/v1/dispositivos/{$instalacion}/token", $cuerpo, $cabeceras)->assertStatus($status);
+
+    // El código, porque una ruta que no existe también responde 404 con el envelope.
+    expect($respuesta->json('error.code.0'))->toBe($codigo)
+        ->and(Contrato::diferencias($respuesta, 'PUT', '/dispositivos/{instalacionId}/token'))->toBe([]);
+})->with([
+    'token guardado' => ['3f1c9a20-8d44-4b6e-9d21-6a7f0c4b18ee', ['tokenPush' => 'fcm-token-nuevo'], CON_TOKEN, 200, null],
+    'token con espacios' => ['3f1c9a20-8d44-4b6e-9d21-6a7f0c4b18ee', ['tokenPush' => 'con espacio'], CON_TOKEN, 400, 'PARAMETRO_INVALIDO'],
+    'sin token de acceso' => ['3f1c9a20-8d44-4b6e-9d21-6a7f0c4b18ee', ['tokenPush' => 'fcm-token-nuevo'], [], 401, 'TOKEN_INVALIDO'],
+    'instalacion sin sesion' => ['9a7e2c11-5b3d-4f60-8e14-2d6c0b9f7a35', ['tokenPush' => 'fcm-token-nuevo'], CON_TOKEN, 404, 'DISPOSITIVO_NO_ENCONTRADO'],
+]);
+
 it('las rutas autenticadas', function (string $ruta) {
     $conToken = $this->getJson('/v1'.$ruta, CON_TOKEN)->assertStatus(200);
     $sinToken = $this->getJson('/v1'.$ruta)->assertStatus(401);

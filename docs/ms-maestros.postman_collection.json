@@ -83,10 +83,10 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"otpId\": \"{{otpId}}\",\n  \"codigo\": \"{{codigo}}\",\n  \"dispositivo\": {\n    \"instalacionId\": \"3f1c9a20-8d44-4b6e-9d21-6a7f0c4b18ee\",\n    \"plataforma\": \"android\"\n  }\n}"
+          "raw": "{\n  \"otpId\": \"{{otpId}}\",\n  \"codigo\": \"{{codigo}}\",\n  \"dispositivo\": {\n    \"instalacionId\": \"3f1c9a20-8d44-4b6e-9d21-6a7f0c4b18ee\",\n    \"plataforma\": \"android\",\n    \"tokenPush\": \"fXk3Q9pL2sA:APA91bE-token-de-postman\"\n  }\n}"
         },
         "url": { "raw": "{{baseUrl}}/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["v1", "auth", "login"] },
-        "description": "Canjea el desafio por un JWT emitido por Keycloak, mas el contexto del socio.\n\nPone `codigo` primero. El desafio vence a los 5 minutos, tolera 5 intentos y se consume al primer acierto."
+        "description": "Canjea el desafio por un JWT emitido por Keycloak, mas el contexto del socio.\n\nPone `codigo` primero. El desafio vence a los 5 minutos, tolera 5 intentos y se consume al primer acierto.\n\nEl bloque `dispositivo` va siempre; `tokenPush`, solo si hay permiso de notificaciones. Con token, `dispositivoRegistrado` es true; sin el, false."
       },
       "event": [
         {
@@ -102,6 +102,7 @@
               "  pm.response.to.have.status(200);",
               "  pm.expect(b.data.tokens.accessToken).to.be.a('string');",
               "  pm.expect(b.data.contexto.grupoEconomico.socios).to.be.an('array');",
+              "  pm.expect(b.data.dispositivoRegistrado).to.eql(true);",
               "});",
               "if (pm.response.code === 200) {",
               "  pm.collectionVariables.set('token', b.data.tokens.accessToken);",
@@ -249,6 +250,34 @@
               "  pm.collectionVariables.set('token', b.data.accessToken);",
               "  pm.collectionVariables.set('refreshToken', b.data.refreshToken);",
               "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5b. Cambiar token push (sin cerrar sesion)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"tokenPush\": \"fXk3Q9pL2sA:APA91bE-token-nuevo-de-postman\"\n}" },
+        "url": { "raw": "{{baseUrl}}/v1/dispositivos/3f1c9a20-8d44-4b6e-9d21-6a7f0c4b18ee/token", "host": ["{{baseUrl}}"], "path": ["v1", "dispositivos", "3f1c9a20-8d44-4b6e-9d21-6a7f0c4b18ee", "token"] },
+        "description": "NP18: la App lo llama cuando Firebase rota el token, o cuando la persona concede el permiso despues de entrar. Pide el token de acceso, y la instalacion tiene que ser la del login de esta persona: si la sesion se cerro, vencio o paso a otra persona, responde 404 DISPOSITIVO_NO_ENCONTRADO. Va antes del logout, que borra el token."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 y dispositivoRegistrado true', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().data.dispositivoRegistrado).to.eql(true);",
+              "});"
             ]
           }
         }

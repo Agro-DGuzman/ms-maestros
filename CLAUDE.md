@@ -227,9 +227,13 @@ la línea siguiente ya dice, sobra.
     `tipo LIKE 'maestros.socio.%' OR tipo = 'maestros.producto.nuevo'`, y
     `sub-ms-maestros`,
     `tipo LIKE 'comercial.propiedad.%' OR tipo = 'comercial.aviso.creado' OR tipo = 'comercial.preferencias.actualizadas'`.
-  - **El registro del token depende del contrato de la App**: el login ya
-    acepta `dispositivo.tokenPush`, pero el endpoint para cambiarlo sin cerrar
-    sesión (NP18) espera a que el visor lo agregue al contrato.
+  - **El token entra por el login y se cambia sin cerrar sesión** (NP18):
+    `PUT /v1/dispositivos/{instalacionId}/token` busca la sesión entre las
+    abiertas de la persona del token de acceso, nunca de otra, y le quita ese
+    mismo token a cualquier otra sesión abierta, igual que el login. Sin
+    sesión abierta con esa instalación responde 404 `DISPOSITIVO_NO_ENCONTRADO`
+    y la App vuelve a entrar. La operación está en la copia del contrato pero
+    todavía no en el visor (ver «Pendientes conocidos»).
 - **Cada sección del back-office exige su `Permiso`** (`accesos`, `catalogo`)
   con `backoffice.permiso:<valor>`. Hoy los autenticadores de desarrollo y
   contraseña dan todos; cuando entre Entra, cada permiso tiene que salir de un
