@@ -192,6 +192,8 @@ it('el catalogo de productos', function (string $url, string $ruta, array $cabec
     'listado' => ['/productos', '/productos', CON_TOKEN, 200],
     'listado filtrado y paginado' => ['/productos?categoria=herbicidas&tamanoPagina=1', '/productos', CON_TOKEN, 200],
     'listado con pagina fuera de rango' => ['/productos?tamanoPagina=500', '/productos', CON_TOKEN, 400],
+    'listado con busqueda' => ['/productos?buscar=gliforte', '/productos', CON_TOKEN, 200],
+    'listado con busqueda demasiado larga' => ['/productos?buscar='.str_repeat('a', 81), '/productos', CON_TOKEN, 400],
     'listado sin token' => ['/productos', '/productos', [], 401],
     'ficha completa' => ['/productos/A-0142', '/productos/{itemCode}', CON_TOKEN, 200],
     'ficha minima' => ['/productos/A-0219', '/productos/{itemCode}', CON_TOKEN, 200],

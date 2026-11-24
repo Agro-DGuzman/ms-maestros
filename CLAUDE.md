@@ -128,6 +128,11 @@ la línea siguiente ya dice, sobra.
   (fungicidas, biológicos, coadyuvantes), así que ni la tabla ni el código las
   limitan. `/categorias` muestra solo las que tienen productos visibles, y
   filtrar `/productos` por una que existe pero está vacía no es un error.
+  **`buscar` mira solo el nombre**, palabra por palabra (todas tienen que
+  estar), sin mayúsculas ni acentos, y no cambia el orden ni las categorías.
+  El escape de `LIKE` vive en `ComparacionSinAcentos::patronQueContiene`, que
+  comparte con el buscador del back-office: un `%` suelto no puede traer el
+  catálogo entero.
 - **La descripción y los cuatro enlaces del catálogo los administra el
   back-office**, no SAP: `descripcion`, `imagen_url`, `ficha_tecnica_url`,
   `hoja_seguridad_url` y `registro_sanitario_url`, desde `/admin/productos`. La
@@ -835,4 +840,6 @@ curl -s localhost:8082/realms/master/.well-known/openid-configuration
   `GET /estados-de-cuenta` (de ms-comercial), según
   `docs/superpowers/handoffs/2026-11-24-estado-de-cuenta-filtrado.md`. Ese
   cambio no tiene prueba acá que lo delate si se pierde: lo cubre la de
-  ms-comercial.
+  ms-comercial. El mismo día entró `buscar` en `GET /productos`
+  (`docs/superpowers/handoffs/2026-11-24-buscar-productos.md`); ese sí lo
+  cuida `ContratoDeRespuestasTest` con el 400 de `buscar`.

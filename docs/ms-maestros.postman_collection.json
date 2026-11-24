@@ -516,6 +516,55 @@
       ]
     },
     {
+      "name": "12b. Buscar productos",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/v1/productos?buscar=gliforte",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "productos"
+          ],
+          "query": [
+            {
+              "key": "buscar",
+              "value": "gliforte"
+            }
+          ]
+        },
+        "description": "Busca por el nombre: parte el texto en palabras y devuelve los productos cuyo nombre contiene todas, sin mayusculas ni acentos. Se combina con categoria y la paginacion. Sin resultados es una lista vacia; mas de 80 caracteres es 400."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test('lista filtrada por nombre', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(b.data.items).to.be.an('array');",
+              "  b.data.items.forEach(p => pm.expect(p.nombre.toLowerCase()).to.include('gliforte'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "13. Ficha de producto",
       "request": {
         "method": "GET",

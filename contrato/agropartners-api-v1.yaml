@@ -1094,6 +1094,11 @@ paths:
       description: |-
         Catálogo vigente: artículos activos, de venta y con lista de precios asignada al socio. El filtro
         `categoria` corresponde a los chips de la pantalla *Productos*.
+
+        `buscar` filtra por el nombre del producto. Parte el texto en palabras por los espacios y devuelve
+        los productos cuyo nombre contiene todas, sin distinguir mayúsculas ni acentos: «alvo 5» encuentra
+        «ALVO - 5 L» y no «ALVO - 1 L». Se suma a `categoria` y a la paginación, y no cambia el orden.
+        Vacío equivale a no mandarlo, y sin resultados la lista viene vacía, no es un error.
       operationId: listarProductos
       parameters:
       - name: categoria
@@ -1101,6 +1106,7 @@ paths:
         description: Omitir equivale a «Todos».
         schema:
           $ref: '#/components/schemas/CodigoCategoria'
+      - $ref: '#/components/parameters/Buscar'
       - $ref: '#/components/parameters/Pagina'
       - $ref: '#/components/parameters/TamanoPagina'
       responses:
@@ -1180,6 +1186,20 @@ paths:
                       - campo: tamanoPagina
                         codigo: PARAMETRO_INVALIDO
                         mensaje: Debe estar entre 1 y 100.
+                      type: VALIDATION
+                buscarDemasiadoLargo:
+                  summary: '`buscar` con más de 80 caracteres'
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - PARAMETRO_INVALIDO
+                      description: Parámetros mal formados.
+                      structuredMessage:
+                      - campo: buscar
+                        codigo: PARAMETRO_INVALIDO
+                        mensaje: Valor inválido.
                       type: VALIDATION
         '401':
           $ref: '#/components/responses/NoAutenticado'
@@ -3320,8 +3340,8 @@ components:
       name: buscar
       in: query
       description: |-
-        Búsqueda por texto. **Solo la acepta `GET /campanas/{campanaId}/compras`**, que alimenta el
-        buscador de la pantalla *Productos de campaña*.
+        Búsqueda por texto. La aceptan solo `GET /campanas/{campanaId}/compras`, que alimenta el buscador
+        de la pantalla *Productos de campaña*, y `GET /productos`. Cada operación dice contra qué compara.
       schema:
         type: string
         maxLength: 80
