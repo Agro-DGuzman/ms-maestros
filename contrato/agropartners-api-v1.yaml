@@ -42,8 +42,8 @@ info:
 
     ## Escrituras asincrónicas
     Solicitar una visita técnica o un estado de cuenta responde `202 Accepted` con un identificador de
-    seguimiento. El avance del estado de cuenta se consulta con `GET /estados-de-cuenta`; la solicitud
-    de visita no tiene seguimiento.
+    seguimiento. El avance del estado de cuenta se consulta con `GET /estados-de-cuenta?cardCode=`, la
+    URL que trae la cabecera `Location`; la solicitud de visita no tiene seguimiento.
 
     ## Paginación
     Paginan seis colecciones: `/productos`, `/campanas/{campanaId}/compras`, `/facturas`,
@@ -2335,14 +2335,21 @@ paths:
       summary: Listar el estado de cuenta vigente de cada socio
       description: |-
         Resuelve la pantalla *Descargar estado de cuenta*: **una fila por socio de negocio** que la persona
-        alcanza, con la fecha de emisión del documento vigente, su peso y el enlace para bajarlo.
+        alcanza, con la fecha de emisión del documento vigente, su peso y el enlace para bajarlo. Cada
+        emisión reemplaza a la anterior. No pagina.
 
-        No acepta `cardCode` ni pagina. Cada emisión reemplaza a la anterior.
+        Con `cardCode` devuelve solo la fila de ese socio, en la misma forma. Es la URL que trae la
+        cabecera `Location` de `POST /estados-de-cuenta`, y la que la App consulta para seguir una
+        emisión. Un socio fuera del alcance responde `403`, exista o no; uno que nunca pidió un estado de
+        cuenta devuelve su fila con `sin_emitir`.
 
-        Sirve además para seguir la generación: tras `POST /estados-de-cuenta` la fila de ese socio pasa por
-        `pendiente` y `generando` antes de quedar `disponible`.
+        Para seguir una emisión, la App consulta cada `reintentarEnSegundos` y para cuando la fila queda
+        `disponible` (ya trae `url`) o `fallida`. Una emisión que no termina en 10 minutos también se ve
+        `fallida`, y se puede volver a pedir. Mientras la fila está `pendiente`, `generando` o `fallida`,
+        `url` es `null`, aunque exista un documento anterior.
       operationId: obtenerEstadoDeCuenta
-      parameters: []
+      parameters:
+      - $ref: '#/components/parameters/CardCodeQuery'
       responses:
         '200':
           description: Un estado de cuenta por cada socio alcanzado.
@@ -2453,6 +2460,45 @@ paths:
                         solicitudId: null
                     success: true
                     error: null
+                soloUnSocio:
+                  summary: Con `cardCode`, la fila de ese socio mientras se genera
+                  value:
+                    data:
+                      items:
+                      - socio:
+                          cardCode: C-004872
+                          razonSocial: Fernando Monasterio
+                          iniciales: FM
+                          cantidadPropiedades: 3
+                        estado: generando
+                        url: null
+                        expiraEn: null
+                        emitidoEl: '2026-08-04T11:05:00Z'
+                        tamanoFormateado: 186 KB
+                        solicitudId: 1b73c9a4-58e2-4d61-9f0c-3a5e7b2d4c88
+                    success: true
+                    error: null
+        '400':
+          description: Parámetros mal formados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              examples:
+                cardCodeVacio:
+                  summary: '`cardCode` presente pero vacío'
+                  value:
+                    data: null
+                    success: false
+                    error:
+                      code:
+                      - PARAMETRO_INVALIDO
+                      description: Parámetros mal formados.
+                      structuredMessage:
+                      - campo: cardCode
+                        codigo: PARAMETRO_INVALIDO
+                        mensaje: Valor inválido.
+                      type: VALIDATION
         '401':
           $ref: '#/components/responses/NoAutenticado'
         '403':
@@ -2462,9 +2508,9 @@ paths:
       - Cuentas por pagar
       summary: Solicitar un estado de cuenta
       description: |-
-        Pide una emisión nueva para un socio. La generación es asincrónica: la App recibe una notificación
-        push cuando el PDF está disponible. Cada emisión reemplaza a la anterior. El avance se sigue con
-        `GET /estados-de-cuenta`.
+        Pide una emisión nueva para un socio. La generación es asincrónica y no hay notificación push: el
+        avance se sigue consultando `GET /estados-de-cuenta?cardCode=`, la URL que trae la cabecera
+        `Location`, cada `reintentarEnSegundos`. Cada emisión reemplaza a la anterior.
       operationId: solicitarEstadoDeCuenta
       parameters:
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -2483,10 +2529,11 @@ paths:
           description: Solicitud encolada.
           headers:
             Location:
-              description: URL de seguimiento de la solicitud.
+              description: Dónde seguir la emisión, `/v1/estados-de-cuenta?cardCode=<el del cuerpo>`. Es
+                una ruta relativa, porque detrás del APIM el servicio no conoce su URL pública.
               schema:
                 type: string
-                format: uri
+                format: uri-reference
           content:
             application/json:
               schema:
@@ -2506,12 +2553,12 @@ paths:
                     description: Siempre null cuando `success` es true.
               examples:
                 encolada:
-                  summary: La emisión queda en cola; el PDF llega por push
+                  summary: La emisión queda en cola; el avance se consulta
                   value:
                     data:
                       solicitudId: 9c1e7f30-4a52-4c88-b7d1-2e6f0a3b5c19
                       estado: pendiente
-                      mensaje: Estamos generando tu estado de cuenta. Te avisamos apenas esté listo.
+                      mensaje: Estamos generando tu estado de cuenta. Va a estar listo en unos segundos.
                       reintentarEnSegundos: 5
                       creadoEn: '2026-08-19T11:40:00Z'
                     success: true
@@ -4811,7 +4858,8 @@ components:
       - solicitudId
       - estado
       - creadoEn
-      description: Acuse de una emisión de estado de cuenta. El avance se sigue con `GET /estados-de-cuenta`.
+      description: Acuse de una emisión de estado de cuenta. El avance se sigue con
+        `GET /estados-de-cuenta?cardCode=`.
       properties:
         solicitudId:
           type: string
@@ -4831,7 +4879,7 @@ components:
           type: integer
           examples:
           - 5
-          description: Cuánto esperar antes de volver a consultar `GET /estados-de-cuenta`.
+          description: Cuánto esperar antes de volver a consultar `GET /estados-de-cuenta?cardCode=`.
         creadoEn:
           type: string
           format: date-time

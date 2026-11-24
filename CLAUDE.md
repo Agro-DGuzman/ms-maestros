@@ -831,3 +831,8 @@ curl -s localhost:8082/realms/master/.well-known/openid-configuration
   handoff al equipo de la App, que construye contra el visor. Si alguien
   regenera el contrato sin ellos, `ContratoTest` falla por
   `PUT /dispositivos/{instalacionId}/token`: no es un error del test.
+  El 24/11 se sumó, con la misma excepción, el filtro `cardCode` de
+  `GET /estados-de-cuenta` (de ms-comercial), según
+  `docs/superpowers/handoffs/2026-11-24-estado-de-cuenta-filtrado.md`. Ese
+  cambio no tiene prueba acá que lo delate si se pierde: lo cubre la de
+  ms-comercial.
