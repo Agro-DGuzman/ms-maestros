@@ -131,8 +131,8 @@ la línea siguiente ya dice, sobra.
   **`buscar` mira solo el nombre**, palabra por palabra (todas tienen que
   estar), sin mayúsculas ni acentos, y no cambia el orden ni las categorías.
   El escape de `LIKE` vive en `ComparacionSinAcentos::patronQueContiene`, que
-  comparte con el buscador del back-office: un `%` suelto no puede traer el
-  catálogo entero.
+  comparte con el buscador de productos del back-office: un `%` suelto no puede
+  traer el catálogo entero.
 - **La descripción y los cuatro enlaces del catálogo los administra el
   back-office**, no SAP: `descripcion`, `imagen_url`, `ficha_tecnica_url`,
   `hoja_seguridad_url` y `registro_sanitario_url`, desde `/admin/productos`. La
@@ -842,4 +842,6 @@ curl -s localhost:8082/realms/master/.well-known/openid-configuration
   cambio no tiene prueba acá que lo delate si se pierde: lo cubre la de
   ms-comercial. El mismo día entró `buscar` en `GET /productos`
   (`docs/superpowers/handoffs/2026-11-24-buscar-productos.md`); ese sí lo
-  cuida `ContratoDeRespuestasTest` con el 400 de `buscar`.
+  cuida `ContratoTest`, que exige `buscar` entre los parámetros de
+  `GET /productos`. `ContratoDeRespuestasTest` no alcanza: valida cuerpos, no
+  parámetros.

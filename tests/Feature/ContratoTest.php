@@ -86,3 +86,14 @@ it('toda pendiente esta en el contrato', function () {
 it('la app no expone en v1 nada que el contrato no tenga', function () {
     expect(array_values(array_diff(operacionesDeLaApp(), operacionesDelContrato())))->toBe([]);
 });
+
+it('el contrato declara buscar en GET /productos', function () {
+    // ContratoDeRespuestasTest valida cuerpos, no parámetros. El contrato del
+    // repo va adelante del visor: regenerarlo sin el cambio del 24/11 borraría
+    // `buscar` sin que nada más lo note.
+    /** @var array{paths: array<string, array<string, array{parameters: list<array<string, string>>}>>} $contrato */
+    $contrato = Yaml::parseFile(base_path('contrato/agropartners-api-v1.yaml'));
+
+    expect($contrato['paths']['/productos']['get']['parameters'])
+        ->toContain(['$ref' => '#/components/parameters/Buscar']);
+});
