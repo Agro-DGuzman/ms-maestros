@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maestros\Infrastructure\Persistence;
 
+use App\Persistence\ComparacionSinAcentos;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Maestros\Application\Productos\CatalogoDeProductos;
@@ -24,6 +25,8 @@ use Maestros\Application\Productos\TipoDeDocumento;
  */
 final class EloquentCatalogoDeProductos implements CatalogoDeProductos
 {
+    use ComparacionSinAcentos;
+
     /** Cada tipo de documento es una columna de la tabla. */
     private const array COLUMNAS_DE_DOCUMENTOS = [
         'ficha_tecnica_url' => TipoDeDocumento::FichaTecnica,
@@ -53,13 +56,9 @@ final class EloquentCatalogoDeProductos implements CatalogoDeProductos
         return DB::table($this->tabla('categoria'))->where('codigo', $codigo)->exists();
     }
 
-    public function pagina(?string $codigoDeCategoria, int $pagina, int $tamanoDePagina): PaginaDeProductos
+    public function pagina(?string $codigoDeCategoria, int $pagina, int $tamanoDePagina, ?string $buscar = null): PaginaDeProductos
     {
-        $consulta = $this->visibles();
-
-        if ($codigoDeCategoria !== null) {
-            $consulta->where('p.codigo_categoria', $codigoDeCategoria);
-        }
+        $consulta = $this->filtrada($codigoDeCategoria, $buscar);
 
         $total = (clone $consulta)->count();
 
@@ -102,6 +101,23 @@ final class EloquentCatalogoDeProductos implements CatalogoDeProductos
                 $cultivos,
             ), static fn (string $cultivo): bool => $cultivo !== '')),
         );
+    }
+
+    private function filtrada(?string $codigoDeCategoria, ?string $buscar): Builder
+    {
+        $consulta = $this->visibles();
+
+        if ($codigoDeCategoria !== null) {
+            $consulta->where('p.codigo_categoria', $codigoDeCategoria);
+        }
+
+        $nombre = $this->comoTextoInsensible('p.nombre');
+
+        foreach (preg_split('/\s+/u', $buscar ?? '', -1, PREG_SPLIT_NO_EMPTY) ?: [] as $palabra) {
+            $consulta->whereRaw($nombre." LIKE ? ESCAPE '\\'", [$this->patronQueContiene($palabra)]);
+        }
+
+        return $consulta;
     }
 
     private function visibles(): Builder

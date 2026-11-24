@@ -30,11 +30,7 @@ final class EloquentCatalogoAdministrable implements CatalogoAdministrable
         $texto = $texto === null ? '' : trim($texto);
 
         if ($texto !== '') {
-            // El patrón va en minúsculas y escapado, y el ESCAPE va explícito:
-            // ni SQL Server ni SQLite tienen un carácter de escape por defecto,
-            // y sin él «Agrogibe 4% EC» no se encuentra por su propio nombre.
-            // `[` también se escapa: en SQL Server abre un rango.
-            $patron = '%'.str_replace(['\\', '%', '_', '['], ['\\\\', '\%', '\_', '\['], mb_strtolower($texto)).'%';
+            $patron = $this->patronQueContiene($texto);
             $nombre = $this->comoTextoInsensible('p.nombre');
             $codigo = $this->comoTextoInsensible('p.codigo_articulo');
 

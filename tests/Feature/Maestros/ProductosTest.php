@@ -66,7 +66,57 @@ it('rechaza parametros fuera del contrato', function (string $consulta, string $
     'categoria inexistente' => ['categoria=repuestos', 'categoria'],
     'pagina cero' => ['pagina=0', 'pagina'],
     'pagina demasiado grande' => ['tamanoPagina=101', 'tamanoPagina'],
+    'buscar demasiado largo' => ['buscar='.str_repeat('a', 81), 'buscar'],
 ]);
+
+it('busca por el nombre sin distinguir mayusculas', function () {
+    expect(codigosListados('/v1/productos?buscar=GLIFORTE'))->toBe(['A-0142']);
+});
+
+it('todas las palabras tienen que estar en el nombre', function () {
+    expect(codigosListados('/v1/productos?buscar=gliforte%2068'))->toBe(['A-0142'])
+        ->and(codigosListados('/v1/productos?buscar=gliforte%2090'))->toBe([]);
+});
+
+it('las palabras van en cualquier orden y con cualquier espacio', function () {
+    expect(codigosListados('/v1/productos?buscar=sg%20%20%20gliforte'))->toBe(['A-0142']);
+});
+
+it('se suma a la categoria', function () {
+    expect(codigosListados('/v1/productos?categoria=semillas&buscar=gliforte'))->toBe([])
+        ->and(codigosListados('/v1/productos?categoria=herbicidas&buscar=atrazina'))->toBe(['A-0219']);
+});
+
+it('la busqueda no muestra lo que la App no puede ver', function () {
+    // «Dado de baja», «Sin código SAP todavía» y «Sin categoría todavía» están en el catálogo de ejemplo.
+    expect(codigosListados('/v1/productos?buscar=baja'))->toBe([])
+        ->and(codigosListados('/v1/productos?buscar=todav'))->toBe([]);
+});
+
+it('no busca en el itemCode', function () {
+    expect(codigosListados('/v1/productos?buscar=A-0142'))->toBe([]);
+});
+
+it('los comodines de LIKE cuentan como texto', function () {
+    expect(codigosListados('/v1/productos?buscar=%25'))->toBe([])
+        ->and(codigosListados('/v1/productos?buscar=_'))->toBe([]);
+});
+
+it('vacio o con solo espacios no filtra', function () {
+    expect(codigosListados('/v1/productos?buscar='))->toBe(['A-0219', 'A-0142', 'S-0101'])
+        ->and(codigosListados('/v1/productos?buscar=%20%20'))->toBe(['A-0219', 'A-0142', 'S-0101']);
+});
+
+it('sin resultados es una lista vacia, no un error', function () {
+    $respuesta = $this->getJson('/v1/productos?buscar=zzz', CON_SESION)->assertStatus(200);
+
+    expect($respuesta->json('data.items'))->toBe([])
+        ->and($respuesta->json('data.paginacion.total'))->toBe(0);
+});
+
+it('acepta hasta 80 caracteres', function () {
+    $this->getJson('/v1/productos?buscar='.str_repeat('a', 80), CON_SESION)->assertStatus(200);
+});
 
 it('la ficha trae todo lo del producto', function () {
     $respuesta = $this->getJson('/v1/productos/A-0142', CON_SESION)->assertStatus(200);

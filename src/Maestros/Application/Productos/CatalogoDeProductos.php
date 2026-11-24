@@ -23,7 +23,11 @@ interface CatalogoDeProductos
     /** Cualquier categoría cargada, tenga productos o no: filtrar por ella no es un error. */
     public function existeCategoria(string $codigo): bool;
 
-    public function pagina(?string $codigoDeCategoria, int $pagina, int $tamanoDePagina): PaginaDeProductos;
+    /**
+     * `buscar` mira solo el nombre, que es lo que el socio ve en la tarjeta, y
+     * exige cada palabra: «alvo 5» encuentra «ALVO - 5 L» y no «ALVO - 1 L».
+     */
+    public function pagina(?string $codigoDeCategoria, int $pagina, int $tamanoDePagina, ?string $buscar = null): PaginaDeProductos;
 
     public function producto(string $itemCode): ?ProductoDelCatalogo;
 }

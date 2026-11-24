@@ -31,6 +31,7 @@ final readonly class ProductosController
                     $fallar('No es una categoría del catálogo.');
                 }
             }],
+            'buscar' => ['nullable', 'string', 'max:80'],
             'pagina' => ['nullable', 'integer', 'min:1'],
             'tamanoPagina' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
@@ -39,6 +40,7 @@ final readonly class ProductosController
             isset($datos['categoria']) ? (string) $datos['categoria'] : null,
             isset($datos['pagina']) ? (int) $datos['pagina'] : 1,
             isset($datos['tamanoPagina']) ? (int) $datos['tamanoPagina'] : 20,
+            isset($datos['buscar']) ? (string) $datos['buscar'] : null,
         );
 
         return Envelope::responder(Result::success(), [

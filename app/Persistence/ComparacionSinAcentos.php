@@ -36,4 +36,16 @@ trait ComparacionSinAcentos
             ? "{$columna} COLLATE Latin1_General_CI_AI"
             : "lower({$columna})";
     }
+
+    /**
+     * El patrón de un `LIKE ... ESCAPE '\'` que busca el texto en cualquier
+     * parte. Va en minúsculas, para el `lower()` de SQLite, y escapado: ni SQL
+     * Server ni SQLite tienen un carácter de escape por defecto, y sin él
+     * «Agrogibe 4% EC» no se encuentra por su propio nombre. `[` también se
+     * escapa, porque en SQL Server abre un rango.
+     */
+    protected function patronQueContiene(string $texto): string
+    {
+        return '%'.str_replace(['\\', '%', '_', '['], ['\\\\', '\%', '\_', '\['], mb_strtolower($texto)).'%';
+    }
 }
